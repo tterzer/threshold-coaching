@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const fullUrl = req.query.qs ? `${url}?${req.query.qs}` : url;
 
   try {
-    const credentials = Buffer.from(`API_KEY:${athleteId}:${apiKey}`).toString('base64');
+    const credentials = Buffer.from(`API_KEY:${apiKey}`).toString('base64');
     const response = await fetch(fullUrl, {
       headers: {
         'Authorization': `Basic ${credentials}`,
