@@ -10,20 +10,17 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{
-  --bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;
-  --acc:#c8f036;--acc2:#8bff5a;
-  --tc:#f0f0f0;--tc2:#999;--tc3:#555;
-  --border:#2a2a2a;
-}
+:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#999;--tc3:#555;--border:#2a2a2a;}
 html{scroll-behavior:smooth}
 body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;overflow-x:hidden}
 nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:0 2rem}
 .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
 .nav-logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:0.05em;color:var(--acc);text-decoration:none}
-.nav-links{display:flex;gap:2rem}
+.nav-links{display:flex;gap:2rem;align-items:center}
 .nav-links a{font-size:13px;font-weight:400;color:var(--tc2);text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;transition:color 0.2s}
 .nav-links a:hover{color:var(--tc)}
+.nav-portal{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);border:1px solid var(--acc);padding:6px 14px;letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;transition:all 0.2s}
+.nav-portal:hover{background:var(--acc);color:#000}
 .nav-cta{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:8px 18px;cursor:pointer;letter-spacing:0.04em;font-weight:400;border:none;text-decoration:none}
 .ticker{background:var(--acc);padding:8px 0;overflow:hidden;white-space:nowrap}
 .ticker-inner{display:inline-flex;gap:4rem;animation:ticker 20s linear infinite}
@@ -84,6 +81,23 @@ nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-fi
 .pkg-btn:hover{border-color:var(--acc);color:var(--acc)}
 .pkg-card.featured .pkg-btn{background:var(--acc);color:#000;border-color:var(--acc)}
 .wcq-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--acc);border:1px solid var(--acc);padding:3px 8px;letter-spacing:0.06em;text-transform:uppercase;display:inline-block;margin-top:0.8rem}
+
+/* ATHLETE PORTAL SECTION */
+.portal-section{padding:4rem 2rem;background:var(--bc)}
+.portal-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;border:1px solid var(--border);padding:3rem}
+.portal-left{}
+.portal-eyebrow{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:10px}
+.portal-eyebrow::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
+.portal-title{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;text-transform:uppercase;line-height:0.95;letter-spacing:-0.01em;margin-bottom:1rem}
+.portal-title span{color:var(--acc)}
+.portal-desc{font-size:14px;color:var(--tc2);line-height:1.75;margin-bottom:2rem}
+.portal-btn{font-family:'DM Mono',monospace;font-size:13px;background:var(--acc);color:#000;padding:16px 36px;cursor:pointer;letter-spacing:0.06em;font-weight:400;border:none;text-decoration:none;display:inline-block;text-transform:uppercase}
+.portal-features{display:flex;flex-direction:column;gap:1px;background:var(--border)}
+.portal-feature{background:var(--bc2);padding:1.2rem 1.5rem;display:flex;align-items:flex-start;gap:12px}
+.portal-feature-icon{font-size:16px;color:var(--acc);margin-top:2px;flex-shrink:0}
+.portal-feature-title{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px}
+.portal-feature-body{font-size:12px;color:var(--tc3);line-height:1.5}
+
 .cta-bar{padding:5rem 2rem;text-align:center}
 .cta-bar-inner{max-width:640px;margin:0 auto}
 .cta-title{font-family:'Barlow Condensed',sans-serif;font-size:64px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;line-height:0.95;margin-bottom:1.5rem}
@@ -94,6 +108,8 @@ footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
 .footer-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
 .footer-logo{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--acc);letter-spacing:0.05em}
 .footer-copy{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.06em}
+.footer-portal{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.06em;text-decoration:none;text-transform:uppercase}
+.footer-portal:hover{text-decoration:underline}
 @media(max-width:768px){
   .hero{grid-template-columns:1fr;gap:2rem;padding:3rem 1.5rem}
   .hero-title{font-size:64px}
@@ -102,6 +118,8 @@ footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
   .pkg-grid{grid-template-columns:1fr}
   .nav-links{display:none}
   .cta-title{font-size:48px}
+  .portal-inner{grid-template-columns:1fr;gap:2rem}
+  .portal-title{font-size:40px}
 }
 </style>
 </head>
@@ -132,6 +150,7 @@ footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
       <a href="#approach">Approach</a>
       <a href="#disciplines">Disciplines</a>
       <a href="#packages">Packages</a>
+      <a class="nav-portal" href="/dashboard.html">Athlete portal</a>
     </div>
     <a class="nav-cta" href="#packages">Apply now</a>
   </div>
@@ -184,11 +203,32 @@ footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
     <div class="section-label">Packages</div>
     <div class="pkg-grid">
       <div class="pkg-card"><div class="pkg-name">Base</div><div class="pkg-price">$149<span>/mo</span></div><p class="pkg-desc">Structured plan delivery for self-directed athletes who want data-informed training without weekly check-ins.</p><ul class="pkg-features"><li>Monthly custom plan build</li><li>Zone-based targets</li><li>Platform delivery (TP/Garmin)</li><li>Email support</li></ul><a class="pkg-btn" href="#">Get started</a></div>
-      <div class="pkg-card featured"><div class="pkg-badge">Most popular</div><div class="pkg-name">Build</div><div class="pkg-price">$279<span>/mo</span></div><p class="pkg-desc">Full coaching relationship with weekly plan adjustments based on your actual training data and feedback.</p><ul class="pkg-features"><li>Weekly plan adjustments</li><li>Bi-weekly video check-in</li><li>Wearable data analysis</li><li>Race strategy + debriefs</li><li>Priority response time</li></ul><a class="pkg-btn" href="#">Get started</a></div>
+      <div class="pkg-card featured"><div class="pkg-badge">Most popular</div><div class="pkg-name">Build</div><div class="pkg-price">$279<span>/mo</span></div><p class="pkg-desc">Full coaching relationship with weekly plan adjustments based on your actual training data and feedback.</p><ul class="pkg-features"><li>Weekly plan adjustments</li><li>Bi-weekly video check-in</li><li>Wearable data analysis</li><li>Race strategy + debriefs</li><li>Priority response time</li><li>Athlete portal access</li></ul><a class="pkg-btn" href="#">Get started</a></div>
       <div class="pkg-card"><div class="pkg-name">Peak</div><div class="pkg-price">$449<span>/mo</span></div><p class="pkg-desc">High-touch coaching for athletes targeting podiums or A-race PRs. Unlimited access and deepest data integration.</p><ul class="pkg-features"><li>Everything in Build</li><li>Weekly video calls</li><li>Full device integration</li><li>Nutrition &amp; recovery guidance</li><li>Direct line access</li><li>WCQ Pro app access — carb cycling &amp; fueling tracker</li></ul><div class="wcq-badge">⚡ Includes WCQ Pro</div><br><br><a class="pkg-btn" href="#">Get started</a></div>
     </div>
   </div>
 </div>
+
+<!-- ATHLETE PORTAL SECTION -->
+<div class="portal-section" id="portal">
+  <div class="portal-inner">
+    <div class="portal-left">
+      <div class="portal-eyebrow">Athlete portal</div>
+      <div class="portal-title">Your data.<br><span>Your zones.</span></div>
+      <p class="portal-desc">Coaching athletes get access to a private dashboard — live fitness curve, training load, zone distribution, and a fully customizable zone calculator for cycling, running, and swimming.</p>
+      <a class="portal-btn" href="/dashboard.html">Access athlete portal →</a>
+    </div>
+    <div class="portal-right">
+      <div class="portal-features">
+        <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-chart-line" aria-hidden="true"></i></span><div><div class="portal-feature-title">Live fitness curve</div><div class="portal-feature-body">CTL, ATL, and TSB pulled directly from intervals.icu — updated every session.</div></div></div>
+        <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-adjustments" aria-hidden="true"></i></span><div><div class="portal-feature-title">Custom zone calculator</div><div class="portal-feature-body">Enter your FTP, threshold pace, or CSS and get zones instantly. Override any value manually.</div></div></div>
+        <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-activity" aria-hidden="true"></i></span><div><div class="portal-feature-title">Recent activity log</div><div class="portal-feature-body">Distance, time, and training load for your last 7 sessions across all disciplines.</div></div></div>
+        <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-lock" aria-hidden="true"></i></span><div><div class="portal-feature-title">Coaching athletes only</div><div class="portal-feature-body">Access is gated — included with Build and Peak coaching packages.</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="cta-bar">
   <div class="cta-bar-inner">
     <div class="cta-title">Ready to<br>train <span>smarter?</span></div>
@@ -200,6 +240,7 @@ footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
 <footer>
   <div class="footer-inner">
     <div class="footer-logo">THRESHOLD</div>
+    <a class="footer-portal" href="/dashboard.html">Athlete portal →</a>
     <div class="footer-copy">© 2026 — Endurance coaching</div>
   </div>
 </footer>
