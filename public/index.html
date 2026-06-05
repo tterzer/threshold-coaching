@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threshold — Endurance Coaching</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;
+  --acc:#c8f036;--acc2:#8bff5a;
+  --tc:#f0f0f0;--tc2:#999;--tc3:#555;
+  --border:#2a2a2a;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;overflow-x:hidden}
+nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:0 2rem}
+.nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:0.05em;color:var(--acc);text-decoration:none}
+.nav-links{display:flex;gap:2rem}
+.nav-links a{font-size:13px;font-weight:400;color:var(--tc2);text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;transition:color 0.2s}
+.nav-links a:hover{color:var(--tc)}
+.nav-cta{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:8px 18px;cursor:pointer;letter-spacing:0.04em;font-weight:400;border:none;text-decoration:none}
+.ticker{background:var(--acc);padding:8px 0;overflow:hidden;white-space:nowrap}
+.ticker-inner{display:inline-flex;gap:4rem;animation:ticker 20s linear infinite}
+.ticker-item{font-family:'DM Mono',monospace;font-size:11px;font-weight:400;color:#000;letter-spacing:0.1em;text-transform:uppercase}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.hero{max-width:1100px;margin:0 auto;padding:5rem 2rem 4rem;display:grid;grid-template-columns:1fr 420px;gap:4rem;align-items:start}
+.hero-eyebrow{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
+.hero-eyebrow::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
+.hero-title{font-family:'Barlow Condensed',sans-serif;font-size:88px;font-weight:700;line-height:0.92;letter-spacing:-0.01em;text-transform:uppercase;margin-bottom:1.5rem}
+.hero-title span{color:var(--acc)}
+.hero-desc{font-size:15px;color:var(--tc2);line-height:1.75;max-width:420px;margin-bottom:2.5rem}
+.hero-actions{display:flex;gap:12px;align-items:center}
+.btn-primary{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:14px 28px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;text-decoration:none;display:inline-block}
+.btn-secondary{font-family:'DM Mono',monospace;font-size:12px;background:transparent;color:var(--tc2);padding:14px 28px;cursor:pointer;letter-spacing:0.04em;border:1px solid var(--border);font-weight:400;transition:all 0.2s;text-decoration:none;display:inline-block}
+.btn-secondary:hover{border-color:var(--tc2);color:var(--tc)}
+.hero-stats{display:grid;grid-template-rows:repeat(4,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-top:2rem}
+.stat-row{background:var(--bc2);padding:1.4rem 1.6rem;display:flex;align-items:center;justify-content:space-between}
+.stat-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase}
+.stat-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:600;color:var(--acc)}
+.stat-unit{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-left:4px}
+.disciplines{background:var(--bc2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:4rem 2rem}
+.section-inner{max-width:1100px;margin:0 auto}
+.section-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:3rem;display:flex;align-items:center;gap:10px}
+.section-label::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
+.disc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+.disc-card{background:var(--bc2);padding:2rem;position:relative;overflow:hidden;transition:background 0.3s}
+.disc-card:hover{background:var(--bc3)}
+.disc-num{font-family:'Barlow Condensed',sans-serif;font-size:72px;font-weight:700;color:var(--bc3);position:absolute;top:-8px;right:16px;line-height:1;transition:color 0.3s}
+.disc-card:hover .disc-num{color:var(--bc4)}
+.disc-icon{font-size:22px;color:var(--acc);margin-bottom:1rem}
+.disc-title{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;letter-spacing:0.02em;text-transform:uppercase;margin-bottom:0.6rem}
+.disc-body{font-size:13px;color:var(--tc2);line-height:1.65}
+.disc-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:1.2rem}
+.tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);border:1px solid var(--border);padding:3px 8px;letter-spacing:0.06em;text-transform:uppercase}
+.approach{padding:4rem 2rem}
+.approach-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:340px 1fr;gap:5rem;align-items:start}
+.approach-heading{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;line-height:1;text-transform:uppercase;letter-spacing:-0.01em}
+.approach-heading span{color:var(--acc)}
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:grid;grid-template-columns:48px 1fr;gap:1.5rem;padding:1.5rem 0;border-bottom:1px solid var(--border);align-items:start}
+.step:first-child{padding-top:0}
+.step-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.1em;padding-top:3px}
+.step-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;margin-bottom:0.3rem}
+.step-body{font-size:13px;color:var(--tc2);line-height:1.65}
+.packages{background:var(--bc2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:4rem 2rem}
+.pkg-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+.pkg-card{background:var(--bc2);padding:2rem;position:relative}
+.pkg-card.featured{background:var(--bc3)}
+.pkg-badge{font-family:'DM Mono',monospace;font-size:10px;color:#000;background:var(--acc);padding:3px 10px;letter-spacing:0.08em;text-transform:uppercase;display:inline-block;margin-bottom:1rem}
+.pkg-name{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;letter-spacing:0.02em;text-transform:uppercase;margin-bottom:0.4rem}
+.pkg-price{font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:700;color:var(--acc);line-height:1;margin-bottom:0.3rem}
+.pkg-price span{font-family:'DM Mono',monospace;font-size:13px;font-weight:400;color:var(--tc3)}
+.pkg-desc{font-size:12px;color:var(--tc2);margin-bottom:1.5rem;line-height:1.6}
+.pkg-features{list-style:none;display:flex;flex-direction:column;gap:8px;margin-bottom:2rem}
+.pkg-features li{font-size:12px;color:var(--tc2);display:flex;gap:8px;align-items:flex-start}
+.pkg-features li::before{content:'—';color:var(--acc);font-family:'DM Mono',monospace;font-size:11px;flex-shrink:0;margin-top:2px}
+.pkg-btn{font-family:'DM Mono',monospace;font-size:11px;width:100%;padding:12px;background:transparent;color:var(--tc2);border:1px solid var(--border);cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;transition:all 0.2s;text-align:center;display:block;text-decoration:none}
+.pkg-btn:hover{border-color:var(--acc);color:var(--acc)}
+.pkg-card.featured .pkg-btn{background:var(--acc);color:#000;border-color:var(--acc)}
+.wcq-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--acc);border:1px solid var(--acc);padding:3px 8px;letter-spacing:0.06em;text-transform:uppercase;display:inline-block;margin-top:0.8rem}
+.cta-bar{padding:5rem 2rem;text-align:center}
+.cta-bar-inner{max-width:640px;margin:0 auto}
+.cta-title{font-family:'Barlow Condensed',sans-serif;font-size:64px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;line-height:0.95;margin-bottom:1.5rem}
+.cta-title span{color:var(--acc)}
+.cta-sub{font-size:14px;color:var(--tc2);margin-bottom:2.5rem;line-height:1.7}
+.cta-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-top:1.5rem}
+footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
+.footer-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
+.footer-logo{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--acc);letter-spacing:0.05em}
+.footer-copy{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.06em}
+@media(max-width:768px){
+  .hero{grid-template-columns:1fr;gap:2rem;padding:3rem 1.5rem}
+  .hero-title{font-size:64px}
+  .disc-grid{grid-template-columns:1fr}
+  .approach-inner{grid-template-columns:1fr;gap:2rem}
+  .pkg-grid{grid-template-columns:1fr}
+  .nav-links{display:none}
+  .cta-title{font-size:48px}
+}
+</style>
+</head>
+<body>
+<div style="background:#1a1a1a;border-bottom:1px solid #2a2a2a;padding:10px 2rem;text-align:center">
+  <p style="font-family:'DM Mono',monospace;font-size:11px;color:#555;letter-spacing:0.1em;text-transform:uppercase"><span style="color:#c8f036">// DRAFT</span> &nbsp;—&nbsp; Not yet deployed &nbsp;—&nbsp; Building for launch</p>
+</div>
+<div class="ticker">
+  <div class="ticker-inner">
+    <span class="ticker-item">Triathlon coaching</span>
+    <span class="ticker-item">Power-based training</span>
+    <span class="ticker-item">Running performance</span>
+    <span class="ticker-item">Cycling efficiency</span>
+    <span class="ticker-item">Data-driven plans</span>
+    <span class="ticker-item">Race-day strategy</span>
+    <span class="ticker-item">Triathlon coaching</span>
+    <span class="ticker-item">Power-based training</span>
+    <span class="ticker-item">Running performance</span>
+    <span class="ticker-item">Cycling efficiency</span>
+    <span class="ticker-item">Data-driven plans</span>
+    <span class="ticker-item">Race-day strategy</span>
+  </div>
+</div>
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="#">THRESHOLD</a>
+    <div class="nav-links">
+      <a href="#approach">Approach</a>
+      <a href="#disciplines">Disciplines</a>
+      <a href="#packages">Packages</a>
+    </div>
+    <a class="nav-cta" href="#packages">Apply now</a>
+  </div>
+</nav>
+<div class="hero">
+  <div>
+    <div class="hero-eyebrow">Endurance coaching</div>
+    <div class="hero-title">Push<br>your<br><span>limit.</span></div>
+    <p class="hero-desc">Science-backed training for triathletes, cyclists, and runners. Structured plans built from your data, not guesswork — so every session has a purpose.</p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="#packages">Start your assessment</a>
+      <a class="btn-secondary" href="#packages">View packages →</a>
+    </div>
+  </div>
+  <div>
+    <div class="hero-stats">
+      <div class="stat-row"><span class="stat-label">Disciplines coached</span><div><span class="stat-val">3</span><span class="stat-unit">Sports</span></div></div>
+      <div class="stat-row"><span class="stat-label">Avg FTP improvement</span><div><span class="stat-val">18</span><span class="stat-unit">% / season</span></div></div>
+      <div class="stat-row"><span class="stat-label">Training approach</span><div><span class="stat-val" style="font-size:20px;letter-spacing:0.01em">DATA</span><span class="stat-unit">-driven</span></div></div>
+      <div class="stat-row"><span class="stat-label">Plan adjustment</span><div><span class="stat-val">Weekly</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="disciplines" id="disciplines">
+  <div class="section-inner">
+    <div class="section-label">Disciplines</div>
+    <div class="disc-grid">
+      <div class="disc-card"><div class="disc-num">01</div><div class="disc-icon"><i class="ti ti-activity" aria-hidden="true"></i></div><div class="disc-title">Triathlon</div><p class="disc-body">Full-season multi-sport planning across sprint, Olympic, 70.3, and full-distance events. Periodized blocks with built-in recovery and race-day execution strategy.</p><div class="disc-tags"><span class="tag">Sprint</span><span class="tag">Olympic</span><span class="tag">70.3</span><span class="tag">Full</span></div></div>
+      <div class="disc-card"><div class="disc-num">02</div><div class="disc-icon"><i class="ti ti-bike" aria-hidden="true"></i></div><div class="disc-title">Cycling</div><p class="disc-body">Power-based training with structured intervals. FTP development, VO₂max work, and race-specific preparation for road, gravel, or time trial.</p><div class="disc-tags"><span class="tag">Road</span><span class="tag">Gravel</span><span class="tag">TT</span><span class="tag">Power</span></div></div>
+      <div class="disc-card"><div class="disc-num">03</div><div class="disc-icon"><i class="ti ti-run" aria-hidden="true"></i></div><div class="disc-title">Running</div><p class="disc-body">Pace and HR-zone based plans from 5K speed work to marathon endurance. Injury-aware progressive loading and track-ready periodization.</p><div class="disc-tags"><span class="tag">5K–10K</span><span class="tag">Half</span><span class="tag">Marathon</span><span class="tag">Pace zones</span></div></div>
+    </div>
+  </div>
+</div>
+<div class="approach" id="approach">
+  <div class="approach-inner">
+    <div>
+      <div class="section-label">How it works</div>
+      <div class="approach-heading">The<br><span>process.</span></div>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="step-num">01 —</div><div><div class="step-title">Baseline assessment</div><p class="step-body">A detailed intake covering your training history, race goals, current fitness metrics, and schedule constraints. We connect your wearables and review existing data before writing a single workout.</p></div></div>
+      <div class="step"><div class="step-num">02 —</div><div><div class="step-title">Custom plan build</div><p class="step-body">Your plan is built around your life — not a template. Structured blocks with targets tied to your actual zones, not population averages. Delivered to your preferred platform.</p></div></div>
+      <div class="step"><div class="step-num">03 —</div><div><div class="step-title">Ongoing analysis</div><p class="step-body">Every week, training load, compliance, and performance trends are reviewed. Plans adapt in real time based on how your body is actually responding — not a fixed script.</p></div></div>
+      <div class="step"><div class="step-num">04 —</div><div><div class="step-title">Race execution</div><p class="step-body">Pre-race briefing with target splits, pacing bands, and nutrition timing. Post-race debrief to extract learnings and inform the next build cycle.</p></div></div>
+    </div>
+  </div>
+</div>
+<div class="packages" id="packages">
+  <div class="section-inner">
+    <div class="section-label">Packages</div>
+    <div class="pkg-grid">
+      <div class="pkg-card"><div class="pkg-name">Base</div><div class="pkg-price">$149<span>/mo</span></div><p class="pkg-desc">Structured plan delivery for self-directed athletes who want data-informed training without weekly check-ins.</p><ul class="pkg-features"><li>Monthly custom plan build</li><li>Zone-based targets</li><li>Platform delivery (TP/Garmin)</li><li>Email support</li></ul><a class="pkg-btn" href="#">Get started</a></div>
+      <div class="pkg-card featured"><div class="pkg-badge">Most popular</div><div class="pkg-name">Build</div><div class="pkg-price">$279<span>/mo</span></div><p class="pkg-desc">Full coaching relationship with weekly plan adjustments based on your actual training data and feedback.</p><ul class="pkg-features"><li>Weekly plan adjustments</li><li>Bi-weekly video check-in</li><li>Wearable data analysis</li><li>Race strategy + debriefs</li><li>Priority response time</li></ul><a class="pkg-btn" href="#">Get started</a></div>
+      <div class="pkg-card"><div class="pkg-name">Peak</div><div class="pkg-price">$449<span>/mo</span></div><p class="pkg-desc">High-touch coaching for athletes targeting podiums or A-race PRs. Unlimited access and deepest data integration.</p><ul class="pkg-features"><li>Everything in Build</li><li>Weekly video calls</li><li>Full device integration</li><li>Nutrition &amp; recovery guidance</li><li>Direct line access</li><li>WCQ Pro app access — carb cycling &amp; fueling tracker</li></ul><div class="wcq-badge">⚡ Includes WCQ Pro</div><br><br><a class="pkg-btn" href="#">Get started</a></div>
+    </div>
+  </div>
+</div>
+<div class="cta-bar">
+  <div class="cta-bar-inner">
+    <div class="cta-title">Ready to<br>train <span>smarter?</span></div>
+    <p class="cta-sub">Applications open on a rolling basis. Fill out a short assessment so we can understand your goals before the first call.</p>
+    <a class="btn-primary" href="#">Apply for coaching</a>
+    <p class="cta-badge">// Limited spots per cohort</p>
+  </div>
+</div>
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">THRESHOLD</div>
+    <div class="footer-copy">© 2026 — Endurance coaching</div>
+  </div>
+</footer>
+</body>
+</html>
