@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Threshold — Endurance Coaching</title>
+<title>HM2L Racing — Endurance Coaching</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -15,7 +15,7 @@ html{scroll-behavior:smooth}
 body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;overflow-x:hidden}
 nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:0 2rem}
 .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
-.nav-logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;letter-spacing:0.05em;color:var(--acc);text-decoration:none}
+.nav-logo img{height:36px;width:auto;display:block}
 .nav-links{display:flex;gap:2rem;align-items:center}
 .nav-links a{font-size:13px;font-weight:400;color:var(--tc2);text-decoration:none;letter-spacing:0.08em;text-transform:uppercase;transition:color 0.2s}
 .nav-links a:hover{color:var(--tc)}
@@ -81,11 +81,8 @@ nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-fi
 .pkg-btn:hover{border-color:var(--acc);color:var(--acc)}
 .pkg-card.featured .pkg-btn{background:var(--acc);color:#000;border-color:var(--acc)}
 .wcq-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--acc);border:1px solid var(--acc);padding:3px 8px;letter-spacing:0.06em;text-transform:uppercase;display:inline-block;margin-top:0.8rem}
-
-/* ATHLETE PORTAL SECTION */
 .portal-section{padding:4rem 2rem;background:var(--bc)}
 .portal-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;border:1px solid var(--border);padding:3rem}
-.portal-left{}
 .portal-eyebrow{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:10px}
 .portal-eyebrow::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
 .portal-title{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;text-transform:uppercase;line-height:0.95;letter-spacing:-0.01em;margin-bottom:1rem}
@@ -97,7 +94,6 @@ nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-fi
 .portal-feature-icon{font-size:16px;color:var(--acc);margin-top:2px;flex-shrink:0}
 .portal-feature-title{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px}
 .portal-feature-body{font-size:12px;color:var(--tc3);line-height:1.5}
-
 .cta-bar{padding:5rem 2rem;text-align:center}
 .cta-bar-inner{max-width:640px;margin:0 auto}
 .cta-title{font-family:'Barlow Condensed',sans-serif;font-size:64px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;line-height:0.95;margin-bottom:1.5rem}
@@ -106,7 +102,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,0.92);backdrop-fi
 .cta-badge{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-top:1.5rem}
 footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
 .footer-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between}
-.footer-logo{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--acc);letter-spacing:0.05em}
+.footer-logo img{height:28px;width:auto}
 .footer-copy{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.06em}
 .footer-portal{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.06em;text-decoration:none;text-transform:uppercase}
 .footer-portal:hover{text-decoration:underline}
@@ -145,7 +141,7 @@ footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
 </div>
 <nav>
   <div class="nav-inner">
-    <a class="nav-logo" href="#">THRESHOLD</a>
+    <a class="nav-logo" href="#"><img src="/hm2l_logo_transparent.png" alt="HM2L Racing" /></a>
     <div class="nav-links">
       <a href="#approach">Approach</a>
       <a href="#disciplines">Disciplines</a>
@@ -208,27 +204,22 @@ footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
     </div>
   </div>
 </div>
-
-<!-- ATHLETE PORTAL SECTION -->
 <div class="portal-section" id="portal">
   <div class="portal-inner">
-    <div class="portal-left">
+    <div>
       <div class="portal-eyebrow">Athlete portal</div>
       <div class="portal-title">Your data.<br><span>Your zones.</span></div>
       <p class="portal-desc">Coaching athletes get access to a private dashboard — live fitness curve, training load, zone distribution, and a fully customizable zone calculator for cycling, running, and swimming.</p>
       <a class="portal-btn" href="/dashboard.html">Access athlete portal →</a>
     </div>
-    <div class="portal-right">
-      <div class="portal-features">
-        <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-chart-line" aria-hidden="true"></i></span><div><div class="portal-feature-title">Live fitness curve</div><div class="portal-feature-body">CTL, ATL, and TSB pulled directly from intervals.icu — updated every session.</div></div></div>
-        <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-adjustments" aria-hidden="true"></i></span><div><div class="portal-feature-title">Custom zone calculator</div><div class="portal-feature-body">Enter your FTP, threshold pace, or CSS and get zones instantly. Override any value manually.</div></div></div>
-        <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-activity" aria-hidden="true"></i></span><div><div class="portal-feature-title">Recent activity log</div><div class="portal-feature-body">Distance, time, and training load for your last 7 sessions across all disciplines.</div></div></div>
-        <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-lock" aria-hidden="true"></i></span><div><div class="portal-feature-title">Coaching athletes only</div><div class="portal-feature-body">Access is gated — included with Build and Peak coaching packages.</div></div></div>
-      </div>
+    <div class="portal-features">
+      <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-chart-line" aria-hidden="true"></i></span><div><div class="portal-feature-title">Live fitness curve</div><div class="portal-feature-body">CTL, ATL, and TSB pulled directly from intervals.icu — updated every session.</div></div></div>
+      <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-adjustments" aria-hidden="true"></i></span><div><div class="portal-feature-title">Custom zone calculator</div><div class="portal-feature-body">Enter your FTP, threshold pace, or CSS and get zones instantly. Override any value manually.</div></div></div>
+      <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-activity" aria-hidden="true"></i></span><div><div class="portal-feature-title">Recent activity log</div><div class="portal-feature-body">Distance, time, and training load for your last 7 sessions across all disciplines.</div></div></div>
+      <div class="portal-feature"><span class="portal-feature-icon"><i class="ti ti-lock" aria-hidden="true"></i></span><div><div class="portal-feature-title">Coaching athletes only</div><div class="portal-feature-body">Access is gated — included with Build and Peak coaching packages.</div></div></div>
     </div>
   </div>
 </div>
-
 <div class="cta-bar">
   <div class="cta-bar-inner">
     <div class="cta-title">Ready to<br>train <span>smarter?</span></div>
@@ -239,9 +230,9 @@ footer{border-top:1px solid var(--border);padding:2rem;background:var(--bc2)}
 </div>
 <footer>
   <div class="footer-inner">
-    <div class="footer-logo">THRESHOLD</div>
+    <div class="footer-logo"><img src="/hm2l_logo_transparent.png" alt="HM2L Racing" /></div>
     <a class="footer-portal" href="/dashboard.html">Athlete portal →</a>
-    <div class="footer-copy">© 2026 — Endurance coaching</div>
+    <div class="footer-copy">© 2026 — HM2L Racing</div>
   </div>
 </footer>
 </body>
