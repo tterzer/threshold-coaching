@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Threshold — Athlete Portal</title>
+<title>HM2L Racing — Athlete Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -15,12 +15,10 @@ body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
 .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
-.nav-logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--acc);letter-spacing:0.05em}
+.nav-logo img{height:32px;width:auto;display:block}
 .nav-back{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase}
 .nav-back:hover{color:var(--tc2)}
 .page{max-width:1100px;margin:0 auto;padding:3rem 2rem}
-
-/* GATE SCREENS */
 .gate-box{background:var(--bc2);border:1px solid var(--border);padding:2.5rem;max-width:480px;margin:5rem auto}
 .gate-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
 .gate-label::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
@@ -33,8 +31,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .btn{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:12px 28px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;width:100%;margin-top:0.5rem}
 .btn:disabled{opacity:0.5;cursor:not-allowed}
 .error-msg{font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;margin-top:0.75rem;display:none}
-
-/* DASHBOARD */
 .dash{display:none}
 .athlete-bar{display:flex;align-items:center;gap:1rem;margin-bottom:2.5rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}
 .avatar{width:48px;height:48px;border-radius:50%;background:var(--bc3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--acc)}
@@ -76,8 +72,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .act-stat{text-align:right}
 .act-stat-val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;color:var(--tc)}
 .act-stat-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase}
-
-/* ZONE CALCULATOR */
 .zc-section{margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)}
 .sport-tabs{display:flex;gap:0;margin-bottom:0;border-bottom:1px solid var(--border)}
 .sport-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 18px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -114,7 +108,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .pct-hint{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:2px}
 .zc-note{font-size:11px;color:var(--tc3);margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);line-height:1.6}
 .ov-note{font-family:'DM Mono',monospace;font-size:11px;color:#BA7517;margin-top:0.5rem}
-
 @media(max-width:768px){
   .metrics{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
@@ -126,23 +119,21 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 <body>
 <nav>
   <div class="nav-inner">
-    <div class="nav-logo">THRESHOLD</div>
+    <a class="nav-logo" href="/"><img src="/hm2l_logo_transparent.png" alt="HM2L Racing" /></a>
     <a class="nav-back" href="/">← Back to site</a>
   </div>
 </nav>
 <div class="page">
 
-  <!-- STEP 1: ACCESS CODE -->
   <div class="gate-box" id="codeGate">
     <div class="gate-label">Athlete portal</div>
     <div class="gate-title">Enter access code</div>
-    <p class="gate-desc">This portal is for Threshold coaching athletes only. Enter the access code provided by your coach to continue.</p>
+    <p class="gate-desc">This portal is for HM2L Racing coaching athletes only. Enter the access code provided by your coach to continue.</p>
     <div class="field"><label>Access code</label><input type="password" id="accessCode" placeholder="••••••••" autocomplete="off" onkeydown="if(event.key==='Enter')checkCode()" /></div>
     <button class="btn" onclick="checkCode()">Continue</button>
     <div class="error-msg" id="codeError">Incorrect access code. Contact your coach if you need help.</div>
   </div>
 
-  <!-- STEP 2: CONNECT INTERVALS.ICU -->
   <div class="gate-box" id="connectGate" style="display:none">
     <div class="gate-label">Athlete portal</div>
     <div class="gate-title">Connect your data</div>
@@ -153,13 +144,11 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     <div class="error-msg" id="connectError">Could not connect — check your athlete ID and API key.</div>
   </div>
 
-  <!-- DASHBOARD -->
   <div class="dash" id="dash">
     <div class="athlete-bar">
       <div class="avatar" id="avatarEl">AT</div>
       <div><div class="athlete-name" id="nameEl">Athlete</div><div class="athlete-sub" id="subEl">intervals.icu</div></div>
     </div>
-
     <div class="section-label">Fitness snapshot</div>
     <div class="metrics">
       <div class="metric"><div class="metric-label">Fitness (CTL)</div><div class="metric-val" id="mCTL">—</div><div class="metric-sub">Chronic load</div></div>
@@ -189,8 +178,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         <div class="zone-rows" id="zoneRows"><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Loading zones...</div></div>
       </div>
     </div>
-
-    <!-- ZONE CALCULATOR -->
     <div class="zc-section">
       <div class="section-label">Training zones</div>
       <div class="sport-tabs">
@@ -206,75 +193,71 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 </div>
 
 <script>
-const ACCESS_CODE = 'WCQ2026';
-let fitInst, loadInst;
+const ACCESS_CODE='WCQ2026';
+let fitInst,loadInst;
 
-function checkCode() {
-  const val = document.getElementById('accessCode').value.trim();
-  if (val === ACCESS_CODE) {
-    document.getElementById('codeGate').style.display = 'none';
-    document.getElementById('connectGate').style.display = 'block';
-  } else {
-    document.getElementById('codeError').style.display = 'block';
-  }
+function checkCode(){
+  const val=document.getElementById('accessCode').value.trim();
+  if(val===ACCESS_CODE){document.getElementById('codeGate').style.display='none';document.getElementById('connectGate').style.display='block';}
+  else{document.getElementById('codeError').style.display='block';}
 }
 
-async function apiCall(athleteId, apiKey, path, qs) {
-  const params = new URLSearchParams({ athleteId, apiKey, path });
-  if (qs) params.set('qs', qs);
-  const r = await fetch('/api/intervals?' + params.toString());
-  if (!r.ok) throw new Error(r.status);
+async function apiCall(athleteId,apiKey,path,qs){
+  const params=new URLSearchParams({athleteId,apiKey,path});
+  if(qs)params.set('qs',qs);
+  const r=await fetch('/api/intervals?'+params.toString());
+  if(!r.ok)throw new Error(r.status);
   return r.json();
 }
 
-function fmtDist(m) { return m ? (m/1000).toFixed(1)+' km' : '—'; }
-function fmtTime(s) { if(!s)return'—'; const h=Math.floor(s/3600),m=Math.floor((s%3600)/60); return h>0?h+'h '+m+'m':m+'m'; }
-function fmtDate(d) { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function fmtDist(m){return m?(m/1000).toFixed(1)+' km':'—';}
+function fmtTime(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
+function fmtDate(d){return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 
-async function loadDashboard() {
-  const id = document.getElementById('athleteId').value.trim();
-  const key = document.getElementById('apiKey').value.trim();
-  if (!id || !key) return;
-  const btn = document.getElementById('connectBtn');
-  btn.disabled = true; btn.textContent = 'Connecting...';
-  document.getElementById('connectError').style.display = 'none';
-  try {
-    const today = new Date();
-    const oldest = new Date(today); oldest.setDate(today.getDate()-84);
-    const oldestStr = oldest.toISOString().split('T')[0];
-    const [athlete, activities] = await Promise.all([
-      apiCall(id, key, 'profile'),
-      apiCall(id, key, 'activities', 'oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times')
+async function loadDashboard(){
+  const id=document.getElementById('athleteId').value.trim();
+  const key=document.getElementById('apiKey').value.trim();
+  if(!id||!key)return;
+  const btn=document.getElementById('connectBtn');
+  btn.disabled=true;btn.textContent='Connecting...';
+  document.getElementById('connectError').style.display='none';
+  try{
+    const today=new Date();
+    const oldest=new Date(today);oldest.setDate(today.getDate()-84);
+    const oldestStr=oldest.toISOString().split('T')[0];
+    const[athlete,activities]=await Promise.all([
+      apiCall(id,key,'profile'),
+      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times')
     ]);
-    document.getElementById('connectGate').style.display = 'none';
-    document.getElementById('dash').style.display = 'block';
-    const name = athlete.athlete.name || 'Athlete';
-    document.getElementById('avatarEl').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    document.getElementById('nameEl').textContent = name;
-    document.getElementById('subEl').textContent = [athlete.athlete.city, athlete.athlete.country].filter(Boolean).join(', ') || 'intervals.icu athlete';
-    const sorted = [...activities].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
-    const latest = sorted[0];
-    if (latest) {
-      const ctl=Math.round(latest.icu_ctl||0), atl=Math.round(latest.icu_atl||0), tsb=ctl-atl;
-      document.getElementById('mCTL').textContent = ctl;
-      document.getElementById('mATL').textContent = atl;
-      const tsbEl = document.getElementById('mTSB');
-      tsbEl.textContent = (tsb>=0?'+':'')+tsb;
-      tsbEl.className = 'metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
+    document.getElementById('connectGate').style.display='none';
+    document.getElementById('dash').style.display='block';
+    const name=athlete.athlete.name||'Athlete';
+    document.getElementById('avatarEl').textContent=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('nameEl').textContent=name;
+    document.getElementById('subEl').textContent=[athlete.athlete.city,athlete.athlete.country].filter(Boolean).join(', ')||'intervals.icu athlete';
+    const sorted=[...activities].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
+    const latest=sorted[0];
+    if(latest){
+      const ctl=Math.round(latest.icu_ctl||0),atl=Math.round(latest.icu_atl||0),tsb=ctl-atl;
+      document.getElementById('mCTL').textContent=ctl;
+      document.getElementById('mATL').textContent=atl;
+      const tsbEl=document.getElementById('mTSB');
+      tsbEl.textContent=(tsb>=0?'+':'')+tsb;
+      tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
     }
-    const wkAgo = new Date(); wkAgo.setDate(wkAgo.getDate()-7);
-    document.getElementById('mWeek').textContent = Math.round(sorted.filter(a=>new Date(a.start_date_local)>=wkAgo).reduce((s,a)=>s+(a.icu_training_load||0),0));
-    buildFit(sorted); buildLoad(sorted); buildZones(sorted); buildActs(sorted.slice(0,7));
+    const wkAgo=new Date();wkAgo.setDate(wkAgo.getDate()-7);
+    document.getElementById('mWeek').textContent=Math.round(sorted.filter(a=>new Date(a.start_date_local)>=wkAgo).reduce((s,a)=>s+(a.icu_training_load||0),0));
+    buildFit(sorted);buildLoad(sorted);buildZones(sorted);buildActs(sorted.slice(0,7));
     initZoneCalc();
-  } catch(e) {
-    document.getElementById('connectError').style.display = 'block';
-    btn.disabled = false; btn.textContent = 'Load my dashboard';
+  }catch(e){
+    document.getElementById('connectError').style.display='block';
+    btn.disabled=false;btn.textContent='Load my dashboard';
   }
 }
 
-function buildFit(acts) {
-  const weeks = Array.from({length:12},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(11-i)*7);return d;});
-  const get = (d,key)=>{const a=acts.filter(x=>new Date(x.start_date_local)<=d).sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))[0];return a?Math.round(a[key]||0):null;};
+function buildFit(acts){
+  const weeks=Array.from({length:12},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(11-i)*7);return d;});
+  const get=(d,key)=>{const a=acts.filter(x=>new Date(x.start_date_local)<=d).sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))[0];return a?Math.round(a[key]||0):null;};
   if(fitInst)fitInst.destroy();
   fitInst=new Chart(document.getElementById('fitChart'),{type:'line',data:{labels:weeks.map(d=>fmtDate(d)),datasets:[
     {label:'CTL',data:weeks.map(d=>get(d,'icu_ctl')),borderColor:'#378ADD',backgroundColor:'transparent',tension:0.3,pointRadius:2,borderWidth:2},
@@ -283,14 +266,14 @@ function buildFit(acts) {
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:10},maxRotation:45,autoSkip:false},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
 }
 
-function buildLoad(acts) {
+function buildLoad(acts){
   const weeks=Array.from({length:8},(_,i)=>{const end=new Date();end.setDate(end.getDate()-i*7);const start=new Date(end);start.setDate(end.getDate()-7);return{label:fmtDate(end),start,end};}).reverse();
   const loads=weeks.map(w=>Math.round(acts.filter(a=>{const d=new Date(a.start_date_local);return d>=w.start&&d<=w.end;}).reduce((s,a)=>s+(a.icu_training_load||0),0)));
   if(loadInst)loadInst.destroy();
   loadInst=new Chart(document.getElementById('loadChart'),{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[{data:loads,backgroundColor:'#1a1a1a',borderColor:'#c8f036',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:10},maxRotation:45},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
 }
 
-function buildZones(acts) {
+function buildZones(acts){
   const totals=[0,0,0,0,0,0,0];
   acts.forEach(a=>{const zt=a.icu_zone_times;if(!zt)return;const arr=Array.isArray(zt)?zt:Object.values(zt);arr.forEach((t,i)=>{if(i<7)totals[i]+=(Number(t)||0);});});
   const total=totals.reduce((s,v)=>s+v,0);
@@ -300,7 +283,7 @@ function buildZones(acts) {
   el.innerHTML=totals.map((t,i)=>{const pct=Math.round((t/total)*100);return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${colors[i]}"></div></div><span class="zone-pct-d">${pct}%</span></div>`;}).join('');
 }
 
-function buildActs(acts) {
+function buildActs(acts){
   const el=document.getElementById('actList');
   if(!acts.length){el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555">No activities found</div>';return;}
   el.innerHTML=acts.map(a=>{
@@ -311,65 +294,23 @@ function buildActs(acts) {
   }).join('');
 }
 
-/* ---- ZONE CALCULATOR ---- */
-const ZC_COLORS = ['#378ADD','#1D9E75','#639922','#c8f036','#BA7517','#E24B4A','#D4537E'];
+const ZC_COLORS=['#378ADD','#1D9E75','#639922','#c8f036','#BA7517','#E24B4A','#D4537E'];
+const CYCLING_PWR=[{name:'Z1 — Active recovery',desc:'Recovery rides',lo:0,hi:55},{name:'Z2 — Endurance',desc:'Aerobic base',lo:55,hi:75},{name:'Z3 — Tempo',desc:'Sustained effort',lo:75,hi:90},{name:'Z4 — Threshold',desc:'FTP zone',lo:90,hi:105},{name:'Z5 — VO2max',desc:'Hard intervals',lo:105,hi:120},{name:'Z6 — Anaerobic',desc:'Short efforts',lo:120,hi:150},{name:'Z7 — Neuromuscular',desc:'Sprints',lo:150,hi:200}];
+const CYCLING_HR=[{name:'Z1 — Recovery',desc:'Very light',lo:0,hi:68},{name:'Z2 — Aerobic',desc:'Fat burning',lo:68,hi:83},{name:'Z3 — Tempo',desc:'Aerobic threshold',lo:83,hi:94},{name:'Z4 — Threshold',desc:'Lactate threshold',lo:94,hi:105},{name:'Z5 — Max',desc:'VO2max / anaerobic',lo:105,hi:115}];
+const RUNNING_PACE=[{name:'Z1 — Easy',desc:'Recovery / long easy',lo:0,hi:76},{name:'Z2 — Aerobic',desc:'Conversational',lo:76,hi:88},{name:'Z3 — Tempo',desc:'Comfortably hard',lo:88,hi:95},{name:'Z4 — Threshold',desc:'Lactate threshold',lo:95,hi:105},{name:'Z5 — VO2max',desc:'5K effort',lo:105,hi:115}];
+const SWIM_PACE=[{name:'Z1 — Recovery',desc:'Very easy',lo:0,hi:80},{name:'Z2 — Aerobic',desc:'Steady state',lo:80,hi:90},{name:'Z3 — Threshold',desc:'CSS pace',lo:90,hi:100},{name:'Z4 — Speed',desc:'Above CSS',lo:100,hi:110},{name:'Z5 — Sprint',desc:'Max effort',lo:110,hi:120}];
 
-const CYCLING_PWR = [
-  {name:'Z1 — Active recovery', desc:'Recovery rides', lo:0,   hi:55},
-  {name:'Z2 — Endurance',       desc:'Aerobic base',   lo:55,  hi:75},
-  {name:'Z3 — Tempo',           desc:'Sustained effort',lo:75, hi:90},
-  {name:'Z4 — Threshold',       desc:'FTP zone',       lo:90,  hi:105},
-  {name:'Z5 — VO2max',          desc:'Hard intervals', lo:105, hi:120},
-  {name:'Z6 — Anaerobic',       desc:'Short efforts',  lo:120, hi:150},
-  {name:'Z7 — Neuromuscular',   desc:'Sprints',        lo:150, hi:200},
-];
-const CYCLING_HR = [
-  {name:'Z1 — Recovery',  desc:'Very light',         lo:0,  hi:68},
-  {name:'Z2 — Aerobic',   desc:'Fat burning',        lo:68, hi:83},
-  {name:'Z3 — Tempo',     desc:'Aerobic threshold',  lo:83, hi:94},
-  {name:'Z4 — Threshold', desc:'Lactate threshold',  lo:94, hi:105},
-  {name:'Z5 — Max',       desc:'VO2max / anaerobic', lo:105,hi:115},
-];
-const RUNNING_PACE = [
-  {name:'Z1 — Easy',      desc:'Recovery / long easy',lo:0,  hi:76},
-  {name:'Z2 — Aerobic',   desc:'Conversational',     lo:76, hi:88},
-  {name:'Z3 — Tempo',     desc:'Comfortably hard',   lo:88, hi:95},
-  {name:'Z4 — Threshold', desc:'Lactate threshold',  lo:95, hi:105},
-  {name:'Z5 — VO2max',    desc:'5K effort',          lo:105,hi:115},
-];
-const RUNNING_HR = CYCLING_HR;
-const SWIM_PACE = [
-  {name:'Z1 — Recovery',  desc:'Very easy',   lo:0,  hi:80},
-  {name:'Z2 — Aerobic',   desc:'Steady state',lo:80, hi:90},
-  {name:'Z3 — Threshold', desc:'CSS pace',    lo:90, hi:100},
-  {name:'Z4 — Speed',     desc:'Above CSS',   lo:100,hi:110},
-  {name:'Z5 — Sprint',    desc:'Max effort',  lo:110,hi:120},
-];
-const SWIM_HR = [
-  {name:'Z1 — Recovery',  desc:'Very light',        lo:0,  hi:60},
-  {name:'Z2 — Aerobic',   desc:'Fat burning',       lo:60, hi:72},
-  {name:'Z3 — Tempo',     desc:'Aerobic threshold', lo:72, hi:82},
-  {name:'Z4 — Threshold', desc:'Lactate threshold', lo:82, hi:92},
-  {name:'Z5 — Max',       desc:'Max effort',        lo:92, hi:100},
-];
-
-const zs = {
-  cycling: { ftp:250, max_hr:185, lthr:165, sub:'power', overrides:{power:{},hr:{}} },
-  running: { threshold_pace:'6:00', max_hr:185, lthr:165, sub:'pace', overrides:{pace:{},hr:{}} },
-  swimming: { css:'1:45', css_unit:'100m', max_hr:185, lthr:165, sub:'pace', overrides:{pace:{},hr:{}} },
+const zs={
+  cycling:{ftp:250,max_hr:185,lthr:165,sub:'power',overrides:{power:{},hr:{}}},
+  running:{threshold_pace:'6:00',max_hr:185,lthr:165,sub:'pace',overrides:{pace:{},hr:{}}},
+  swimming:{css:'1:45',css_unit:'100m',max_hr:185,lthr:165,sub:'pace',overrides:{pace:{},hr:{}}},
 };
-let currentSport = 'cycling';
+let currentSport='cycling';
 
-function parsePace(str) {
-  const p=str.split(':');
-  return p.length===2 ? parseInt(p[0])*60+parseInt(p[1]) : 360;
-}
-function secsToMMSS(s) {
-  s=Math.round(s); const m=Math.floor(s/60),sec=s%60;
-  return m+':'+(sec<10?'0':'')+sec;
-}
+function parsePace(str){const p=str.split(':');return p.length===2?parseInt(p[0])*60+parseInt(p[1]):360;}
+function secsToMMSS(s){s=Math.round(s);const m=Math.floor(s/60),sec=s%60;return m+':'+(sec<10?'0':'')+sec;}
 
-function switchSport(sport) {
+function switchSport(sport){
   currentSport=sport;
   document.querySelectorAll('.sport-tab').forEach((t,i)=>t.classList.toggle('active',['cycling','running','swimming'][i]===sport));
   document.querySelectorAll('.sport-panel').forEach(p=>p.classList.remove('active'));
@@ -377,35 +318,32 @@ function switchSport(sport) {
   renderSport(sport);
 }
 
-function switchSub(sport, sub) {
-  zs[sport].sub = sub;
+function switchSub(sport,sub){
+  zs[sport].sub=sub;
   document.querySelectorAll('#sp-'+sport+' .sub-tab').forEach(t=>t.classList.toggle('active',t.dataset.sub===sub));
   renderZoneTable(sport);
 }
 
-function initZoneCalc() {
-  ['cycling','running','swimming'].forEach(s=>renderSport(s));
-}
+function initZoneCalc(){['cycling','running','swimming'].forEach(s=>renderSport(s));}
 
-function renderSport(sport) {
-  const panel = document.getElementById('sp-'+sport);
-  const s = zs[sport];
-  let inputs = '';
-
-  if (sport==='cycling') {
-    inputs = `<div class="threshold-row">
+function renderSport(sport){
+  const panel=document.getElementById('sp-'+sport);
+  const s=zs[sport];
+  let inputs='';
+  if(sport==='cycling'){
+    inputs=`<div class="threshold-row">
       <div class="zc-field"><label class="zc-label">FTP (watts)</label><input class="zc-input" type="number" value="${s.ftp}" min="50" max="700" step="1" oninput="zs.cycling.ftp=+this.value;zs.cycling.overrides={power:{},hr:{}};renderZoneTable('cycling')" /></div>
       <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="zs.cycling.lthr=+this.value;zs.cycling.overrides.hr={};renderZoneTable('cycling')" /></div>
       <button class="reset-btn" onclick="zs.cycling.overrides={power:{},hr:{}};renderZoneTable('cycling')">Reset</button>
     </div>`;
-  } else if (sport==='running') {
-    inputs = `<div class="threshold-row">
+  } else if(sport==='running'){
+    inputs=`<div class="threshold-row">
       <div class="zc-field"><label class="zc-label">Threshold pace (min/mile)</label><input class="zc-input" type="text" value="${s.threshold_pace}" placeholder="6:00" oninput="zs.running.threshold_pace=this.value;zs.running.overrides.pace={};renderZoneTable('running')" /></div>
       <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="zs.running.lthr=+this.value;zs.running.overrides.hr={};renderZoneTable('running')" /></div>
       <button class="reset-btn" onclick="zs.running.overrides={pace:{},hr:{}};renderZoneTable('running')">Reset</button>
     </div>`;
-  } else if (sport==='swimming') {
-    inputs = `<div class="threshold-row">
+  } else if(sport==='swimming'){
+    inputs=`<div class="threshold-row">
       <div class="zc-field"><label class="zc-label">CSS pace</label><input class="zc-input" type="text" value="${s.css}" placeholder="1:45" oninput="zs.swimming.css=this.value;zs.swimming.overrides.pace={};renderZoneTable('swimming')" /></div>
       <div class="zc-field"><label class="zc-label">Units</label><select class="zc-select" onchange="zs.swimming.css_unit=this.value;zs.swimming.overrides.pace={};renderZoneTable('swimming')">
         <option value="100m" ${s.css_unit==='100m'?'selected':''}>per 100m</option>
@@ -414,105 +352,55 @@ function renderSport(sport) {
       <button class="reset-btn" onclick="zs.swimming.overrides={pace:{},hr:{}};renderZoneTable('swimming')">Reset</button>
     </div>`;
   }
-
-  const subA = s.sub==='power'||s.sub==='pace';
-  const sub1 = sport==='cycling' ? 'power' : 'pace';
-  panel.innerHTML = inputs +
-    `<div class="sub-tabs">
-      <button class="sub-tab ${subA?'active':''}" data-sub="${sub1}" onclick="switchSub('${sport}','${sub1}')">${sport==='cycling'?'Power':'Pace'}</button>
-      <button class="sub-tab ${!subA?'active':''}" data-sub="hr" onclick="switchSub('${sport}','hr')">Heart rate</button>
-    </div>
-    <div id="zt-${sport}"></div>`;
+  const subA=s.sub==='power'||s.sub==='pace';
+  const sub1=sport==='cycling'?'power':'pace';
+  panel.innerHTML=inputs+`<div class="sub-tabs">
+    <button class="sub-tab ${subA?'active':''}" data-sub="${sub1}" onclick="switchSub('${sport}','${sub1}')">${sport==='cycling'?'Power':'Pace'}</button>
+    <button class="sub-tab ${!subA?'active':''}" data-sub="hr" onclick="switchSub('${sport}','hr')">Heart rate</button>
+  </div><div id="zt-${sport}"></div>`;
   renderZoneTable(sport);
 }
 
-function renderZoneTable(sport) {
-  const s = zs[sport];
-  const sub = s.sub;
-  const el = document.getElementById('zt-'+sport);
-  let zones, getVals;
-
-  if (sport==='cycling' && sub==='power') {
-    zones = CYCLING_PWR;
-    getVals = (z,i) => {
-      const ov=s.overrides.power[i];
-      const lo=ov?ov[0]:Math.round(s.ftp*z.lo/100);
-      const hi=ov?ov[1]:Math.round(s.ftp*z.hi/100);
-      return {loStr:lo+'w', hiStr:hi+'w', barPct:Math.min(100,z.hi/2)};
-    };
-  } else if (sport==='cycling' && sub==='hr') {
-    zones = CYCLING_HR;
-    getVals = (z,i) => {
-      const base=s.lthr||s.max_hr;
-      const ov=s.overrides.hr[i];
-      const lo=ov?ov[0]:Math.round(base*z.lo/100);
-      const hi=ov?ov[1]:Math.round(base*z.hi/100);
-      return {loStr:lo+'bpm', hiStr:hi+'bpm', barPct:z.hi};
-    };
-  } else if (sport==='running' && sub==='pace') {
-    zones = RUNNING_PACE;
-    getVals = (z,i) => {
-      const thresh=parsePace(s.threshold_pace);
-      const ov=s.overrides.pace[i];
-      const lo=ov?ov[0]:secsToMMSS(thresh*100/z.hi);
-      const hi=ov?ov[1]:(z.lo===0?'—':secsToMMSS(thresh*100/z.lo));
-      return {loStr:lo, hiStr:hi, barPct:Math.min(100,z.hi/1.15)};
-    };
-  } else if (sport==='running' && sub==='hr') {
-    zones = RUNNING_HR;
-    getVals = (z,i) => {
-      const base=s.lthr||s.max_hr;
-      const ov=s.overrides.hr[i];
-      const lo=ov?ov[0]:Math.round(base*z.lo/100);
-      const hi=ov?ov[1]:Math.round(base*z.hi/100);
-      return {loStr:lo+'bpm', hiStr:hi+'bpm', barPct:z.hi};
-    };
-  } else if (sport==='swimming' && sub==='pace') {
-    zones = SWIM_PACE;
-    getVals = (z,i) => {
-      const css=parsePace(s.css);
-      const ov=s.overrides.pace[i];
-      const lo=ov?ov[0]:secsToMMSS(css*100/z.hi);
-      const hi=ov?ov[1]:(z.lo===0?'—':secsToMMSS(css*100/z.lo));
-      return {loStr:lo+'/'+s.css_unit, hiStr:hi+(hi==='—'?'':'/'+s.css_unit), barPct:Math.min(100,z.hi/1.2)};
-    };
+function renderZoneTable(sport){
+  const s=zs[sport];
+  const sub=s.sub;
+  const el=document.getElementById('zt-'+sport);
+  let zones,getVals;
+  if(sport==='cycling'&&sub==='power'){
+    zones=CYCLING_PWR;
+    getVals=(z,i)=>{const ov=s.overrides.power[i];const lo=ov?ov[0]:Math.round(s.ftp*z.lo/100);const hi=ov?ov[1]:Math.round(s.ftp*z.hi/100);return{loStr:lo+'w',hiStr:hi+'w',barPct:Math.min(100,z.hi/2)};};
+  } else if(sport==='cycling'&&sub==='hr'){
+    zones=CYCLING_HR;
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:z.hi};};
+  } else if(sport==='running'&&sub==='pace'){
+    zones=RUNNING_PACE;
+    getVals=(z,i)=>{const thresh=parsePace(s.threshold_pace);const ov=s.overrides.pace[i];const lo=ov?ov[0]:secsToMMSS(thresh*100/z.hi);const hi=ov?ov[1]:(z.lo===0?'—':secsToMMSS(thresh*100/z.lo));return{loStr:lo,hiStr:hi,barPct:Math.min(100,z.hi/1.15)};};
+  } else if(sport==='running'&&sub==='hr'){
+    zones=CYCLING_HR;
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:z.hi};};
+  } else if(sport==='swimming'&&sub==='pace'){
+    zones=SWIM_PACE;
+    getVals=(z,i)=>{const css=parsePace(s.css);const ov=s.overrides.pace[i];const lo=ov?ov[0]:secsToMMSS(css*100/z.hi);const hi=ov?ov[1]:(z.lo===0?'—':secsToMMSS(css*100/z.lo));return{loStr:lo+'/'+s.css_unit,hiStr:hi+(hi==='—'?'':'/'+s.css_unit),barPct:Math.min(100,z.hi/1.2)};};
   } else {
-    zones = SWIM_HR;
-    getVals = (z,i) => {
-      const base=s.lthr||s.max_hr;
-      const ov=s.overrides.hr[i];
-      const lo=ov?ov[0]:Math.round(base*z.lo/100);
-      const hi=ov?ov[1]:Math.round(base*z.hi/100);
-      return {loStr:lo+'bpm', hiStr:hi+'bpm', barPct:z.hi};
-    };
+    zones=CYCLING_HR;
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:z.hi};};
   }
-
-  const ovKey = (sub==='power'||sub==='pace') ? (sport==='cycling'?'power':'pace') : 'hr';
-  const hasOv = Object.keys(s.overrides[ovKey]||{}).length>0;
-
-  const rows = zones.map((z,i)=>{
-    const {loStr,hiStr,barPct}=getVals(z,i);
+  const ovKey=(sub==='power'||sub==='pace')?(sport==='cycling'?'power':'pace'):'hr';
+  const hasOv=Object.keys(s.overrides[ovKey]||{}).length>0;
+  const rows=zones.map((z,i)=>{
+    const{loStr,hiStr,barPct}=getVals(z,i);
     const isOv=!!(s.overrides[ovKey]||{})[i];
     const cls=isOv?'editable ov':'editable';
-    return `<tr class="zone-tr">
-      <td class="zone-td"><div class="zone-name-wrap"><span class="zone-color-dot" style="background:${ZC_COLORS[i]}"></span>${z.name}</div><div class="zone-desc-small">${z.desc}</div></td>
-      <td class="zone-td"><input class="${cls}" value="${loStr}" onchange="handleOv('${sport}','${ovKey}',${i},'lo',this.value,this)" /></td>
-      <td class="zone-td"><input class="${cls}" value="${hiStr}" onchange="handleOv('${sport}','${ovKey}',${i},'hi',this.value,this)" /></td>
-      <td class="zone-td" style="width:140px"><div class="bar-bg-z"><div class="bar-fill-z" style="width:${barPct}%;background:${ZC_COLORS[i]}"></div></div><div class="pct-hint">${z.lo}–${z.hi}% threshold</div></td>
-    </tr>`;
+    return`<tr class="zone-tr"><td class="zone-td"><div class="zone-name-wrap"><span class="zone-color-dot" style="background:${ZC_COLORS[i]}"></span>${z.name}</div><div class="zone-desc-small">${z.desc}</div></td><td class="zone-td"><input class="${cls}" value="${loStr}" onchange="handleOv('${sport}','${ovKey}',${i},'lo',this.value,this)" /></td><td class="zone-td"><input class="${cls}" value="${hiStr}" onchange="handleOv('${sport}','${ovKey}',${i},'hi',this.value,this)" /></td><td class="zone-td" style="width:140px"><div class="bar-bg-z"><div class="bar-fill-z" style="width:${barPct}%;background:${ZC_COLORS[i]}"></div></div><div class="pct-hint">${z.lo}–${z.hi}% threshold</div></td></tr>`;
   }).join('');
-
-  el.innerHTML = `<table class="zone-table">
-    <thead><tr><th style="width:220px">Zone</th><th>From</th><th>To</th><th>Intensity</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
+  el.innerHTML=`<table class="zone-table"><thead><tr><th style="width:220px">Zone</th><th>From</th><th>To</th><th>Intensity</th></tr></thead><tbody>${rows}</tbody></table>
   ${hasOv?'<p class="ov-note">Highlighted values are manually overridden — click Reset to recalculate from threshold</p>':''}
   <p class="zc-note">Click any value to edit directly. Updating the threshold above recalculates all non-overridden zones.</p>`;
 }
 
-function handleOv(sport, ovKey, idx, side, val, inputEl) {
-  if (!zs[sport].overrides[ovKey]) zs[sport].overrides[ovKey]={};
-  if (!zs[sport].overrides[ovKey][idx]) zs[sport].overrides[ovKey][idx]=['—','—'];
+function handleOv(sport,ovKey,idx,side,val,inputEl){
+  if(!zs[sport].overrides[ovKey])zs[sport].overrides[ovKey]={};
+  if(!zs[sport].overrides[ovKey][idx])zs[sport].overrides[ovKey][idx]=['—','—'];
   zs[sport].overrides[ovKey][idx][side==='lo'?0:1]=val;
   inputEl.className='editable ov';
 }
