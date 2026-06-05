@@ -108,6 +108,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .pct-hint{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:2px}
 .zc-note{font-size:11px;color:var(--tc3);margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);line-height:1.6}
 .ov-note{font-family:'DM Mono',monospace;font-size:11px;color:#BA7517;margin-top:0.5rem}
+.act-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem}
+.dist-toggle{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;padding:4px 10px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--tc3)}
+.dist-toggle:hover{border-color:var(--acc);color:var(--acc)}
 @media(max-width:768px){
   .metrics{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
@@ -147,7 +150,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   <div class="dash" id="dash">
     <div class="athlete-bar">
       <div class="avatar" id="avatarEl">AT</div>
-      <div><div class="athlete-name" id="nameEl">Athlete</div><div class="athlete-sub" id="subEl">intervals.icu</div></div>
+      <div style="flex:1"><div class="athlete-name" id="nameEl">Athlete</div><div class="athlete-sub" id="subEl">intervals.icu</div></div>
+      <button class="reset-btn" onclick="signOut()">Sign out</button>
     </div>
     <div class="section-label">Fitness snapshot</div>
     <div class="metrics">
@@ -194,7 +198,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 
 <script>
 const ACCESS_CODE='WCQ2026';
-let fitInst,loadInst;
+let fitInst,loadInst,distUnit='km',lastActs=[];
 
 function checkCode(){
   const val=document.getElementById('accessCode').value.trim();
@@ -210,7 +214,7 @@ async function apiCall(athleteId,apiKey,path,qs){
   return r.json();
 }
 
-function fmtDist(m){return m?(m/1000).toFixed(1)+' km':'—';}
+function fmtDist(m){if(!m)return'—';return distUnit==='mi'?(m/1609.344).toFixed(1)+' mi':(m/1000).toFixed(1)+' km';}
 function fmtTime(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
 function fmtDate(d){return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 
@@ -229,6 +233,8 @@ async function loadDashboard(){
       apiCall(id,key,'profile'),
       apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times')
     ]);
+    localStorage.setItem('hm2l_athleteId',id);
+    localStorage.setItem('hm2l_apiKey',key);
     document.getElementById('connectGate').style.display='none';
     document.getElementById('dash').style.display='block';
     const name=athlete.athlete.name||'Athlete';
@@ -284,9 +290,11 @@ function buildZones(acts){
 }
 
 function buildActs(acts){
+  lastActs=acts;
   const el=document.getElementById('actList');
   if(!acts.length){el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555">No activities found</div>';return;}
-  el.innerHTML=acts.map(a=>{
+  const toggleLabel=distUnit==='km'?'mi':'km';
+  el.innerHTML=`<div class="act-list-header"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase">Recent</span><button class="dist-toggle" onclick="toggleDist()">${toggleLabel}</button></div>`+acts.map(a=>{
     const t=(a.type||'').toLowerCase();
     const cls=t.includes('ride')||t.includes('cycl')?'ride':t.includes('run')?'run':t.includes('swim')?'swim':'';
     const label=t.includes('ride')||t.includes('cycl')?'Ride':t.includes('run')?'Run':t.includes('swim')?'Swim':a.type||'Workout';
@@ -404,6 +412,13 @@ function handleOv(sport,ovKey,idx,side,val,inputEl){
   zs[sport].overrides[ovKey][idx][side==='lo'?0:1]=val;
   inputEl.className='editable ov';
 }
+function toggleDist(){distUnit=distUnit==='km'?'mi':'km';buildActs(lastActs);}
+function signOut(){localStorage.removeItem('hm2l_athleteId');localStorage.removeItem('hm2l_apiKey');location.reload();}
+document.addEventListener('DOMContentLoaded',()=>{
+  const savedId=localStorage.getItem('hm2l_athleteId');
+  const savedKey=localStorage.getItem('hm2l_apiKey');
+  if(savedId&&savedKey){document.getElementById('codeGate').style.display='none';document.getElementById('athleteId').value=savedId;document.getElementById('apiKey').value=savedKey;loadDashboard();}
+});
 </script>
 </body>
 </html>
