@@ -15,7 +15,7 @@ body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
 .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
-.nav-logo img{height:44px;max-height:44px;width:auto;display:block}
+.nav-logo img{height:40px;width:auto;display:block}
 .nav-back{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase}
 .nav-back:hover{color:var(--tc2)}
 .page{max-width:1100px;margin:0 auto;padding:3rem 2rem}
@@ -59,6 +59,10 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .zone-fill-d{height:100%}
 .zone-pct-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:right}
 .activities-box{background:var(--bc2);padding:1.5rem}
+.act-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.act-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;text-transform:uppercase;letter-spacing:0.02em}
+.unit-toggle{font-family:'DM Mono',monospace;font-size:10px;background:transparent;border:1px solid var(--border);color:var(--tc3);padding:4px 10px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;transition:all 0.2s}
+.unit-toggle:hover{border-color:var(--acc);color:var(--acc)}
 .act-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
 .act-row:last-child{border-bottom:none}
 .act-left{display:flex;align-items:center;gap:12px}
@@ -108,9 +112,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .pct-hint{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:2px}
 .zc-note{font-size:11px;color:var(--tc3);margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);line-height:1.6}
 .ov-note{font-family:'DM Mono',monospace;font-size:11px;color:#BA7517;margin-top:0.5rem}
-.act-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem}
-.dist-toggle{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;padding:4px 10px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--tc3)}
-.dist-toggle:hover{border-color:var(--acc);color:var(--acc)}
 @media(max-width:768px){
   .metrics{grid-template-columns:repeat(2,1fr)}
   .grid-2{grid-template-columns:1fr}
@@ -150,8 +151,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   <div class="dash" id="dash">
     <div class="athlete-bar">
       <div class="avatar" id="avatarEl">AT</div>
-      <div style="flex:1"><div class="athlete-name" id="nameEl">Athlete</div><div class="athlete-sub" id="subEl">intervals.icu</div></div>
-      <button class="reset-btn" onclick="signOut()">Sign out</button>
+      <div><div class="athlete-name" id="nameEl">Athlete</div><div class="athlete-sub" id="subEl">intervals.icu</div></div>
     </div>
     <div class="section-label">Fitness snapshot</div>
     <div class="metrics">
@@ -176,7 +176,13 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       </div>
     </div>
     <div class="grid-2" style="margin-top:1px">
-      <div class="activities-box" id="actList"><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Loading activities...</div></div>
+      <div class="activities-box">
+        <div class="act-header">
+          <div class="act-title">Recent activities</div>
+          <button class="unit-toggle" id="unitToggle" onclick="toggleUnits()">Switch to miles</button>
+        </div>
+        <div id="actList"><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Loading activities...</div></div>
+      </div>
       <div class="chart-box">
         <div class="chart-title">Zone distribution</div>
         <div class="zone-rows" id="zoneRows"><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Loading zones...</div></div>
@@ -198,13 +204,40 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 
 <script>
 const ACCESS_CODE='WCQ2026';
-let fitInst,loadInst,distUnit='km',lastActs=[];
+let fitInst,loadInst,lastActs=[],useMetric=true;
 
 function checkCode(){
   const val=document.getElementById('accessCode').value.trim();
-  if(val===ACCESS_CODE){document.getElementById('codeGate').style.display='none';document.getElementById('connectGate').style.display='block';}
-  else{document.getElementById('codeError').style.display='block';}
+  if(val===ACCESS_CODE){
+    document.getElementById('codeGate').style.display='none';
+    document.getElementById('connectGate').style.display='block';
+  } else {
+    document.getElementById('codeError').style.display='block';
+  }
 }
+
+function toggleUnits(){
+  useMetric=!useMetric;
+  document.getElementById('unitToggle').textContent=useMetric?'Switch to miles':'Switch to km';
+  buildActs(lastActs);
+}
+
+function fmtDist(m){
+  if(!m)return'—';
+  return useMetric?(m/1000).toFixed(1)+' km':(m/1609.34).toFixed(1)+' mi';
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const sid=localStorage.getItem('hm2l_athlete_id');
+  const skey=localStorage.getItem('hm2l_api_key');
+  if(sid)document.getElementById('athleteId').value=sid;
+  if(skey)document.getElementById('apiKey').value=skey;
+  if(sid&&skey){
+    document.getElementById('codeGate').style.display='none';
+    document.getElementById('connectGate').style.display='none';
+    loadDashboard();
+  }
+});
 
 async function apiCall(athleteId,apiKey,path,qs){
   const params=new URLSearchParams({athleteId,apiKey,path});
@@ -214,7 +247,6 @@ async function apiCall(athleteId,apiKey,path,qs){
   return r.json();
 }
 
-function fmtDist(m){if(!m)return'—';return distUnit==='mi'?(m/1609.344).toFixed(1)+' mi':(m/1000).toFixed(1)+' km';}
 function fmtTime(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
 function fmtDate(d){return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 
@@ -223,8 +255,9 @@ async function loadDashboard(){
   const key=document.getElementById('apiKey').value.trim();
   if(!id||!key)return;
   const btn=document.getElementById('connectBtn');
-  btn.disabled=true;btn.textContent='Connecting...';
-  document.getElementById('connectError').style.display='none';
+  if(btn){btn.disabled=true;btn.textContent='Connecting...';}
+  const errEl=document.getElementById('connectError');
+  if(errEl)errEl.style.display='none';
   try{
     const today=new Date();
     const oldest=new Date(today);oldest.setDate(today.getDate()-84);
@@ -233,10 +266,10 @@ async function loadDashboard(){
       apiCall(id,key,'profile'),
       apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times')
     ]);
-    localStorage.setItem('hm2l_athleteId',id);
-    localStorage.setItem('hm2l_apiKey',key);
     document.getElementById('connectGate').style.display='none';
     document.getElementById('dash').style.display='block';
+    localStorage.setItem('hm2l_athlete_id',id);
+    localStorage.setItem('hm2l_api_key',key);
     const name=athlete.athlete.name||'Athlete';
     document.getElementById('avatarEl').textContent=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('nameEl').textContent=name;
@@ -256,8 +289,8 @@ async function loadDashboard(){
     buildFit(sorted);buildLoad(sorted);buildZones(sorted);buildActs(sorted.slice(0,7));
     initZoneCalc();
   }catch(e){
-    document.getElementById('connectError').style.display='block';
-    btn.disabled=false;btn.textContent='Load my dashboard';
+    if(errEl)errEl.style.display='block';
+    if(btn){btn.disabled=false;btn.textContent='Load my dashboard';}
   }
 }
 
@@ -281,20 +314,33 @@ function buildLoad(acts){
 
 function buildZones(acts){
   const totals=[0,0,0,0,0,0,0];
-  acts.forEach(a=>{const zt=a.icu_zone_times;if(!zt)return;const arr=Array.isArray(zt)?zt:Object.values(zt);arr.forEach((t,i)=>{if(i<7)totals[i]+=(Number(t)||0);});});
+  acts.forEach(a=>{
+    const zt=a.icu_zone_times;
+    if(!zt)return;
+    let arr;
+    if(Array.isArray(zt)){arr=zt;}
+    else if(typeof zt==='object'){arr=Object.values(zt);}
+    else return;
+    arr.forEach((t,i)=>{if(i<7)totals[i]+=(Number(t)||0);});
+  });
   const total=totals.reduce((s,v)=>s+v,0);
   const colors=['#378ADD','#639922','#c8f036','#BA7517','#E24B4A','#D4537E','#7F77DD'];
   const el=document.getElementById('zoneRows');
-  if(!total){el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555">No zone data in range</div>';return;}
-  el.innerHTML=totals.map((t,i)=>{const pct=Math.round((t/total)*100);return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${colors[i]}"></div></div><span class="zone-pct-d">${pct}%</span></div>`;}).join('');
+  if(!total){
+    el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555">No zone data available for this period</div>';
+    return;
+  }
+  el.innerHTML=totals.map((t,i)=>{
+    const pct=total>0?Math.round((t/total)*100):0;
+    return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${colors[i]}"></div></div><span class="zone-pct-d">${pct}%</span></div>`;
+  }).join('');
 }
 
 function buildActs(acts){
   lastActs=acts;
   const el=document.getElementById('actList');
   if(!acts.length){el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555">No activities found</div>';return;}
-  const toggleLabel=distUnit==='km'?'mi':'km';
-  el.innerHTML=`<div class="act-list-header"><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase">Recent</span><button class="dist-toggle" onclick="toggleDist()">${toggleLabel}</button></div>`+acts.map(a=>{
+  el.innerHTML=acts.map(a=>{
     const t=(a.type||'').toLowerCase();
     const cls=t.includes('ride')||t.includes('cycl')?'ride':t.includes('run')?'run':t.includes('swim')?'swim':'';
     const label=t.includes('ride')||t.includes('cycl')?'Ride':t.includes('run')?'Run':t.includes('swim')?'Swim':a.type||'Workout';
@@ -313,13 +359,11 @@ const zs={
   running:{threshold_pace:'6:00',max_hr:185,lthr:165,sub:'pace',overrides:{pace:{},hr:{}}},
   swimming:{css:'1:45',css_unit:'100m',max_hr:185,lthr:165,sub:'pace',overrides:{pace:{},hr:{}}},
 };
-let currentSport='cycling';
 
 function parsePace(str){const p=str.split(':');return p.length===2?parseInt(p[0])*60+parseInt(p[1]):360;}
 function secsToMMSS(s){s=Math.round(s);const m=Math.floor(s/60),sec=s%60;return m+':'+(sec<10?'0':'')+sec;}
 
 function switchSport(sport){
-  currentSport=sport;
   document.querySelectorAll('.sport-tab').forEach((t,i)=>t.classList.toggle('active',['cycling','running','swimming'][i]===sport));
   document.querySelectorAll('.sport-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('sp-'+sport).classList.add('active');
@@ -412,13 +456,6 @@ function handleOv(sport,ovKey,idx,side,val,inputEl){
   zs[sport].overrides[ovKey][idx][side==='lo'?0:1]=val;
   inputEl.className='editable ov';
 }
-function toggleDist(){distUnit=distUnit==='km'?'mi':'km';buildActs(lastActs);}
-function signOut(){localStorage.removeItem('hm2l_athleteId');localStorage.removeItem('hm2l_apiKey');location.reload();}
-document.addEventListener('DOMContentLoaded',()=>{
-  const savedId=localStorage.getItem('hm2l_athleteId');
-  const savedKey=localStorage.getItem('hm2l_apiKey');
-  if(savedId&&savedKey){document.getElementById('codeGate').style.display='none';document.getElementById('athleteId').value=savedId;document.getElementById('apiKey').value=savedKey;loadDashboard();}
-});
 </script>
 </body>
 </html>
