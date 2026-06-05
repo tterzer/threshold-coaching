@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#999;--tc3:#555;--border:#2a2a2a;--green:#639922;--blue:#378ADD;--red:#E24B4A;--amber:#BA7517;}
+:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#999;--tc3:#555;--border:#2a2a2a;}
 body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6}
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
@@ -55,7 +55,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .zone-rows{display:flex;flex-direction:column;gap:10px;padding-top:0.25rem}
 .zone-row{display:grid;grid-template-columns:32px 1fr 36px;gap:10px;align-items:center}
 .zone-name{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em}
-.zone-bg{background:var(--bc3);height:6px;border-radius:0}
+.zone-bg{background:var(--bc3);height:6px}
 .zone-fill{height:100%}
 .zone-pct{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:right}
 .activities-box{background:var(--bc2);padding:1.5rem}
@@ -86,7 +86,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   <div class="connect-box" id="connectBox">
     <div class="connect-label">Athlete dashboard</div>
     <div class="connect-title">Connect your data</div>
-    <p class="connect-desc">Enter your <a href="https://intervals.icu" target="_blank">intervals.icu</a> credentials to load your dashboard. Find your Athlete ID and API key under <strong style="color:var(--tc)">Settings → API</strong>.</p>
+    <p class="connect-desc">Enter your <a href="https://intervals.icu" target="_blank">intervals.icu</a> credentials. Find your Athlete ID and API key under <strong style="color:var(--tc)">Settings → API</strong>.</p>
     <div class="field"><label>Athlete ID</label><input type="text" id="athleteId" placeholder="e.g. i12345678" autocomplete="off" /></div>
     <div class="field"><label>API key</label><input type="password" id="apiKey" placeholder="Your API key" autocomplete="off" /></div>
     <button class="btn" id="connectBtn" onclick="loadDashboard()">Load my dashboard</button>
@@ -129,73 +129,79 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   </div>
 </div>
 <script>
-let fitInst,loadInst;
-async function proxy(athleteId,apiKey,path,qs=''){
-  const params=new URLSearchParams({athleteId,apiKey,path});
-  if(qs)params.set('qs',qs);
-  const r=await fetch('/api/intervals?'+params.toString());
-  if(!r.ok)throw new Error(r.status);
+let fitInst, loadInst;
+
+async function apiCall(athleteId, apiKey, path, qs) {
+  const params = new URLSearchParams({ athleteId, apiKey, path });
+  if (qs) params.set('qs', qs);
+  const r = await fetch('/api/intervals?' + params.toString());
+  if (!r.ok) throw new Error(r.status);
   return r.json();
 }
-function fmtDist(m){return m?(m/1000).toFixed(1)+' km':'—';}
-function fmtTime(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
-function fmtDate(d){return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
-async function loadDashboard(){
-  const id=document.getElementById('athleteId').value.trim();
-  const key=document.getElementById('apiKey').value.trim();
-  if(!id||!key)return;
-  const btn=document.getElementById('connectBtn');
-  btn.disabled=true;btn.textContent='Connecting...';
-  document.getElementById('errorMsg').style.display='none';
-  try{
-    const today=new Date();
-    const oldest=new Date(today);oldest.setDate(today.getDate()-84);
-    const oldestStr=oldest.toISOString().split('T')[0];
-    const[athlete,activities]=await Promise.all([
-      proxy(id,key,''),
-      proxy(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times')
+
+function fmtDist(m) { return m ? (m/1000).toFixed(1)+' km' : '—'; }
+function fmtTime(s) { if (!s) return '—'; const h=Math.floor(s/3600),m=Math.floor((s%3600)/60); return h>0 ? h+'h '+m+'m' : m+'m'; }
+function fmtDate(d) { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+
+async function loadDashboard() {
+  const id = document.getElementById('athleteId').value.trim();
+  const key = document.getElementById('apiKey').value.trim();
+  if (!id || !key) return;
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true; btn.textContent = 'Connecting...';
+  document.getElementById('errorMsg').style.display = 'none';
+  try {
+    const today = new Date();
+    const oldest = new Date(today); oldest.setDate(today.getDate()-84);
+    const oldestStr = oldest.toISOString().split('T')[0];
+    const [athlete, activities] = await Promise.all([
+      apiCall(id, key, 'profile'),
+      apiCall(id, key, 'activities', 'oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times')
     ]);
-    document.getElementById('connectBox').style.display='none';
-    document.getElementById('dash').style.display='block';
-    const name=athlete.name||'Athlete';
-    document.getElementById('avatarEl').textContent=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    document.getElementById('nameEl').textContent=name;
-    document.getElementById('subEl').textContent=[athlete.city,athlete.country].filter(Boolean).join(', ')||'intervals.icu athlete';
-    const sorted=[...activities].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
-    const latest=sorted[0];
-    if(latest){
-      const ctl=Math.round(latest.icu_ctl||0),atl=Math.round(latest.icu_atl||0),tsb=ctl-atl;
-      document.getElementById('mCTL').textContent=ctl;
-      document.getElementById('mATL').textContent=atl;
-      const tsbEl=document.getElementById('mTSB');
-      tsbEl.textContent=(tsb>=0?'+':'')+tsb;
-      tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
+    document.getElementById('connectBox').style.display = 'none';
+    document.getElementById('dash').style.display = 'block';
+    const name = athlete.athlete.name || 'Athlete';
+    document.getElementById('avatarEl').textContent = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('nameEl').textContent = name;
+    document.getElementById('subEl').textContent = [athlete.athlete.city, athlete.athlete.country].filter(Boolean).join(', ') || 'intervals.icu athlete';
+    const sorted = [...activities].sort((a,b) => new Date(b.start_date_local)-new Date(a.start_date_local));
+    const latest = sorted[0];
+    if (latest) {
+      const ctl=Math.round(latest.icu_ctl||0), atl=Math.round(latest.icu_atl||0), tsb=ctl-atl;
+      document.getElementById('mCTL').textContent = ctl;
+      document.getElementById('mATL').textContent = atl;
+      const tsbEl = document.getElementById('mTSB');
+      tsbEl.textContent = (tsb>=0?'+':'')+tsb;
+      tsbEl.className = 'metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
     }
-    const wkAgo=new Date();wkAgo.setDate(wkAgo.getDate()-7);
-    document.getElementById('mWeek').textContent=Math.round(sorted.filter(a=>new Date(a.start_date_local)>=wkAgo).reduce((s,a)=>s+(a.icu_training_load||0),0));
-    buildFit(sorted);buildLoad(sorted);buildZones(sorted);buildActs(sorted.slice(0,7));
-  }catch(e){
-    document.getElementById('errorMsg').style.display='block';
-    btn.disabled=false;btn.textContent='Load my dashboard';
+    const wkAgo = new Date(); wkAgo.setDate(wkAgo.getDate()-7);
+    document.getElementById('mWeek').textContent = Math.round(sorted.filter(a=>new Date(a.start_date_local)>=wkAgo).reduce((s,a)=>s+(a.icu_training_load||0),0));
+    buildFit(sorted); buildLoad(sorted); buildZones(sorted); buildActs(sorted.slice(0,7));
+  } catch(e) {
+    document.getElementById('errorMsg').style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Load my dashboard';
   }
 }
-function buildFit(acts){
-  const weeks=Array.from({length:12},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(11-i)*7);return d;});
-  const get=(d,key)=>{const a=acts.filter(x=>new Date(x.start_date_local)<=d).sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))[0];return a?Math.round(a[key]||0):null;};
-  if(fitInst)fitInst.destroy();
-  fitInst=new Chart(document.getElementById('fitChart'),{type:'line',data:{labels:weeks.map(d=>fmtDate(d)),datasets:[
+
+function buildFit(acts) {
+  const weeks = Array.from({length:12},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(11-i)*7);return d;});
+  const get = (d,key) => { const a=acts.filter(x=>new Date(x.start_date_local)<=d).sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))[0]; return a?Math.round(a[key]||0):null; };
+  if (fitInst) fitInst.destroy();
+  fitInst = new Chart(document.getElementById('fitChart'),{type:'line',data:{labels:weeks.map(d=>fmtDate(d)),datasets:[
     {label:'CTL',data:weeks.map(d=>get(d,'icu_ctl')),borderColor:'#378ADD',backgroundColor:'transparent',tension:0.3,pointRadius:2,borderWidth:2},
     {label:'ATL',data:weeks.map(d=>get(d,'icu_atl')),borderColor:'#E24B4A',backgroundColor:'transparent',tension:0.3,pointRadius:2,borderWidth:2},
     {label:'TSB',data:weeks.map(d=>{const a=get(d,'icu_ctl'),b=get(d,'icu_atl');return a!=null?a-b:null;}),borderColor:'#c8f036',backgroundColor:'transparent',borderDash:[4,3],tension:0.3,pointRadius:2,borderWidth:1.5}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:10},maxRotation:45,autoSkip:false},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
 }
-function buildLoad(acts){
-  const weeks=Array.from({length:8},(_,i)=>{const end=new Date();end.setDate(end.getDate()-i*7);const start=new Date(end);start.setDate(end.getDate()-7);return{label:fmtDate(end),start,end};}).reverse();
-  const loads=weeks.map(w=>Math.round(acts.filter(a=>{const d=new Date(a.start_date_local);return d>=w.start&&d<=w.end;}).reduce((s,a)=>s+(a.icu_training_load||0),0)));
-  if(loadInst)loadInst.destroy();
-  loadInst=new Chart(document.getElementById('loadChart'),{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[{data:loads,backgroundColor:'#1a1a1a',borderColor:'#c8f036',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:10},maxRotation:45},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
+
+function buildLoad(acts) {
+  const weeks = Array.from({length:8},(_,i)=>{const end=new Date();end.setDate(end.getDate()-i*7);const start=new Date(end);start.setDate(end.getDate()-7);return{label:fmtDate(end),start,end};}).reverse();
+  const loads = weeks.map(w=>Math.round(acts.filter(a=>{const d=new Date(a.start_date_local);return d>=w.start&&d<=w.end;}).reduce((s,a)=>s+(a.icu_training_load||0),0)));
+  if (loadInst) loadInst.destroy();
+  loadInst = new Chart(document.getElementById('loadChart'),{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[{data:loads,backgroundColor:'#1a1a1a',borderColor:'#c8f036',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:10},maxRotation:45},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
 }
-function buildZones(acts){
+
+function buildZones(acts) {
   const totals=[0,0,0,0,0,0,0];
   acts.forEach(a=>{if(Array.isArray(a.icu_zone_times))a.icu_zone_times.forEach((t,i)=>{if(i<7)totals[i]+=(t||0);});});
   const total=totals.reduce((s,v)=>s+v,0);
@@ -204,10 +210,16 @@ function buildZones(acts){
   if(!total){el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555">No zone data in range</div>';return;}
   el.innerHTML=totals.map((t,i)=>{const pct=Math.round((t/total)*100);return`<div class="zone-row"><span class="zone-name">Z${i+1}</span><div class="zone-bg"><div class="zone-fill" style="width:${pct}%;background:${colors[i]}"></div></div><span class="zone-pct">${pct}%</span></div>`;}).join('');
 }
-function buildActs(acts){
+
+function buildActs(acts) {
   const el=document.getElementById('actList');
   if(!acts.length){el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:#555">No activities found</div>';return;}
-  el.innerHTML=acts.map(a=>{const t=(a.type||'').toLowerCase();const cls=t.includes('ride')||t.includes('cycl')?'ride':t.includes('run')?'run':t.includes('swim')?'swim':'';const label=t.includes('ride')||t.includes('cycl')?'Ride':t.includes('run')?'Run':t.includes('swim')?'Swim':a.type||'Workout';return`<div class="act-row"><div class="act-left"><span class="act-badge ${cls}">${label}</span><div><div class="act-name">${a.name||'Activity'}</div><div class="act-date">${fmtDate(a.start_date_local)}</div></div></div><div class="act-stats"><div class="act-stat"><div class="act-stat-val">${fmtDist(a.distance)}</div><div class="act-stat-label">Dist</div></div><div class="act-stat"><div class="act-stat-val">${fmtTime(a.moving_time)}</div><div class="act-stat-label">Time</div></div><div class="act-stat"><div class="act-stat-val">${Math.round(a.icu_training_load||0)||'—'}</div><div class="act-stat-label">Load</div></div></div></div>`;}).join('');
+  el.innerHTML=acts.map(a=>{
+    const t=(a.type||'').toLowerCase();
+    const cls=t.includes('ride')||t.includes('cycl')?'ride':t.includes('run')?'run':t.includes('swim')?'swim':'';
+    const label=t.includes('ride')||t.includes('cycl')?'Ride':t.includes('run')?'Run':t.includes('swim')?'Swim':a.type||'Workout';
+    return`<div class="act-row"><div class="act-left"><span class="act-badge ${cls}">${label}</span><div><div class="act-name">${a.name||'Activity'}</div><div class="act-date">${fmtDate(a.start_date_local)}</div></div></div><div class="act-stats"><div class="act-stat"><div class="act-stat-val">${fmtDist(a.distance)}</div><div class="act-stat-label">Dist</div></div><div class="act-stat"><div class="act-stat-val">${fmtTime(a.moving_time)}</div><div class="act-stat-label">Time</div></div><div class="act-stat"><div class="act-stat-val">${Math.round(a.icu_training_load||0)||'—'}</div><div class="act-stat-label">Load</div></div></div></div>`;
+  }).join('');
 }
 </script>
 </body>
