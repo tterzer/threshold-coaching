@@ -307,9 +307,10 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 
 let curId='',curKey='';
-async function apiCall(athleteId,apiKey,path,qs){
+async function apiCall(athleteId,apiKey,path,qs,base){
   const params=new URLSearchParams({athleteId,apiKey,path});
   if(qs)params.set('qs',qs);
+  if(base)params.set('base',base);
   const r=await fetch('/api/intervals?'+params.toString());
   if(!r.ok)throw new Error(r.status);
   return r.json();
@@ -365,10 +366,16 @@ async function loadDashboard(){
       tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
     }
     buildRamp(sorted);
-    const wkAgo=new Date();wkAgo.setDate(wkAgo.getDate()-7);
-    const wk2Ago=new Date();wk2Ago.setDate(wk2Ago.getDate()-14);
-    const thisWeekLoad=Math.round(sorted.filter(a=>new Date(a.start_date_local)>=wkAgo).reduce((s,a)=>s+(a.icu_training_load||0),0));
-    const lastWeekLoad=Math.round(sorted.filter(a=>{const d=new Date(a.start_date_local);return d>=wk2Ago&&d<wkAgo;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
+    // "This week" = Monday of the current calendar week through today (inclusive).
+    const now=new Date();
+    const monday=new Date(now);
+    const dow=monday.getDay(); // 0=Sun..6=Sat
+    const diffToMonday=(dow===0?6:dow-1);
+    monday.setDate(monday.getDate()-diffToMonday);
+    monday.setHours(0,0,0,0);
+    const lastMonday=new Date(monday);lastMonday.setDate(monday.getDate()-7);
+    const thisWeekLoad=Math.round(sorted.filter(a=>{const d=new Date(a.start_date_local);return d>=monday&&d<=now;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
+    const lastWeekLoad=Math.round(sorted.filter(a=>{const d=new Date(a.start_date_local);return d>=lastMonday&&d<monday;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
     document.getElementById('mWeek').textContent=thisWeekLoad;
     document.getElementById('mLastWeek').textContent=lastWeekLoad;
     buildPMC(sorted);
@@ -724,7 +731,7 @@ async function fetchStream(activityId,type){
   const cacheKey=activityId+':'+type;
   if(zoneStreamCache[cacheKey])return zoneStreamCache[cacheKey];
   try{
-    const data=await apiCall(curId,curKey,'activities/'+activityId+'/streams','types='+type);
+    const data=await apiCall(curId,curKey,activityId+'/streams','types='+type,'activity');
     let arr=null;
     if(Array.isArray(data)){
       const match=data.find(d=>d.type===type)||data[0];
