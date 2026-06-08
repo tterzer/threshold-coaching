@@ -194,6 +194,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
           <div class="leg-item"><span class="leg-sw" style="background:rgba(255,255,255,0.03)"></span>Grey zone</div>
           <div class="leg-item"><span class="leg-sw" style="background:rgba(226,75,74,0.14)"></span>High risk (TSB &lt; -20)</div>
         </div>
+        <div class="sub-tabs" id="pmcRangeTabs">
+          <button class="sub-tab" data-days="42" onclick="setPmcRange(42)">6 weeks</button>
+          <button class="sub-tab active" data-days="90" onclick="setPmcRange(90)">3 months</button>
+          <button class="sub-tab" data-days="180" onclick="setPmcRange(180)">6 months</button>
+          <button class="sub-tab" data-days="365" onclick="setPmcRange(365)">1 year</button>
+        </div>
         <div style="position:relative;height:240px"><canvas id="pmcChart"></canvas></div>
       </div>
       <div class="chart-box">
@@ -338,7 +344,7 @@ async function loadDashboard(){
   if(errEl)errEl.style.display='none';
   try{
     const today=new Date();
-    const oldest=new Date(today);oldest.setDate(today.getDate()-90);
+    const oldest=new Date(today);oldest.setDate(today.getDate()-370);
     const oldestStr=oldest.toISOString().split('T')[0];
     const[athlete,activities]=await Promise.all([
       apiCall(id,key,'profile'),
@@ -383,7 +389,6 @@ async function loadDashboard(){
     buildLoad(sorted);
     buildZones(sorted);
     buildActs(sorted.slice(0,7));
-    loadZoneSettings();
     initZoneCalc();
     loadZoneDistribution();
     renderCurve();
@@ -411,8 +416,39 @@ function buildRamp(sorted){
   pillEl.className='risk-pill '+level;
 }
 
-function buildPMC(acts){
-  const days=Array.from({length:42},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(41-i));return d;});
+// Monday 00:00 of the calendar week containing `d`.
+function mondayOf(d){
+  const m=new Date(d);
+  const dow=m.getDay(); // 0=Sun..6=Sat
+  m.setDate(m.getDate()-(dow===0?6:dow-1));
+  m.setHours(0,0,0,0);
+  return m;
+}
+// Returns the last `n` calendar weeks (Mon-Sun), oldest first. The most recent
+// week runs from its Monday through "now" (it may be a partial week).
+function calendarWeeks(n){
+  const now=new Date();
+  const curMonday=mondayOf(now);
+  const out=[];
+  for(let i=n-1;i>=0;i--){
+    const start=new Date(curMonday);start.setDate(curMonday.getDate()-i*7);
+    const end=new Date(start);end.setDate(start.getDate()+7);
+    const cappedEnd=end>now?now:end;
+    out.push({label:fmtDate(start),start,end:cappedEnd});
+  }
+  return out;
+}
+
+function setPmcRange(days){
+  document.querySelectorAll('#pmcRangeTabs .sub-tab').forEach(t=>t.classList.toggle('active',Number(t.dataset.days)===days));
+  buildPMC(allActivities,days);
+}
+
+let pmcRangeDays=90;
+function buildPMC(acts,rangeDays){
+  if(rangeDays)pmcRangeDays=rangeDays;
+  const n=pmcRangeDays;
+  const days=Array.from({length:n},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(n-1-i));return d;});
   const closest=(d)=>{
     const dayStr=d.toISOString().split('T')[0];
     const exact=acts.find(x=>(x.start_date_local||'').slice(0,10)===dayStr);
@@ -456,7 +492,7 @@ function buildPMC(acts){
 }
 
 function buildSportLoad(acts){
-  const weeks=Array.from({length:8},(_,i)=>{const end=new Date();end.setDate(end.getDate()-i*7);const start=new Date(end);start.setDate(end.getDate()-7);return{label:fmtDate(end),start,end};}).reverse();
+  const weeks=calendarWeeks(8);
   const sportColors={cycling:'#378ADD',running:'#639922',swimming:'#1D9E75',other:'#7F77DD'};
   const sportLabels={cycling:'Cycling',running:'Running',swimming:'Swimming',other:'Other'};
   const sports=['cycling','running','swimming','other'];
@@ -475,7 +511,7 @@ function buildSportLoad(acts){
 }
 
 function buildLoad(acts){
-  const weeks=Array.from({length:8},(_,i)=>{const end=new Date();end.setDate(end.getDate()-i*7);const start=new Date(end);start.setDate(end.getDate()-7);return{label:fmtDate(end),start,end};}).reverse();
+  const weeks=calendarWeeks(8);
   const loads=weeks.map(w=>Math.round(acts.filter(a=>{const d=new Date(a.start_date_local);return d>=w.start&&d<=w.end;}).reduce((s,a)=>s+(a.icu_training_load||0),0)));
   if(loadInst)loadInst.destroy();
   loadInst=new Chart(document.getElementById('loadChart'),{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[{data:loads,backgroundColor:'#1a1a1a',borderColor:'#c8f036',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:10},maxRotation:45},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
@@ -534,9 +570,9 @@ let currentSport='cycling';
 const ZONE_SETTINGS_KEY='tc_zone_settings';
 function saveZoneSettings(){
   const data={
-    cycling:{ftp:zs.cycling.ftp,lthr:zs.cycling.lthr,max_hr:zs.cycling.max_hr},
-    running:{threshold_pace:zs.running.threshold_pace,lthr:zs.running.lthr,max_hr:zs.running.max_hr},
-    swimming:{css:zs.swimming.css,css_unit:zs.swimming.css_unit,lthr:zs.swimming.lthr,max_hr:zs.swimming.max_hr},
+    cycling:{ftp:zs.cycling.ftp,lthr:zs.cycling.lthr,max_hr:zs.cycling.max_hr,overrides:zs.cycling.overrides},
+    running:{threshold_pace:zs.running.threshold_pace,lthr:zs.running.lthr,max_hr:zs.running.max_hr,overrides:zs.running.overrides},
+    swimming:{css:zs.swimming.css,css_unit:zs.swimming.css_unit,lthr:zs.swimming.lthr,max_hr:zs.swimming.max_hr,overrides:zs.swimming.overrides},
   };
   try{localStorage.setItem(ZONE_SETTINGS_KEY,JSON.stringify(data));}catch(e){}
 }
@@ -546,10 +582,19 @@ function loadZoneSettings(){
     if(!raw)return;
     const data=JSON.parse(raw);
     ['cycling','running','swimming'].forEach(sport=>{
-      if(data[sport])Object.assign(zs[sport],data[sport]);
+      if(!data[sport])return;
+      const{overrides,...rest}=data[sport];
+      Object.assign(zs[sport],rest);
+      if(overrides){
+        Object.keys(overrides).forEach(k=>{
+          zs[sport].overrides[k]=overrides[k]||{};
+        });
+      }
     });
   }catch(e){}
 }
+// Restore persisted thresholds/overrides immediately so nothing renders with defaults first.
+loadZoneSettings();
 
 function parsePace(str){const p=str.split(':');return p.length===2?parseInt(p[0])*60+parseInt(p[1]):360;}
 function secsToMMSS(s){s=Math.round(s);const m=Math.floor(s/60),sec=s%60;return m+':'+(sec<10?'0':'')+sec;}
@@ -578,13 +623,13 @@ function renderSport(sport){
     inputs=`<div class="threshold-row">
       <div class="zc-field"><label class="zc-label">FTP (watts)</label><input class="zc-input" type="number" value="${s.ftp}" min="50" max="700" step="1" oninput="zs.cycling.ftp=+this.value;zs.cycling.overrides={power:{},hr:{}};saveZoneSettings();renderZoneTable('cycling')" /></div>
       <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="zs.cycling.lthr=+this.value;zs.cycling.overrides.hr={};saveZoneSettings();renderZoneTable('cycling')" /></div>
-      <button class="reset-btn" onclick="zs.cycling.overrides={power:{},hr:{}};renderZoneTable('cycling')">Reset</button>
+      <button class="reset-btn" onclick="zs.cycling.overrides={power:{},hr:{}};saveZoneSettings();renderZoneTable('cycling')">Reset</button>
     </div>`;
   } else if(sport==='running'){
     inputs=`<div class="threshold-row">
       <div class="zc-field"><label class="zc-label">Threshold pace (min/mile)</label><input class="zc-input" type="text" value="${s.threshold_pace}" placeholder="6:00" oninput="zs.running.threshold_pace=this.value;zs.running.overrides.pace={};saveZoneSettings();renderZoneTable('running')" /></div>
       <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="zs.running.lthr=+this.value;zs.running.overrides.hr={};saveZoneSettings();renderZoneTable('running')" /></div>
-      <button class="reset-btn" onclick="zs.running.overrides={pace:{},hr:{}};renderZoneTable('running')">Reset</button>
+      <button class="reset-btn" onclick="zs.running.overrides={pace:{},hr:{}};saveZoneSettings();renderZoneTable('running')">Reset</button>
     </div>`;
   } else if(sport==='swimming'){
     inputs=`<div class="threshold-row">
@@ -593,7 +638,7 @@ function renderSport(sport){
         <option value="100m" ${s.css_unit==='100m'?'selected':''}>per 100m</option>
         <option value="100yd" ${s.css_unit==='100yd'?'selected':''}>per 100yd</option>
       </select></div>
-      <button class="reset-btn" onclick="zs.swimming.overrides={pace:{},hr:{}};renderZoneTable('swimming')">Reset</button>
+      <button class="reset-btn" onclick="zs.swimming.overrides={pace:{},hr:{}};saveZoneSettings();renderZoneTable('swimming')">Reset</button>
     </div>`;
   }
   const subA=s.sub==='power'||s.sub==='pace';
@@ -647,6 +692,7 @@ function handleOv(sport,ovKey,idx,side,val,inputEl){
   if(!zs[sport].overrides[ovKey][idx])zs[sport].overrides[ovKey][idx]=['—','—'];
   zs[sport].overrides[ovKey][idx][side==='lo'?0:1]=val;
   inputEl.className='editable ov';
+  saveZoneSettings();
 }
 
 /* ---------- Zone distribution from stream data, mapped to custom zones ---------- */
