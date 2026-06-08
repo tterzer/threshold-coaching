@@ -145,22 +145,28 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 </nav>
 <div class="page">
 
-  <div class="gate-box" id="codeGate">
+  <div class="gate-box" id="loginGate">
     <div class="gate-label">Athlete portal</div>
-    <div class="gate-title">Enter access code</div>
-    <p class="gate-desc">This portal is for HM2L Racing coaching athletes only. Enter the access code provided by your coach to continue.</p>
-    <div class="field"><label>Access code</label><input type="password" id="accessCode" placeholder="••••••••" autocomplete="off" onkeydown="if(event.key==='Enter')checkCode()" /></div>
-    <button class="btn" onclick="checkCode()">Continue</button>
-    <div class="error-msg" id="codeError">Incorrect access code. Contact your coach if you need help.</div>
+    <div class="gate-title" id="authTitle">Sign in</div>
+    <p class="gate-desc">Sign in to your HM2L Racing athlete account to view your dashboard.</p>
+    <div class="field"><label>Email</label><input type="email" id="authEmail" placeholder="you@example.com" autocomplete="username" onkeydown="if(event.key==='Enter')submitAuth()" /></div>
+    <div class="field" id="authNameField" style="display:none"><label>Name</label><input type="text" id="authName" placeholder="Your full name" autocomplete="name" onkeydown="if(event.key==='Enter')submitAuth()" /></div>
+    <div class="field"><label>Password</label><input type="password" id="authPassword" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()" /></div>
+    <button class="btn" id="authBtn" onclick="submitAuth()">Sign in</button>
+    <p class="gate-desc" style="margin-top:0.75rem">
+      <span id="authToggleLabel">Don't have an account?</span>
+      <a href="javascript:void(0)" onclick="toggleAuthMode()" id="authToggleLink">Create one</a>
+    </p>
+    <div class="error-msg" id="authError">Something went wrong.</div>
   </div>
 
   <div class="gate-box" id="connectGate" style="display:none">
     <div class="gate-label">Athlete portal</div>
     <div class="gate-title">Connect your data</div>
-    <p class="gate-desc">Enter your <a href="https://intervals.icu" target="_blank">intervals.icu</a> credentials to load your dashboard. Find your Athlete ID and API key under <strong style="color:var(--tc)">Settings → API</strong>.</p>
+    <p class="gate-desc">Enter your <a href="https://intervals.icu" target="_blank">intervals.icu</a> credentials to load your dashboard. Find your Athlete ID and API key under <strong style="color:var(--tc)">Settings → API</strong>. This is saved to your HM2L Racing profile so you only need to do this once.</p>
     <div class="field"><label>Athlete ID</label><input type="text" id="athleteId" placeholder="e.g. i12345678" autocomplete="off" /></div>
     <div class="field"><label>API key</label><input type="password" id="apiKey" placeholder="Your API key" autocomplete="off" /></div>
-    <button class="btn" id="connectBtn" onclick="loadDashboard()">Load my dashboard</button>
+    <button class="btn" id="connectBtn" onclick="saveProfileAndLoad()">Save &amp; load my dashboard</button>
     <div class="error-msg" id="connectError">Could not connect — check your athlete ID and API key.</div>
   </div>
 
@@ -274,18 +280,122 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 </div>
 
 <script>
-const ACCESS_CODE='WCQ2026';
 let pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=true;
 let allActivities=[];
 let zoneStreamCache={};
+let currentAthlete=null;
+let authMode='login'; // 'login' | 'register'
 
-function checkCode(){
-  const val=document.getElementById('accessCode').value.trim();
-  if(val===ACCESS_CODE){
-    document.getElementById('codeGate').style.display='none';
+function toggleAuthMode(){
+  authMode=(authMode==='login')?'register':'login';
+  const isRegister=authMode==='register';
+  document.getElementById('authTitle').textContent=isRegister?'Create your account':'Sign in';
+  document.getElementById('authNameField').style.display=isRegister?'block':'none';
+  document.getElementById('authBtn').textContent=isRegister?'Create account':'Sign in';
+  document.getElementById('authToggleLabel').textContent=isRegister?'Already have an account?':"Don't have an account?";
+  document.getElementById('authToggleLink').textContent=isRegister?'Sign in':'Create one';
+  document.getElementById('authError').style.display='none';
+}
+
+async function submitAuth(){
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPassword').value;
+  const name=document.getElementById('authName').value.trim();
+  const errEl=document.getElementById('authError');
+  errEl.style.display='none';
+  if(!email||!password||(authMode==='register'&&!name)){
+    errEl.textContent='Please fill in all fields.';
+    errEl.style.display='block';
+    return;
+  }
+  const btn=document.getElementById('authBtn');
+  btn.disabled=true;
+  const origText=btn.textContent;
+  btn.textContent=(authMode==='register')?'Creating account...':'Signing in...';
+  try{
+    const action=(authMode==='register')?'register':'login';
+    const payload=(authMode==='register')?{email,password,name}:{email,password};
+    const r=await fetch('/api/auth?action='+action,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Request failed');
+    setAthlete(data.athlete);
+    enterPortal();
+  }catch(err){
+    errEl.textContent=err.message||'Something went wrong.';
+    errEl.style.display='block';
+  }finally{
+    btn.disabled=false;
+    btn.textContent=origText;
+  }
+}
+
+function setAthlete(athlete){
+  currentAthlete=athlete;
+  localStorage.setItem('hm2l_athlete',JSON.stringify(athlete));
+}
+
+function getStoredAthlete(){
+  try{
+    const raw=localStorage.getItem('hm2l_athlete');
+    if(!raw)return null;
+    return JSON.parse(raw);
+  }catch{return null;}
+}
+
+function logout(){
+  localStorage.removeItem('hm2l_athlete');
+  currentAthlete=null;
+  location.reload();
+}
+
+// After login, decide whether we still need intervals.icu credentials, or can
+// go straight to the dashboard.
+function enterPortal(){
+  document.getElementById('loginGate').style.display='none';
+  if(currentAthlete&&currentAthlete.intervals_athlete_id&&currentAthlete.intervals_api_key){
+    document.getElementById('connectGate').style.display='none';
+    loadDashboard();
+  }else{
+    document.getElementById('athleteId').value=currentAthlete?.intervals_athlete_id||'';
+    document.getElementById('apiKey').value=currentAthlete?.intervals_api_key||'';
     document.getElementById('connectGate').style.display='block';
-  } else {
-    document.getElementById('codeError').style.display='block';
+  }
+}
+
+async function saveProfileAndLoad(){
+  const id=document.getElementById('athleteId').value.trim();
+  const key=document.getElementById('apiKey').value.trim();
+  const errEl=document.getElementById('connectError');
+  errEl.style.display='none';
+  if(!id||!key){
+    errEl.textContent='Enter your athlete ID and API key.';
+    errEl.style.display='block';
+    return;
+  }
+  if(!currentAthlete){return;}
+  const btn=document.getElementById('connectBtn');
+  btn.disabled=true;
+  btn.textContent='Saving...';
+  try{
+    const r=await fetch('/api/auth?action=update_profile',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({athlete_id:currentAthlete.id,intervals_athlete_id:id,intervals_api_key:key})
+    });
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Could not save your profile');
+    setAthlete(data.athlete);
+    document.getElementById('connectGate').style.display='none';
+    loadDashboard();
+  }catch(err){
+    errEl.textContent=err.message||'Could not connect — check your athlete ID and API key.';
+    errEl.style.display='block';
+    btn.disabled=false;
+    btn.textContent='Save & load my dashboard';
   }
 }
 
@@ -301,14 +411,11 @@ function fmtDist(m){
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
-  const sid=localStorage.getItem('hm2l_athlete_id');
-  const skey=localStorage.getItem('hm2l_api_key');
-  if(sid)document.getElementById('athleteId').value=sid;
-  if(skey)document.getElementById('apiKey').value=skey;
-  if(sid&&skey){
-    document.getElementById('codeGate').style.display='none';
-    document.getElementById('connectGate').style.display='none';
-    loadDashboard();
+  const stored=getStoredAthlete();
+  if(stored&&stored.id){
+    currentAthlete=stored;
+    document.getElementById('loginGate').style.display='none';
+    enterPortal();
   }
 });
 
@@ -373,9 +480,12 @@ function computeFitness(acts,days){
 }
 
 async function loadDashboard(){
-  const id=document.getElementById('athleteId').value.trim();
-  const key=document.getElementById('apiKey').value.trim();
-  if(!id||!key)return;
+  const id=(currentAthlete&&currentAthlete.intervals_athlete_id)||document.getElementById('athleteId').value.trim();
+  const key=(currentAthlete&&currentAthlete.intervals_api_key)||document.getElementById('apiKey').value.trim();
+  if(!id||!key){
+    document.getElementById('connectGate').style.display='block';
+    return;
+  }
   curId=id;curKey=key;
   const btn=document.getElementById('connectBtn');
   if(btn){btn.disabled=true;btn.textContent='Connecting...';}
@@ -394,9 +504,7 @@ async function loadDashboard(){
     ]);
     document.getElementById('connectGate').style.display='none';
     document.getElementById('dash').style.display='block';
-    localStorage.setItem('hm2l_athlete_id',id);
-    localStorage.setItem('hm2l_api_key',key);
-    const name=athlete.athlete?.name||athlete.name||'Athlete';
+    const name=(currentAthlete&&currentAthlete.name)||athlete.athlete?.name||athlete.name||'Athlete';
     document.getElementById('avatarEl').textContent=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('nameEl').textContent=name;
     const a2=athlete.athlete||athlete;

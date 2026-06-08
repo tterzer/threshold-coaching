@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HM2L Racing — Coach Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#999;--tc3:#555;--border:#2a2a2a;}
+body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6}
+a{color:var(--acc);text-decoration:none}
+nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
+.nav-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo img{height:40px;width:auto;display:block}
+.nav-back{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase}
+.nav-back:hover{color:var(--tc2)}
+.page{max-width:1400px;margin:0 auto;padding:2.5rem 2rem}
+.gate-box{background:var(--bc2);border:1px solid var(--border);padding:2.5rem;max-width:420px;margin:5rem auto}
+.gate-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
+.gate-label::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
+.gate-title{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:700;text-transform:uppercase;margin-bottom:0.75rem}
+.gate-desc{font-size:13px;color:var(--tc2);line-height:1.7;margin-bottom:2rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.field input,.field textarea,.field select{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--acc)}
+.btn{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:12px 28px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;width:100%;margin-top:0.5rem}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-sm{width:auto;padding:8px 16px;font-size:11px}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--tc2)}
+.btn-ghost:hover{border-color:var(--acc);color:var(--acc)}
+.error-msg{font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;margin-top:0.75rem;display:none}
+.section-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
+.section-label::before{content:'';display:block;width:24px;height:1px;background:var(--acc)}
+.portal{display:none}
+.layout{display:grid;grid-template-columns:280px 1fr;gap:1px;background:var(--border)}
+.panel{background:var(--bc2);padding:1.5rem}
+.athlete-list{display:flex;flex-direction:column;gap:6px;max-height:80vh;overflow:auto}
+.athlete-item{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border:1px solid transparent;transition:all 0.15s}
+.athlete-item:hover{background:var(--bc3)}
+.athlete-item.active{border-color:var(--acc);background:var(--bc3)}
+.ath-avatar{width:32px;height:32px;border-radius:50%;background:var(--bc3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0}
+.ath-name{font-size:13px;color:var(--tc)}
+.ath-email{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)}
+.empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#555}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);margin-bottom:1px}
+.metric{background:var(--bc2);padding:1.2rem}
+.metric-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.metric-val{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:700;line-height:1;color:var(--acc)}
+.metric-val.positive{color:#639922}
+.metric-val.negative{color:#E24B4A}
+.zone-rows{display:flex;flex-direction:column;gap:8px}
+.zone-row-d{display:grid;grid-template-columns:32px 1fr 36px;gap:10px;align-items:center}
+.zone-name-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em}
+.zone-bg-d{background:var(--bc3);height:6px}
+.zone-fill-d{height:100%}
+.zone-pct-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:right}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 18px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
+.cal-head{background:var(--bc3);padding:8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
+.cal-cell{background:var(--bc2);min-height:96px;padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.cal-cell:hover{background:var(--bc3)}
+.cal-cell.other-month{opacity:0.35}
+.cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
+.cal-wo{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-wo.completed{border-left-color:#639922;opacity:0.6;text-decoration:line-through}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.cal-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase}
+.chat-box{display:flex;flex-direction:column;height:560px}
+.chat-msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:6px;margin-bottom:1rem}
+.chat-msg{font-size:13px;padding:10px 14px;max-width:85%;line-height:1.6}
+.chat-msg.user{align-self:flex-end;background:var(--bc3);color:var(--tc)}
+.chat-msg.assistant{align-self:flex-start;background:rgba(200,240,54,0.06);border-left:2px solid var(--acc);color:var(--tc);white-space:pre-wrap}
+.chat-msg.assistant.loading{color:var(--tc3);font-family:'DM Mono',monospace;font-size:11px}
+.chat-input-row{display:flex;gap:8px}
+.chat-input-row textarea{flex:1;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:none;height:52px}
+.chat-input-row textarea:focus{border-color:var(--acc)}
+.chat-input-row button{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:0 22px;cursor:pointer;border:none;letter-spacing:0.04em}
+.chat-input-row button:disabled{opacity:0.5;cursor:not-allowed}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:50;align-items:center;justify-content:center}
+.modal-bg.show{display:flex}
+.modal{background:var(--bc2);border:1px solid var(--border);padding:2rem;max-width:440px;width:92%}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase;margin-bottom:1.2rem}
+.modal-actions{display:flex;gap:10px;margin-top:0.5rem}
+.modal-actions .btn{margin-top:0}
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .metrics{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/"><img src="/hm2l_logo_transparent.png" alt="HM2L Racing" /></a>
+    <a class="nav-back" href="/">← Back to site</a>
+  </div>
+</nav>
+<div class="page">
+
+  <div class="gate-box" id="passGate">
+    <div class="gate-label">Coach portal</div>
+    <div class="gate-title">Coach access</div>
+    <p class="gate-desc">Enter the coach password to view your roster, plan workouts, and chat with the AI training assistant.</p>
+    <div class="field"><label>Password</label><input type="password" id="coachPass" placeholder="••••••••" autocomplete="off" onkeydown="if(event.key==='Enter')checkCoachPass()" /></div>
+    <button class="btn" onclick="checkCoachPass()">Enter</button>
+    <div class="error-msg" id="passError">Incorrect password.</div>
+  </div>
+
+  <div class="portal" id="portal">
+    <div class="layout">
+      <div class="panel">
+        <div class="section-label">Athletes</div>
+        <div class="athlete-list" id="athleteList"><div class="empty-note">Loading athletes...</div></div>
+      </div>
+      <div class="panel" id="mainPanel">
+        <div id="noAthlete"><div class="empty-note">Select an athlete to view their data, plan workouts, or chat with the AI assistant.</div></div>
+        <div id="athleteMain" style="display:none">
+          <div class="athlete-bar" style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+            <div class="ath-avatar" id="mainAvatar" style="width:48px;height:48px;font-size:18px">AT</div>
+            <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;text-transform:uppercase" id="mainName">Athlete</div><div class="ath-email" id="mainEmail"></div></div>
+          </div>
+          <div class="tabs">
+            <button class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+            <button class="tab" data-tab="calendar" onclick="switchTab('calendar')">Calendar</button>
+            <button class="tab" data-tab="chat" onclick="switchTab('chat')">AI Coach Chat</button>
+          </div>
+
+          <div class="tab-panel active" id="tab-overview">
+            <div class="metrics">
+              <div class="metric"><div class="metric-label">Fitness (CTL)</div><div class="metric-val" id="ovCTL">—</div></div>
+              <div class="metric"><div class="metric-label">Fatigue (ATL)</div><div class="metric-val" id="ovATL">—</div></div>
+              <div class="metric"><div class="metric-label">Form (TSB)</div><div class="metric-val" id="ovTSB">—</div></div>
+            </div>
+            <div style="margin-top:1.5rem">
+              <div class="section-label">Zone distribution (last 28 days, cycling HR)</div>
+              <div class="zone-rows" id="ovZones"><div class="empty-note">Select an athlete with intervals.icu connected to view zone data.</div></div>
+            </div>
+            <div style="margin-top:1.5rem">
+              <div class="section-label">Recent activities</div>
+              <div id="ovActs"><div class="empty-note">—</div></div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-calendar">
+            <div class="cal-nav">
+              <button class="btn btn-sm btn-ghost" onclick="calShift(-1)">‹ Prev</button>
+              <div class="cal-title" id="calTitle">—</div>
+              <button class="btn btn-sm btn-ghost" onclick="calShift(1)">Next ›</button>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+            <p style="font-size:11px;color:var(--tc3);margin-top:1rem">Click any day to add or edit a planned workout.</p>
+          </div>
+
+          <div class="tab-panel" id="tab-chat">
+            <div class="chat-box">
+              <div class="chat-msgs" id="chatMsgs">
+                <div class="chat-msg assistant">Hi coach — ask me about this athlete's training. I can see their current CTL/ATL/TSB, recent activities, and zone distribution, and I can help write workout prescriptions.</div>
+              </div>
+              <div class="chat-input-row">
+                <textarea id="chatInput" placeholder="Ask the AI coach about this athlete..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+                <button onclick="sendChat()" id="chatSendBtn">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="woModal">
+  <div class="modal">
+    <div class="modal-title" id="woModalTitle">Plan a workout</div>
+    <div class="field"><label>Date</label><input type="date" id="woDate" /></div>
+    <div class="field"><label>Sport</label>
+      <select id="woSport">
+        <option value="cycling">Cycling</option>
+        <option value="running">Running</option>
+        <option value="swimming">Swimming</option>
+        <option value="strength">Strength</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label>Title</label><input type="text" id="woTitle" placeholder="e.g. Threshold intervals 4x8min" /></div>
+    <div class="field"><label>Description</label><textarea id="woDesc" rows="3" placeholder="Workout details / instructions for the athlete"></textarea></div>
+    <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Planned load</label><input type="number" id="woLoad" placeholder="e.g. 65" /></div>
+      <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Duration (min)</label><input type="number" id="woDuration" placeholder="e.g. 60" /></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.5rem">
+      <input type="checkbox" id="woCompleted" style="width:auto" /> Mark as completed
+    </label>
+    <div class="error-msg" id="woError">Could not save workout.</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="saveWorkout()">Save</button>
+      <button class="btn btn-ghost" onclick="closeWoModal()">Cancel</button>
+      <button class="btn btn-ghost" id="woDeleteBtn" style="display:none;color:#E24B4A" onclick="deleteWorkout()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const COACH_PASSWORD='COACH2026';
+let athletes=[];
+let selectedAthlete=null;
+let athleteData={}; // cache: { [id]: {ctl,atl,tsb,zones,acts} }
+let calMonth=new Date(); calMonth.setDate(1);
+let workoutsCache=[];
+let chatHistory=[];
+let editingWorkout=null;
+let pendingWoDate=null;
+
+function checkCoachPass(){
+  const val=document.getElementById('coachPass').value;
+  if(val===COACH_PASSWORD){
+    document.getElementById('passGate').style.display='none';
+    document.getElementById('portal').style.display='block';
+    sessionStorage.setItem('hm2l_coach_ok','1');
+    loadAthletes();
+  }else{
+    document.getElementById('passError').style.display='block';
+  }
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if(sessionStorage.getItem('hm2l_coach_ok')==='1'){
+    document.getElementById('passGate').style.display='none';
+    document.getElementById('portal').style.display='block';
+    loadAthletes();
+  }
+});
+
+async function intervalsCall(athleteId,apiKey,path,qs,base){
+  const params=new URLSearchParams({athleteId,apiKey,path});
+  if(qs)params.set('qs',qs);
+  if(base)params.set('base',base);
+  const r=await fetch('/api/intervals?'+params.toString());
+  if(!r.ok)throw new Error('intervals.icu request failed ('+r.status+')');
+  return r.json();
+}
+
+// --- Athlete roster ---
+// Coach reads the athletes table directly via a lightweight Supabase REST call
+// proxied through our own auth endpoint isn't available for listing, so we use
+// the public anon key with PostgREST directly (read-only, RLS should restrict
+// password_hash from anon role; we also strip it client-side as a safeguard).
+const SUPABASE_URL='https://jrgyfokygizsxtupbisg.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_LcoHaks3xpZW4Om8IOT5Ng_6nwMYxbe';
+
+async function loadAthletes(){
+  const listEl=document.getElementById('athleteList');
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/athletes?select=id,email,name,intervals_athlete_id,intervals_api_key&order=name.asc',{
+      headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}
+    });
+    if(!r.ok)throw new Error('Could not load athletes ('+r.status+')');
+    athletes=await r.json();
+    athletes.forEach(a=>delete a.password_hash);
+    renderAthleteList();
+  }catch(err){
+    listEl.innerHTML='<div class="empty-note">'+(err.message||'Could not load athletes')+'</div>';
+  }
+}
+
+function renderAthleteList(){
+  const listEl=document.getElementById('athleteList');
+  if(!athletes.length){listEl.innerHTML='<div class="empty-note">No athletes yet.</div>';return;}
+  listEl.innerHTML=athletes.map(a=>{
+    const initials=(a.name||a.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    const active=selectedAthlete&&selectedAthlete.id===a.id?'active':'';
+    return '<div class="athlete-item '+active+'" onclick="selectAthlete(\''+a.id+'\')">'
+      +'<div class="ath-avatar">'+initials+'</div>'
+      +'<div><div class="ath-name">'+(a.name||'Unnamed athlete')+'</div><div class="ath-email">'+(a.email||'')+'</div></div>'
+      +'</div>';
+  }).join('');
+}
+
+async function selectAthlete(id){
+  selectedAthlete=athletes.find(a=>String(a.id)===String(id));
+  if(!selectedAthlete)return;
+  renderAthleteList();
+  document.getElementById('noAthlete').style.display='none';
+  document.getElementById('athleteMain').style.display='block';
+  const initials=(selectedAthlete.name||selectedAthlete.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('mainAvatar').textContent=initials;
+  document.getElementById('mainName').textContent=selectedAthlete.name||'Unnamed athlete';
+  document.getElementById('mainEmail').textContent=selectedAthlete.email||'';
+  chatHistory=[];
+  document.getElementById('chatMsgs').innerHTML='<div class="chat-msg assistant">Hi coach — ask me about '+(selectedAthlete.name||'this athlete')+'\'s training. I can see their current CTL/ATL/TSB, recent activities, and zone distribution, and I can help write workout prescriptions.</div>';
+  switchTab('overview');
+  await Promise.all([loadAthleteOverview(), loadWorkouts()]);
+  renderCalendar();
+}
+
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
+}
+
+// --- Overview: PMC + zones from intervals.icu ---
+async function loadAthleteOverview(){
+  const a=selectedAthlete;
+  document.getElementById('ovCTL').textContent='—';
+  document.getElementById('ovATL').textContent='—';
+  document.getElementById('ovTSB').textContent='—';
+  document.getElementById('ovZones').innerHTML='<div class="empty-note">Loading...</div>';
+  document.getElementById('ovActs').innerHTML='<div class="empty-note">Loading...</div>';
+  if(!a.intervals_athlete_id||!a.intervals_api_key){
+    document.getElementById('ovZones').innerHTML='<div class="empty-note">This athlete has not connected intervals.icu yet.</div>';
+    document.getElementById('ovActs').innerHTML='<div class="empty-note">—</div>';
+    athleteData[a.id]=null;
+    return;
+  }
+  try{
+    const id=a.intervals_athlete_id, key=a.intervals_api_key;
+    const today=new Date();
+    const oldest=new Date(today);oldest.setDate(today.getDate()-35);
+    const oldestStr=oldest.toISOString().split('T')[0];
+    const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-185);
+    const fitOldestStr=fitOldest.toISOString().split('T')[0];
+    const[acts,fitActs]=await Promise.all([
+      intervalsCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times'),
+      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
+    ]);
+    const sorted=[...acts].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
+    const fit=computeFitnessSimple(fitActs);
+    const last=fit[fit.length-1]||{ctl:0,atl:0};
+    const ctl=Math.round(last.ctl), atl=Math.round(last.atl), tsb=ctl-atl;
+    document.getElementById('ovCTL').textContent=ctl;
+    document.getElementById('ovATL').textContent=atl;
+    const tsbEl=document.getElementById('ovTSB');
+    tsbEl.textContent=(tsb>=0?'+':'')+tsb;
+    tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
+
+    // Zone distribution from icu_zone_times (cycling, last 28 days) — simple aggregate
+    const zoneTotals=[0,0,0,0,0,0,0];
+    let zoneCount=0;
+    sorted.filter(act=>{
+      const t=(act.type||'').toLowerCase();
+      const d=new Date(act.start_date_local);
+      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-28);
+      return (t.includes('ride')||t.includes('cycl')||t.includes('bike'))&&d>=cutoff&&Array.isArray(act.icu_zone_times);
+    }).forEach(act=>{
+      act.icu_zone_times.forEach((z,i)=>{ if(i<7) zoneTotals[i]+=(z.secs||z.seconds||0); });
+      zoneCount++;
+    });
+    const zTotal=zoneTotals.reduce((s,v)=>s+v,0);
+    const zColors=['#378ADD','#1D9E75','#639922','#c8f036','#BA7517','#E24B4A','#9b3fd1'];
+    if(zTotal>0){
+      document.getElementById('ovZones').innerHTML=zoneTotals.map((v,i)=>{
+        const pct=zTotal?Math.round(v/zTotal*100):0;
+        return '<div class="zone-row-d"><div class="zone-name-d">Z'+(i+1)+'</div><div class="zone-bg-d"><div class="zone-fill-d" style="width:'+pct+'%;background:'+zColors[i]+'"></div></div><div class="zone-pct-d">'+pct+'%</div></div>';
+      }).join('');
+    }else{
+      document.getElementById('ovZones').innerHTML='<div class="empty-note">No cycling zone data in the last 28 days.</div>';
+    }
+
+    document.getElementById('ovActs').innerHTML=sorted.slice(0,6).map(act=>{
+      const d=new Date(act.start_date_local).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      return '<div class="act-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span>'+(act.name||act.type||'Activity')+'</span><span style="color:var(--tc3);font-family:\'DM Mono\',monospace;font-size:11px">'+d+' · load '+Math.round(act.icu_training_load||0)+'</span></div>';
+    }).join('')||'<div class="empty-note">No recent activities.</div>';
+
+    athleteData[a.id]={ctl,atl,tsb,zoneTotals,zTotal,recentActs:sorted.slice(0,8)};
+  }catch(err){
+    document.getElementById('ovZones').innerHTML='<div class="empty-note">Could not load intervals.icu data: '+(err.message||'error')+'</div>';
+    document.getElementById('ovActs').innerHTML='<div class="empty-note">—</div>';
+    athleteData[a.id]=null;
+  }
+}
+
+function computeFitnessSimple(acts){
+  const tssByDay={};
+  acts.forEach(a=>{
+    const day=(a.start_date_local||'').slice(0,10);
+    if(!day)return;
+    tssByDay[day]=(tssByDay[day]||0)+(Number(a.icu_training_load)||0);
+  });
+  const days=183;
+  const start=new Date();start.setHours(0,0,0,0);start.setDate(start.getDate()-(days-1));
+  const ctlDecay=1-Math.exp(-1/42), atlDecay=1-Math.exp(-1/7);
+  let ctlPrev=0,atlPrev=0;
+  const series=[];
+  for(let i=0;i<days;i++){
+    const d=new Date(start);d.setDate(start.getDate()+i);
+    const key=d.toISOString().split('T')[0];
+    const tss=tssByDay[key]||0;
+    const ctl=ctlPrev+(tss-ctlPrev)*ctlDecay;
+    const atl=atlPrev+(tss-atlPrev)*atlDecay;
+    series.push({date:key,ctl,atl});
+    ctlPrev=ctl;atlPrev=atl;
+  }
+  return series;
+}
+
+// --- Calendar / planned workouts ---
+async function loadWorkouts(){
+  if(!selectedAthlete)return;
+  try{
+    const r=await fetch('/api/workouts?athlete_id='+encodeURIComponent(selectedAthlete.id));
+    const data=await r.json();
+    workoutsCache=data.workouts||[];
+  }catch{
+    workoutsCache=[];
+  }
+}
+
+function calShift(dir){
+  calMonth.setMonth(calMonth.getMonth()+dir);
+  renderCalendar();
+}
+
+function renderCalendar(){
+  const grid=document.getElementById('calGrid');
+  const title=document.getElementById('calTitle');
+  title.textContent=calMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html=days.map(d=>'<div class="cal-head">'+d+'</div>').join('');
+
+  const firstOfMonth=new Date(calMonth);
+  const firstDow=(firstOfMonth.getDay()+6)%7; // Mon=0
+  const gridStart=new Date(firstOfMonth);
+  gridStart.setDate(gridStart.getDate()-firstDow);
+
+  const byDate={};
+  workoutsCache.forEach(w=>{ (byDate[w.date]=byDate[w.date]||[]).push(w); });
+
+  for(let i=0;i<42;i++){
+    const d=new Date(gridStart);
+    d.setDate(gridStart.getDate()+i);
+    const key=d.toISOString().split('T')[0];
+    const otherMonth=d.getMonth()!==calMonth.getMonth();
+    const items=byDate[key]||[];
+    html+='<div class="cal-cell'+(otherMonth?' other-month':'')+'" onclick="openWoModal(\''+key+'\')">'
+      +'<div class="cal-date">'+d.getDate()+'</div>'
+      +items.map(w=>'<div class="cal-wo'+(w.completed?' completed':'')+'" onclick="event.stopPropagation();openWoModal(\''+key+'\',\''+w.id+'\')" title="'+(w.title||'').replace(/"/g,'&quot;')+'">'+(w.title||w.sport||'Workout')+'</div>').join('')
+      +'</div>';
+  }
+  grid.innerHTML=html;
+}
+
+function openWoModal(dateStr,workoutId){
+  pendingWoDate=dateStr;
+  editingWorkout=workoutId?workoutsCache.find(w=>String(w.id)===String(workoutId)):null;
+  document.getElementById('woError').style.display='none';
+  document.getElementById('woModalTitle').textContent=editingWorkout?'Edit workout':'Plan a workout';
+  document.getElementById('woDate').value=editingWorkout?editingWorkout.date:dateStr;
+  document.getElementById('woSport').value=editingWorkout?(editingWorkout.sport||'cycling'):'cycling';
+  document.getElementById('woTitle').value=editingWorkout?(editingWorkout.title||''):'';
+  document.getElementById('woDesc').value=editingWorkout?(editingWorkout.description||''):'';
+  document.getElementById('woLoad').value=editingWorkout&&editingWorkout.planned_load!=null?editingWorkout.planned_load:'';
+  document.getElementById('woDuration').value=editingWorkout&&editingWorkout.duration_minutes!=null?editingWorkout.duration_minutes:'';
+  document.getElementById('woCompleted').checked=!!(editingWorkout&&editingWorkout.completed);
+  document.getElementById('woDeleteBtn').style.display=editingWorkout?'block':'none';
+  document.getElementById('woModal').classList.add('show');
+}
+
+function closeWoModal(){
+  document.getElementById('woModal').classList.remove('show');
+  editingWorkout=null;
+  pendingWoDate=null;
+}
+
+async function saveWorkout(){
+  if(!selectedAthlete)return;
+  const errEl=document.getElementById('woError');
+  errEl.style.display='none';
+  const payload={
+    athlete_id:selectedAthlete.id,
+    date:document.getElementById('woDate').value,
+    sport:document.getElementById('woSport').value,
+    title:document.getElementById('woTitle').value.trim(),
+    description:document.getElementById('woDesc').value.trim(),
+    planned_load:document.getElementById('woLoad').value?Number(document.getElementById('woLoad').value):null,
+    duration_minutes:document.getElementById('woDuration').value?Number(document.getElementById('woDuration').value):null,
+    completed:document.getElementById('woCompleted').checked
+  };
+  if(!payload.date){errEl.textContent='Pick a date.';errEl.style.display='block';return;}
+  try{
+    let r;
+    if(editingWorkout){
+      r=await fetch('/api/workouts',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editingWorkout.id,...payload})});
+    }else{
+      r=await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    }
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Could not save workout');
+    closeWoModal();
+    await loadWorkouts();
+    renderCalendar();
+  }catch(err){
+    errEl.textContent=err.message||'Could not save workout.';
+    errEl.style.display='block';
+  }
+}
+
+async function deleteWorkout(){
+  if(!editingWorkout)return;
+  try{
+    const r=await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editingWorkout.id})});
+    if(!r.ok){const d=await r.json();throw new Error(d.error||'Could not delete workout');}
+    closeWoModal();
+    await loadWorkouts();
+    renderCalendar();
+  }catch(err){
+    const errEl=document.getElementById('woError');
+    errEl.textContent=err.message||'Could not delete workout.';
+    errEl.style.display='block';
+  }
+}
+
+// --- AI chat ---
+function appendChatMsg(role,text,loading){
+  const wrap=document.getElementById('chatMsgs');
+  const div=document.createElement('div');
+  div.className='chat-msg '+role+(loading?' loading':'');
+  div.textContent=text;
+  wrap.appendChild(div);
+  wrap.scrollTop=wrap.scrollHeight;
+  return div;
+}
+
+function buildCoachSystemPrompt(){
+  const a=selectedAthlete;
+  const d=athleteData[a.id];
+  let context='You are an expert endurance coaching assistant helping a human coach plan training for their athlete.\n';
+  context+='Athlete: '+(a.name||a.email)+'\n';
+  if(d){
+    context+='Current fitness: CTL (fitness) = '+d.ctl+', ATL (fatigue) = '+d.atl+', TSB (form) = '+d.tsb+'.\n';
+    if(d.zTotal){
+      const zPcts=d.zoneTotals.map((v,i)=>'Z'+(i+1)+': '+Math.round(v/d.zTotal*100)+'%').join(', ');
+      context+='Cycling HR zone distribution (last 28 days): '+zPcts+'.\n';
+    }
+    if(d.recentActs&&d.recentActs.length){
+      context+='Recent activities: '+d.recentActs.map(act=>(act.name||act.type)+' on '+(act.start_date_local||'').slice(0,10)+' (load '+Math.round(act.icu_training_load||0)+')').join('; ')+'.\n';
+    }
+  }else{
+    context+='This athlete has not connected their intervals.icu account, so no training data is available yet.\n';
+  }
+  context+='Use this context to answer questions about the athlete\'s readiness, suggest workout prescriptions (be specific: durations, intensities/zones, structure), flag overtraining or excessive fatigue risk (e.g. very negative TSB or rapid CTL ramp), and help the coach plan upcoming training blocks. Keep answers focused, practical, and grounded in the data provided. If asked to write a workout, format it clearly with warmup, main set, and cooldown.';
+  return context;
+}
+
+async function sendChat(){
+  const input=document.getElementById('chatInput');
+  const text=input.value.trim();
+  if(!text||!selectedAthlete)return;
+  input.value='';
+  appendChatMsg('user',text);
+  chatHistory.push({role:'user',content:text});
+  const btn=document.getElementById('chatSendBtn');
+  btn.disabled=true;
+  const loadingEl=appendChatMsg('assistant','Thinking...',true);
+  try{
+    const r=await fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({system:buildCoachSystemPrompt(),messages:chatHistory})
+    });
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'AI chat request failed');
+    const reply=(data.content||[]).map(b=>b.text||'').join('').trim()||'(no response)';
+    loadingEl.classList.remove('loading');
+    loadingEl.textContent=reply;
+    chatHistory.push({role:'assistant',content:reply});
+  }catch(err){
+    loadingEl.classList.remove('loading');
+    loadingEl.textContent='Error: '+(err.message||'could not reach the AI assistant.');
+  }finally{
+    btn.disabled=false;
+    document.getElementById('chatMsgs').scrollTop=document.getElementById('chatMsgs').scrollHeight;
+  }
+}
+</script>
+</body>
+</html>
