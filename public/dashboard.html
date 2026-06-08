@@ -667,24 +667,24 @@ function renderSport(sport){
   let inputs='';
   if(sport==='cycling'){
     inputs=`<div class="threshold-row">
-      <div class="zc-field"><label class="zc-label">FTP (watts)</label><input class="zc-input" type="number" value="${s.ftp}" min="50" max="700" step="1" oninput="zs.cycling.ftp=+this.value;zs.cycling.overrides={power:{},hr:{}};saveZoneSettings();renderZoneTable('cycling')" /></div>
-      <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="zs.cycling.lthr=+this.value;zs.cycling.overrides.hr={};saveZoneSettings();renderZoneTable('cycling')" /></div>
-      <button class="reset-btn" onclick="zs.cycling.overrides={power:{},hr:{}};saveZoneSettings();renderZoneTable('cycling')">Reset</button>
+      <div class="zc-field"><label class="zc-label">FTP (watts)</label><input class="zc-input" type="number" value="${s.ftp}" min="50" max="700" step="1" oninput="zs.cycling.ftp=+this.value;zs.cycling.overrides={power:{},hr:{}};saveZoneSettings();renderZoneTable('cycling');buildZoneDistribution()" /></div>
+      <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="zs.cycling.lthr=+this.value;zs.cycling.overrides.hr={};saveZoneSettings();renderZoneTable('cycling');buildZoneDistribution()" /></div>
+      <button class="reset-btn" onclick="zs.cycling.overrides={power:{},hr:{}};saveZoneSettings();renderZoneTable('cycling');buildZoneDistribution()">Reset</button>
     </div>`;
   } else if(sport==='running'){
     inputs=`<div class="threshold-row">
-      <div class="zc-field"><label class="zc-label">Threshold pace (min/mile)</label><input class="zc-input" type="text" value="${s.threshold_pace}" placeholder="6:00" oninput="zs.running.threshold_pace=this.value;zs.running.overrides.pace={};saveZoneSettings();renderZoneTable('running')" /></div>
-      <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="zs.running.lthr=+this.value;zs.running.overrides.hr={};saveZoneSettings();renderZoneTable('running')" /></div>
-      <button class="reset-btn" onclick="zs.running.overrides={pace:{},hr:{}};saveZoneSettings();renderZoneTable('running')">Reset</button>
+      <div class="zc-field"><label class="zc-label">Threshold pace (min/mile)</label><input class="zc-input" type="text" value="${s.threshold_pace}" placeholder="6:00" oninput="zs.running.threshold_pace=this.value;zs.running.overrides.pace={};saveZoneSettings();renderZoneTable('running');buildZoneDistribution()" /></div>
+      <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="zs.running.lthr=+this.value;zs.running.overrides.hr={};saveZoneSettings();renderZoneTable('running');buildZoneDistribution()" /></div>
+      <button class="reset-btn" onclick="zs.running.overrides={pace:{},hr:{}};saveZoneSettings();renderZoneTable('running');buildZoneDistribution()">Reset</button>
     </div>`;
   } else if(sport==='swimming'){
     inputs=`<div class="threshold-row">
-      <div class="zc-field"><label class="zc-label">CSS pace</label><input class="zc-input" type="text" value="${s.css}" placeholder="1:45" oninput="zs.swimming.css=this.value;zs.swimming.overrides.pace={};saveZoneSettings();renderZoneTable('swimming')" /></div>
-      <div class="zc-field"><label class="zc-label">Units</label><select class="zc-select" onchange="zs.swimming.css_unit=this.value;zs.swimming.overrides.pace={};saveZoneSettings();renderZoneTable('swimming')">
+      <div class="zc-field"><label class="zc-label">CSS pace</label><input class="zc-input" type="text" value="${s.css}" placeholder="1:45" oninput="zs.swimming.css=this.value;zs.swimming.overrides.pace={};saveZoneSettings();renderZoneTable('swimming');buildZoneDistribution()" /></div>
+      <div class="zc-field"><label class="zc-label">Units</label><select class="zc-select" onchange="zs.swimming.css_unit=this.value;zs.swimming.overrides.pace={};saveZoneSettings();renderZoneTable('swimming');buildZoneDistribution()">
         <option value="100m" ${s.css_unit==='100m'?'selected':''}>per 100m</option>
         <option value="100yd" ${s.css_unit==='100yd'?'selected':''}>per 100yd</option>
       </select></div>
-      <button class="reset-btn" onclick="zs.swimming.overrides={pace:{},hr:{}};saveZoneSettings();renderZoneTable('swimming')">Reset</button>
+      <button class="reset-btn" onclick="zs.swimming.overrides={pace:{},hr:{}};saveZoneSettings();renderZoneTable('swimming');buildZoneDistribution()">Reset</button>
     </div>`;
   }
   const subA=s.sub==='power'||s.sub==='pace';
@@ -739,6 +739,7 @@ function handleOv(sport,ovKey,idx,side,val,inputEl){
   zs[sport].overrides[ovKey][idx][side==='lo'?0:1]=val;
   inputEl.className='editable ov';
   saveZoneSettings();
+  buildZoneDistribution();
 }
 
 /* ---------- Zone distribution from stream data, mapped to custom zones ---------- */
@@ -767,6 +768,13 @@ function zoneBoundsFor(sport,metric){
 }
 
 async function loadZoneDistribution(){
+  await onZoneDistControlChange();
+}
+
+// Re-classify the (already-cached) stream samples into zones using the current
+// thresholds/overrides — called whenever a threshold value changes so the
+// distribution reflects the new zone boundaries without re-fetching streams.
+async function buildZoneDistribution(){
   await onZoneDistControlChange();
 }
 
