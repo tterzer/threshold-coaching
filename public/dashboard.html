@@ -333,6 +333,45 @@ function sportClass(type){
   return'other';
 }
 
+const FITNESS_DAYS=183; // ~6 months
+let fitnessSeries=[],fitnessByDate={};
+
+function dayKey(d){return new Date(d).toISOString().split('T')[0];}
+
+// Banister/TrainingPeaks impulse-response model: builds a daily CTL/ATL/TSB
+// series from scratch using icu_training_load as the daily TSS, starting from
+// CTL=ATL=0 at the beginning of the window (~6 months ago).
+function computeFitness(acts,days){
+  days=days||FITNESS_DAYS;
+  const tssByDay={};
+  acts.forEach(a=>{
+    const day=(a.start_date_local||'').slice(0,10);
+    if(!day)return;
+    tssByDay[day]=(tssByDay[day]||0)+(Number(a.icu_training_load)||0);
+  });
+  const start=new Date();
+  start.setHours(0,0,0,0);
+  start.setDate(start.getDate()-(days-1));
+  const ctlDecay=1-Math.exp(-1/42);
+  const atlDecay=1-Math.exp(-1/7);
+  const series=[];
+  const byDate={};
+  let ctlPrev=0,atlPrev=0;
+  for(let i=0;i<days;i++){
+    const d=new Date(start);d.setDate(start.getDate()+i);
+    const key=dayKey(d);
+    const tss=tssByDay[key]||0;
+    const tsb=ctlPrev-atlPrev;
+    const ctl=ctlPrev+(tss-ctlPrev)*ctlDecay;
+    const atl=atlPrev+(tss-atlPrev)*atlDecay;
+    const entry={date:key,ctl,atl,tsb};
+    series.push(entry);
+    byDate[key]=entry;
+    ctlPrev=ctl;atlPrev=atl;
+  }
+  return{series,byDate};
+}
+
 async function loadDashboard(){
   const id=document.getElementById('athleteId').value.trim();
   const key=document.getElementById('apiKey').value.trim();
@@ -344,11 +383,14 @@ async function loadDashboard(){
   if(errEl)errEl.style.display='none';
   try{
     const today=new Date();
-    const oldest=new Date(today);oldest.setDate(today.getDate()-370);
+    const oldest=new Date(today);oldest.setDate(today.getDate()-90);
     const oldestStr=oldest.toISOString().split('T')[0];
-    const[athlete,activities]=await Promise.all([
+    const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-(FITNESS_DAYS+2));
+    const fitOldestStr=fitOldest.toISOString().split('T')[0];
+    const[athlete,activities,fitnessActs]=await Promise.all([
       apiCall(id,key,'profile'),
-      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times')
+      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times'),
+      apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
     ]);
     document.getElementById('connectGate').style.display='none';
     document.getElementById('dash').style.display='block';
@@ -361,17 +403,24 @@ async function loadDashboard(){
     document.getElementById('subEl').textContent=[a2.city,a2.country].filter(Boolean).join(', ')||'intervals.icu athlete';
     const sorted=[...activities].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
     allActivities=sorted;
-    const latest=sorted[0];
+
+    // Compute CTL/ATL/TSB from scratch (Banister impulse-response model) using
+    // icu_training_load as TSS, rather than trusting the API's icu_ctl/icu_atl.
+    const fitSorted=[...fitnessActs].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
+    const fit=computeFitness(fitSorted,FITNESS_DAYS);
+    fitnessSeries=fit.series;
+    fitnessByDate=fit.byDate;
+    const todayEntry=fitnessSeries[fitnessSeries.length-1];
     let ctl=0,atl=0,tsb=0;
-    if(latest){
-      ctl=Math.round(latest.icu_ctl||0);atl=Math.round(latest.icu_atl||0);tsb=ctl-atl;
+    if(todayEntry){
+      ctl=Math.round(todayEntry.ctl);atl=Math.round(todayEntry.atl);tsb=ctl-atl;
       document.getElementById('mCTL').textContent=ctl;
       document.getElementById('mATL').textContent=atl;
       const tsbEl=document.getElementById('mTSB');
       tsbEl.textContent=(tsb>=0?'+':'')+tsb;
       tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
     }
-    buildRamp(sorted);
+    buildRamp();
     // "This week" = Monday of the current calendar week through today (inclusive).
     const now=new Date();
     const monday=new Date(now);
@@ -384,7 +433,7 @@ async function loadDashboard(){
     const lastWeekLoad=Math.round(sorted.filter(a=>{const d=new Date(a.start_date_local);return d>=lastMonday&&d<monday;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
     document.getElementById('mWeek').textContent=thisWeekLoad;
     document.getElementById('mLastWeek').textContent=lastWeekLoad;
-    buildPMC(sorted);
+    buildPMC();
     buildSportLoad(sorted);
     buildLoad(sorted);
     buildZones(sorted);
@@ -398,15 +447,15 @@ async function loadDashboard(){
   }
 }
 
-function buildRamp(sorted){
+function buildRamp(){
   const today=new Date();
   const wkAgoDate=new Date(today);wkAgoDate.setDate(today.getDate()-7);
-  const closest=(d)=>sorted.filter(x=>new Date(x.start_date_local)<=d).sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))[0];
-  const now=closest(today),then=closest(wkAgoDate);
+  const now=fitnessByDate[dayKey(today)];
+  const then=fitnessByDate[dayKey(wkAgoDate)];
   const rampEl=document.getElementById('mRamp');
   const pillEl=document.getElementById('mRampPill');
   if(!now||!then){rampEl.textContent='—';pillEl.textContent='—';pillEl.className='risk-pill';return;}
-  const ramp=Math.round((now.icu_ctl||0)-(then.icu_ctl||0));
+  const ramp=Math.round(now.ctl-then.ctl);
   rampEl.textContent=(ramp>=0?'+':'')+ramp;
   rampEl.className='metric-val '+(ramp>8?'negative':ramp>5?'warn':'positive');
   let level='green',label='Low risk';
@@ -441,26 +490,23 @@ function calendarWeeks(n){
 
 function setPmcRange(days){
   document.querySelectorAll('#pmcRangeTabs .sub-tab').forEach(t=>t.classList.toggle('active',Number(t.dataset.days)===days));
-  buildPMC(allActivities,days);
+  buildPMC(days);
 }
 
 let pmcRangeDays=90;
-function buildPMC(acts,rangeDays){
+function buildPMC(rangeDays){
   if(rangeDays)pmcRangeDays=rangeDays;
+  // The fitness series only spans FITNESS_DAYS (~6 months); requesting a wider
+  // range simply shows nulls for the days we have no computed fitness for.
   const n=pmcRangeDays;
   const days=Array.from({length:n},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(n-1-i));return d;});
-  const closest=(d)=>{
-    const dayStr=d.toISOString().split('T')[0];
-    const exact=acts.find(x=>(x.start_date_local||'').slice(0,10)===dayStr);
-    if(exact)return exact;
-    return acts.filter(x=>new Date(x.start_date_local)<=d).sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))[0];
-  };
   const ctlData=[],atlData=[],tsbData=[];
   days.forEach(d=>{
-    const a=closest(d);
-    if(a){
-      const c=Math.round(a.icu_ctl||0),at=Math.round(a.icu_atl||0);
-      ctlData.push(c);atlData.push(at);tsbData.push(c-at);
+    const entry=fitnessByDate[dayKey(d)];
+    if(entry){
+      ctlData.push(Math.round(entry.ctl));
+      atlData.push(Math.round(entry.atl));
+      tsbData.push(Math.round(entry.ctl)-Math.round(entry.atl));
     } else { ctlData.push(null);atlData.push(null);tsbData.push(null); }
   });
   if(pmcInst)pmcInst.destroy();
