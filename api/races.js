@@ -10,9 +10,9 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const { athlete_id, year } = req.query;
       if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
-      let q = supabase.from('races').select('*').eq('athlete_id', athlete_id).order('race_date', { ascending: true });
+      let q = supabase.from('races').select('*').eq('athlete_id', athlete_id).order('date', { ascending: true });
       if (year) {
-        q = q.gte('race_date', year + '-01-01').lte('race_date', year + '-12-31');
+        q = q.gte('date', year + '-01-01').lte('date', year + '-12-31');
       }
       const { data, error } = await q;
       if (error) {
@@ -27,10 +27,10 @@ export default async function handler(req, res) {
     body = body || {};
 
     if (req.method === 'POST') {
-      const { athlete_id, name, race_date, priority, sport_type, distance, goal_time, notes } = body;
-      if (!athlete_id || !name || !race_date) return res.status(400).json({ error: 'Missing required fields: athlete_id, name, race_date' });
+      const { athlete_id, name, date, priority, sport_type, distance, goal_time, notes } = body;
+      if (!athlete_id || !name || !date) return res.status(400).json({ error: 'Missing required fields: athlete_id, name, date' });
       const { data, error } = await supabase.from('races').insert({
-        athlete_id, name, race_date, priority, sport_type, distance, goal_time, notes
+        athlete_id, name, date, priority, sport_type, distance, goal_time, notes
       }).select().single();
       if (error) {
         if (error.code === '42P01') return res.status(500).json({ error: 'races table not found — run the CREATE TABLE SQL in Supabase' });
