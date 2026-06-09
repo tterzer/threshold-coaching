@@ -23,10 +23,10 @@ export default async function handler(req, res) {
     body = body || {};
 
     if (req.method === 'POST') {
-      const { athlete_id, date, sport, title, description, planned_load, duration_minutes } = body;
+      const { athlete_id, date, sport, title, description, tss_target, workout_type, duration_minutes } = body;
       if (!athlete_id || !date) return res.status(400).json({ error: 'Missing athlete_id or date' });
       const { data, error } = await supabase.from('planned_workouts').insert({
-        athlete_id, date, sport, title, description, planned_load, duration_minutes, completed: false
+        athlete_id, date, sport, title, description, tss_target, workout_type, duration_minutes, completed: false
       }).select().single();
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ workout: data });

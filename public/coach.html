@@ -85,6 +85,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .chat-input-row textarea:focus{border-color:var(--acc)}
 .chat-input-row button{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:0 22px;cursor:pointer;border:none;letter-spacing:0.04em}
 .chat-input-row button:disabled{opacity:0.5;cursor:not-allowed}
+.chat-add-btn{display:inline-block;margin-top:8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;padding:6px 14px;background:transparent;border:1px solid var(--acc);color:var(--acc);cursor:pointer}
+.chat-add-btn:hover{background:rgba(200,240,54,0.1)}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:50;align-items:center;justify-content:center}
 .modal-bg.show{display:flex}
 .modal{background:var(--bc2);border:1px solid var(--border);padding:2rem;max-width:440px;width:92%}
@@ -182,7 +184,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     <div class="modal-title" id="woModalTitle">Plan a workout</div>
     <div class="field"><label>Date</label><input type="date" id="woDate" /></div>
     <div class="field"><label>Sport</label>
-      <select id="woSport">
+      <select id="woSport" onchange="updateTSSEstimate()">
         <option value="cycling">Cycling</option>
         <option value="running">Running</option>
         <option value="swimming">Swimming</option>
@@ -192,9 +194,17 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     </div>
     <div class="field"><label>Title</label><input type="text" id="woTitle" placeholder="e.g. Threshold intervals 4x8min" /></div>
     <div class="field"><label>Description</label><textarea id="woDesc" rows="3" placeholder="Workout details / instructions for the athlete"></textarea></div>
+    <div class="field"><label>Intensity</label>
+      <select id="woIntensity" onchange="updateTSSEstimate()">
+        <option value="easy">Easy / Recovery</option>
+        <option value="endurance" selected>Endurance / Base</option>
+        <option value="tempo">Tempo</option>
+        <option value="threshold">Threshold / Intervals</option>
+      </select>
+    </div>
     <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Planned load</label><input type="number" id="woLoad" placeholder="e.g. 65" /></div>
-      <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Duration (min)</label><input type="number" id="woDuration" placeholder="e.g. 60" /></div>
+      <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Duration (min)</label><input type="number" id="woDuration" placeholder="e.g. 60" oninput="updateTSSEstimate()" /></div>
+      <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Est. TSS</label><div id="woTSSDisplay" style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--acc);padding-top:4px">—</div></div>
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.5rem">
       <input type="checkbox" id="woCompleted" style="width:auto" /> Mark as completed
@@ -447,19 +457,20 @@ function renderCalendar(){
   grid.innerHTML=html;
 }
 
-function openWoModal(dateStr,workoutId){
+function openWoModal(dateStr,workoutId,prefill){
   pendingWoDate=dateStr;
   editingWorkout=workoutId?workoutsCache.find(w=>String(w.id)===String(workoutId)):null;
   document.getElementById('woError').style.display='none';
   document.getElementById('woModalTitle').textContent=editingWorkout?'Edit workout':'Plan a workout';
-  document.getElementById('woDate').value=editingWorkout?editingWorkout.date:dateStr;
-  document.getElementById('woSport').value=editingWorkout?(editingWorkout.sport||'cycling'):'cycling';
-  document.getElementById('woTitle').value=editingWorkout?(editingWorkout.title||''):'';
-  document.getElementById('woDesc').value=editingWorkout?(editingWorkout.description||''):'';
-  document.getElementById('woLoad').value=editingWorkout&&editingWorkout.planned_load!=null?editingWorkout.planned_load:'';
-  document.getElementById('woDuration').value=editingWorkout&&editingWorkout.duration_minutes!=null?editingWorkout.duration_minutes:'';
+  document.getElementById('woDate').value=editingWorkout?editingWorkout.date:(dateStr||'');
+  document.getElementById('woSport').value=editingWorkout?(editingWorkout.sport||'cycling'):(prefill&&prefill.sport)||'cycling';
+  document.getElementById('woIntensity').value=editingWorkout?(editingWorkout.workout_type||'endurance'):(prefill&&prefill.intensity)||'endurance';
+  document.getElementById('woTitle').value=editingWorkout?(editingWorkout.title||''):(prefill&&prefill.title)||'';
+  document.getElementById('woDesc').value=editingWorkout?(editingWorkout.description||''):(prefill&&prefill.description)||'';
+  document.getElementById('woDuration').value=editingWorkout&&editingWorkout.duration_minutes!=null?editingWorkout.duration_minutes:(prefill&&prefill.duration)||'';
   document.getElementById('woCompleted').checked=!!(editingWorkout&&editingWorkout.completed);
   document.getElementById('woDeleteBtn').style.display=editingWorkout?'block':'none';
+  updateTSSEstimate();
   document.getElementById('woModal').classList.add('show');
 }
 
@@ -473,14 +484,18 @@ async function saveWorkout(){
   if(!selectedAthlete)return;
   const errEl=document.getElementById('woError');
   errEl.style.display='none';
+  const sport=document.getElementById('woSport').value;
+  const intensity=document.getElementById('woIntensity').value;
+  const durationMin=document.getElementById('woDuration').value?Number(document.getElementById('woDuration').value):null;
   const payload={
     athlete_id:selectedAthlete.id,
     date:document.getElementById('woDate').value,
-    sport:document.getElementById('woSport').value,
+    sport,
+    workout_type:intensity,
     title:document.getElementById('woTitle').value.trim(),
     description:document.getElementById('woDesc').value.trim(),
-    planned_load:document.getElementById('woLoad').value?Number(document.getElementById('woLoad').value):null,
-    duration_minutes:document.getElementById('woDuration').value?Number(document.getElementById('woDuration').value):null,
+    tss_target:durationMin!=null?estimateTSS(sport,intensity,durationMin):null,
+    duration_minutes:durationMin,
     completed:document.getElementById('woCompleted').checked
   };
   if(!payload.date){errEl.textContent='Pick a date.';errEl.style.display='block';return;}
@@ -515,6 +530,62 @@ async function deleteWorkout(){
     errEl.textContent=err.message||'Could not delete workout.';
     errEl.style.display='block';
   }
+}
+
+// --- TSS estimation ---
+function estimateTSS(sport,intensity,durationMin){
+  const mult={
+    cycling:{easy:0.5,endurance:0.7,tempo:0.9,threshold:1.1},
+    running:{easy:0.65,endurance:0.65,tempo:0.85,threshold:1.0},
+    swimming:{easy:0.45,endurance:0.45,tempo:0.45,threshold:0.45},
+    strength:{easy:0.3,endurance:0.3,tempo:0.3,threshold:0.3},
+    other:{easy:0.5,endurance:0.5,tempo:0.5,threshold:0.5}
+  };
+  const m=(mult[sport]||mult.other)[intensity]||0.7;
+  return Math.round(durationMin*m);
+}
+
+function updateTSSEstimate(){
+  const sport=document.getElementById('woSport').value;
+  const intensity=document.getElementById('woIntensity').value;
+  const dur=document.getElementById('woDuration').value;
+  const el=document.getElementById('woTSSDisplay');
+  if(dur&&Number(dur)>0){
+    el.textContent=estimateTSS(sport,intensity,Number(dur));
+  }else{
+    el.textContent='—';
+  }
+}
+
+// --- AI chat helpers ---
+function parseWorkoutFromText(text){
+  const lower=text.toLowerCase();
+  // Sport detection
+  let sport='cycling';
+  if(lower.includes('run')||lower.includes('jog'))sport='running';
+  else if(lower.includes('swim'))sport='swimming';
+  else if(lower.includes('strength')||lower.includes('lift')||lower.includes('gym'))sport='strength';
+  // Intensity detection
+  let intensity='endurance';
+  if(/threshold|interval|vo2|hard effort/i.test(text))intensity='threshold';
+  else if(/tempo/i.test(text))intensity='tempo';
+  else if(/easy|recovery|z1|zone 1/i.test(text))intensity='easy';
+  // Duration detection — look for "X hour(s)" or "X min"
+  let duration=null;
+  const hrMatch=text.match(/(\d+(?:\.\d+)?)\s*(?:hour|hr)/i);
+  const minMatch=text.match(/(\d{2,3})\s*(?:min|minute)/i);
+  if(hrMatch)duration=Math.round(parseFloat(hrMatch[1])*60);
+  else if(minMatch)duration=parseInt(minMatch[1]);
+  // Title: first line that looks like a session label
+  const titleMatch=text.match(/(?:session type|workout)[:\s]+([^\n]+)/i);
+  const title=titleMatch?titleMatch[1].trim().slice(0,60):'';
+  return{sport,intensity,duration,title,description:text.slice(0,600)};
+}
+
+function looksLikeWorkoutPrescription(text){
+  const markers=['warm','main set','cool','duration','session type','zone','interval','x8','x4','x3','x6',':00'];
+  const hits=markers.filter(m=>text.toLowerCase().includes(m)).length;
+  return hits>=2;
 }
 
 // --- AI chat ---
@@ -571,6 +642,20 @@ async function sendChat(){
     loadingEl.classList.remove('loading');
     loadingEl.textContent=reply;
     chatHistory.push({role:'assistant',content:reply});
+    // Offer "Add to calendar" if the reply looks like a workout prescription
+    if(looksLikeWorkoutPrescription(reply)){
+      const addBtn=document.createElement('button');
+      addBtn.className='chat-add-btn';
+      addBtn.textContent='+ Add to calendar';
+      const capturedReply=reply;
+      addBtn.onclick=()=>{
+        const parsed=parseWorkoutFromText(capturedReply);
+        // Default date = today
+        const today=new Date().toISOString().split('T')[0];
+        openWoModal(today,null,parsed);
+      };
+      loadingEl.parentNode.insertBefore(addBtn,loadingEl.nextSibling);
+    }
   }catch(err){
     loadingEl.classList.remove('loading');
     loadingEl.textContent='Error: '+(err.message||'could not reach the AI assistant.');
