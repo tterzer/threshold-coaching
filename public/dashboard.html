@@ -192,6 +192,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     <div class="grid-2">
       <div class="chart-box">
         <div class="chart-title">Performance management chart
+          <button onclick="openCtlSeedModal()" title="CTL seed settings" style="background:none;border:none;cursor:pointer;color:var(--tc3);font-size:14px;padding:0 0 0 6px;line-height:1" aria-label="CTL seed settings">⚙</button>
           <div class="legend" style="margin:0">
             <div class="leg-item"><span class="leg-dot" style="background:#378ADD"></span>CTL</div>
             <div class="leg-item"><span class="leg-dot" style="background:#E24B4A"></span>ATL</div>
@@ -454,6 +455,7 @@ function sportClass(type){
 // the remaining (FITNESS_DAYS - WARMUP_DAYS) days, which is ~30 months.
 const FITNESS_DAYS=1095; // 3 years of activity history to fetch
 const WARMUP_DAYS=180;   // 6-month silent warm-up — model runs but nothing stored
+const CTL_SEED_KEY='hm2l_ctl_seed'; // localStorage key for optional starting CTL seed
 let fitnessSeries=[],fitnessByDate={};
 
 function dayKey(d){return new Date(d).toISOString().split('T')[0];}
@@ -477,7 +479,8 @@ function computeFitness(acts){
   const atlDecay=1-Math.exp(-1/7);
   const series=[];
   const byDate={};
-  let ctlPrev=0,atlPrev=0;
+  const seedVal=Number(localStorage.getItem(CTL_SEED_KEY)||0)||0;
+  let ctlPrev=seedVal,atlPrev=seedVal;
   for(let i=0;i<totalDays;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);
     const key=dayKey(d);
@@ -536,6 +539,7 @@ async function loadDashboard(){
     // Compute CTL/ATL/TSB from scratch (Banister impulse-response model) using
     // icu_training_load as TSS, rather than trusting the API's icu_ctl/icu_atl.
     const fitSorted=[...fitnessActs].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
+    window._fitnessFetchedActs=fitSorted; // cached for CTL seed recalculation
     const fit=computeFitness(fitSorted);
     fitnessSeries=fit.series;
     fitnessByDate=fit.byDate;
@@ -1222,6 +1226,62 @@ async function renderCurve(){
     box.innerHTML='<div class="empty-note">Could not load power curve: '+(err.message||'unknown error')+'</div>';
   }
 }
+
+// --- CTL seed modal ---
+
+function openCtlSeedModal(){
+  const cur=localStorage.getItem(CTL_SEED_KEY)||'';
+  document.getElementById('ctlSeedInput').value=cur;
+  document.getElementById('ctlSeedError').style.display='none';
+  document.getElementById('ctlSeedModal').style.display='flex';
+  document.getElementById('ctlSeedInput').focus();
+}
+
+function closeCtlSeedModal(){
+  document.getElementById('ctlSeedModal').style.display='none';
+}
+
+function saveCtlSeed(){
+  const raw=document.getElementById('ctlSeedInput').value.trim();
+  const errEl=document.getElementById('ctlSeedError');
+  if(raw===''){
+    localStorage.removeItem(CTL_SEED_KEY);
+  }else{
+    const n=Number(raw);
+    if(isNaN(n)||n<0||n>300){
+      errEl.textContent='Enter a number between 0 and 300.';
+      errEl.style.display='block';
+      return;
+    }
+    localStorage.setItem(CTL_SEED_KEY,String(n));
+  }
+  closeCtlSeedModal();
+  // Recalculate with new seed using the already-fetched activities
+  if(window._fitnessFetchedActs){
+    const fit=computeFitness(window._fitnessFetchedActs);
+    fitnessSeries=fit.series;
+    fitnessByDate=fit.byDate;
+    buildPMC();
+    buildRamp();
+  }
+}
 </script>
+
+<div id="ctlSeedModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center">
+  <div style="background:var(--bc2);border:1px solid var(--border);padding:2rem;max-width:400px;width:92%">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.2rem">PMC settings</div>
+    <div class="field">
+      <label>Starting CTL (seed value)</label>
+      <input type="number" id="ctlSeedInput" placeholder="e.g. 45" min="0" max="300" onkeydown="if(event.key==='Enter')saveCtlSeed()" />
+    </div>
+    <p style="font-size:12px;color:var(--tc3);line-height:1.6;margin-bottom:1.2rem">Set this to your known CTL from a date before your training history in intervals.icu to improve accuracy. Your current CTL in TrainingPeaks is a good reference. Leave blank to start from zero.</p>
+    <div class="error-msg" id="ctlSeedError" style="display:none"></div>
+    <div style="display:flex;gap:10px;margin-top:0.25rem">
+      <button class="btn" style="width:auto" onclick="saveCtlSeed()">Save &amp; recalculate</button>
+      <button class="btn" style="width:auto;background:transparent;border:1px solid var(--border);color:var(--tc2)" onclick="closeCtlSeedModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
