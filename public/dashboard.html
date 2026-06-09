@@ -1024,10 +1024,10 @@ function rollingMax(arr,windowSecs){
 }
 
 // Rolling max average for run velocity with GPS spike rejection.
-// - Hard cap: values above MAX_RUN_MPS (5.5 m/s ≈ 6:30/mi) are zeroed.
+// - Hard cap: values above MAX_RUN_MPS (7.5 m/s ≈ 3:34/mi / 16.8 mph) are zeroed.
 // - Short durations (<30 s): collect all window averages and return the
 //   95th-percentile to eliminate GPS transient spikes.
-const MAX_RUN_MPS=5.5;
+const MAX_RUN_MPS=7.5;
 function rollingMaxRun(arr,windowSecs){
   if(!arr||arr.length<windowSecs)return null;
   // Clamp spikes in the raw signal first
