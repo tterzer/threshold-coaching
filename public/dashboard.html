@@ -507,7 +507,7 @@ async function loadDashboard(){
     const oldestStr=oldest.toISOString().split('T')[0];
     const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-(FITNESS_DAYS+2));
     const fitOldestStr=fitOldest.toISOString().split('T')[0];
-    const allTimeOldest=new Date(today);allTimeOldest.setDate(today.getDate()-365);
+    const allTimeOldest=new Date(today);allTimeOldest.setDate(today.getDate()-548); // 18 months
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
     const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
       apiCall(id,key,'profile'),
@@ -1009,10 +1009,10 @@ async function renderCurve(){
   const cutoff30=new Date();cutoff30.setDate(cutoff30.getDate()-30);
   const acts30=allActivities.filter(a=>sportClass(a.type)===sport&&new Date(a.start_date_local)>=cutoff30);
 
-  // All-time from allTimeActivities, up to 60, newest first
+  // All-time from allTimeActivities, up to 150, newest first
   const actsAll=[...allTimeActivities].filter(a=>sportClass(a.type)===sport)
     .sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))
-    .slice(0,60);
+    .slice(0,150);
 
   if(!actsAll.length&&!acts30.length){
     box.innerHTML='<div class="empty-note">No '+sport+' activities found.</div>';return;
@@ -1135,7 +1135,11 @@ async function renderCurve(){
       const pk=isNewPeak(i);
       return'<td style="'+(pk?'color:#00ff88;font-weight:600':'')+'">'+fmtVal(v)+(pk?' ★':'')+'</td>';
     }).join('')+'</tr>'
-    +'</tbody></table>';
+    +'</tbody></table>'
+    +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:0.6rem">'
+    +'Built from '+actsAll.length+' '+sport+(actsAll.length===1?'':'s')
+    +(acts30.length?' · '+acts30.length+' in last 30 days':'')
+    +'</div>';
 }
 </script>
 </body>
