@@ -391,9 +391,9 @@ function switchTab(name){
 function updateARaceBadge(){
   const badge=document.getElementById('aRaceBadge');
   const today=new Date().toISOString().split('T')[0];
-  const nextA=racesCache.find(r=>r.priority==='A'&&r.race_date>=today);
+  const nextA=racesCache.find(r=>r.priority==='A'&&r.date>=today);
   if(nextA){
-    const wks=Math.round((new Date(nextA.race_date)-new Date())/(7*24*3600*1000));
+    const wks=Math.round((new Date(nextA.date)-new Date())/(7*24*3600*1000));
     badge.textContent=wks+' wks to '+nextA.name;
     badge.style.display='inline-flex';
   }else{
@@ -548,7 +548,7 @@ function renderCalendar(){
   workoutsCache.forEach(w=>{ (woByDate[w.date]=woByDate[w.date]||[]).push(w); });
 
   const raceByDate={};
-  racesCache.forEach(r=>{ (raceByDate[r.race_date]=raceByDate[r.race_date]||[]).push(r); });
+  racesCache.forEach(r=>{ (raceByDate[r.date]=raceByDate[r.date]||[]).push(r); });
 
   for(let i=0;i<42;i++){
     const d=new Date(gridStart);
@@ -650,14 +650,14 @@ function openWoEdit(id){
 function openRaceEdit(id){
   const r=racesCache.find(x=>String(x.id)===String(id));
   if(!r)return;
-  pendingDate=r.race_date;
+  pendingDate=r.date;
   editingRace=r;
   editingWorkout=null;
   document.getElementById('dayModalTitle').textContent='Edit race';
   document.getElementById('dayModalTabs').style.display='none';
   switchModalTab('race');
   document.getElementById('rcName').value=r.name||'';
-  document.getElementById('rcDate').value=r.race_date||'';
+  document.getElementById('rcDate').value=r.date||'';
   document.getElementById('rcPriority').value=r.priority||'B';
   document.getElementById('rcSportType').value=r.sport_type||'Triathlon';
   document.getElementById('rcDistance').value=r.distance||'Olympic';
@@ -764,14 +764,14 @@ async function saveRace(){
   const payload={
     athlete_id:selectedAthlete.id,
     name:document.getElementById('rcName').value.trim(),
-    race_date:document.getElementById('rcDate').value,
+    date:document.getElementById('rcDate').value,
     priority:document.getElementById('rcPriority').value,
     sport_type:document.getElementById('rcSportType').value,
     distance:document.getElementById('rcDistance').value,
     goal_time:document.getElementById('rcGoalTime').value.trim()||null,
     notes:document.getElementById('rcNotes').value.trim()||null
   };
-  if(!payload.name||!payload.race_date){errEl.textContent='Race name and date are required.';errEl.style.display='block';return;}
+  if(!payload.name||!payload.date){errEl.textContent='Race name and date are required.';errEl.style.display='block';return;}
   try{
     let r;
     if(editingRace){
@@ -891,17 +891,17 @@ function buildCoachSystemPrompt(){
   }
   // Inject upcoming races
   const today=new Date().toISOString().split('T')[0];
-  const upcoming=racesCache.filter(r=>r.race_date>=today);
+  const upcoming=racesCache.filter(r=>r.date>=today);
   if(upcoming.length){
     context+='Upcoming races:\n';
     upcoming.forEach(r=>{
-      const wks=Math.round((new Date(r.race_date)-new Date())/(7*24*3600*1000));
-      context+='  - '+r.name+' on '+r.race_date+' ('+r.distance+', Priority '+r.priority+', '+wks+' weeks out)\n';
+      const wks=Math.round((new Date(r.date)-new Date())/(7*24*3600*1000));
+      context+='  - '+r.name+' on '+r.date+' ('+r.distance+', Priority '+r.priority+', '+wks+' weeks out)\n';
     });
     const nextA=upcoming.find(r=>r.priority==='A');
     if(nextA){
-      const wks=Math.round((new Date(nextA.race_date)-new Date())/(7*24*3600*1000));
-      context+='Next A-race: '+nextA.name+' on '+nextA.race_date+' ('+wks+' weeks out). Anchor all periodization to this date.\n';
+      const wks=Math.round((new Date(nextA.date)-new Date())/(7*24*3600*1000));
+      context+='Next A-race: '+nextA.name+' on '+nextA.date+' ('+wks+' weeks out). Anchor all periodization to this date.\n';
     }
   }else{
     context+='No upcoming races scheduled.\n';
