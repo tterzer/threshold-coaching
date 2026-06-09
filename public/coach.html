@@ -67,18 +67,18 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 /* Calendar */
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
 .cal-head{background:var(--bc3);padding:8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.cal-cell{background:var(--bc2);min-height:100px;padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer}
+.cal-cell{background:var(--bc2);min-height:100px;max-height:160px;padding:6px;display:flex;flex-direction:column;gap:3px;cursor:pointer;overflow:hidden}
 .cal-cell:hover{background:var(--bc3)}
 .cal-cell.other-month{opacity:0.35}
 .cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
-.cal-wo{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.cal-wo{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;height:18px;line-height:14px;box-sizing:border-box}
 .cal-wo.sport-cycling{border-left:2px solid #378ADD;background:rgba(55,138,221,0.12);color:var(--tc2)}
 .cal-wo.sport-running{border-left:2px solid #639922;background:rgba(99,153,34,0.12);color:var(--tc2)}
 .cal-wo.sport-swimming{border-left:2px solid #1D9E75;background:rgba(29,158,117,0.12);color:var(--tc2)}
 .cal-wo.sport-strength{border-left:2px solid #BA7517;background:rgba(186,117,23,0.12);color:var(--tc2)}
 .cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .cal-wo.completed{opacity:0.55;text-decoration:line-through}
-.cal-race{font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:4px}
+.cal-race{font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:4px;height:18px;line-height:14px;box-sizing:border-box}
 .cal-race.priority-A{background:#FFD700;color:#1a1000}
 .cal-race.priority-B{background:#C0C0C0;color:#111}
 .cal-race.priority-C{background:#CD7F32;color:#fff}
@@ -212,7 +212,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     <div class="modal-panel active" id="mp-workout">
       <div class="field"><label>Date</label><input type="date" id="woDate" /></div>
       <div class="field"><label>Sport</label>
-        <select id="woSport" onchange="updateTSSEstimate()">
+        <select id="woSport">
           <option value="cycling">Bike</option>
           <option value="running">Run</option>
           <option value="swimming">Swim</option>
@@ -223,7 +223,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <div class="field"><label>Title</label><input type="text" id="woTitle" placeholder="e.g. Threshold intervals 4x8min" /></div>
       <div class="field"><label>Description / Coach notes</label><textarea id="woDesc" rows="3" placeholder="Workout details / instructions for the athlete"></textarea></div>
       <div class="field"><label>Intensity</label>
-        <select id="woIntensity" onchange="updateTSSEstimate()">
+        <select id="woIntensity">
           <option value="easy">Easy / Recovery</option>
           <option value="endurance" selected>Endurance / Base</option>
           <option value="tempo">Tempo</option>
@@ -232,8 +232,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         </select>
       </div>
       <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Duration (min)</label><input type="number" id="woDuration" placeholder="e.g. 60" oninput="updateTSSEstimate()" /></div>
-        <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Est. TSS</label><div id="woTSSDisplay" style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;color:var(--acc);padding-top:4px">—</div></div>
+        <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Duration (min)</label><input type="number" id="woDuration" placeholder="e.g. 60" /></div>
+        <div><label style="display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Target TSS</label><input type="number" id="woTSSTarget" placeholder="optional" /></div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.5rem">
         <input type="checkbox" id="woCompleted" style="width:auto" /> Mark as completed
@@ -608,10 +608,10 @@ function openDayModal(dateStr){
   document.getElementById('woTitle').value='';
   document.getElementById('woDesc').value='';
   document.getElementById('woDuration').value='';
+  document.getElementById('woTSSTarget').value='';
   document.getElementById('woCompleted').checked=false;
   document.getElementById('woDeleteBtn').style.display='none';
   document.getElementById('woError').style.display='none';
-  updateTSSEstimate();
   // Reset race form
   document.getElementById('rcName').value='';
   document.getElementById('rcDate').value=dateStr||'';
@@ -640,10 +640,10 @@ function openWoEdit(id){
   document.getElementById('woTitle').value=w.title||'';
   document.getElementById('woDesc').value=w.description||'';
   document.getElementById('woDuration').value=w.duration_minutes!=null?w.duration_minutes:'';
+  document.getElementById('woTSSTarget').value=w.tss_target!=null?w.tss_target:'';
   document.getElementById('woCompleted').checked=!!w.completed;
   document.getElementById('woDeleteBtn').style.display='block';
   document.getElementById('woError').style.display='none';
-  updateTSSEstimate();
   document.getElementById('dayModal').classList.add('show');
 }
 
@@ -693,10 +693,10 @@ function openWoModal(dateStr,workoutId,prefill){
   document.getElementById('woTitle').value=(prefill&&prefill.title)||'';
   document.getElementById('woDesc').value=(prefill&&prefill.description)||'';
   document.getElementById('woDuration').value=(prefill&&prefill.duration)||'';
+  document.getElementById('woTSSTarget').value='';
   document.getElementById('woCompleted').checked=false;
   document.getElementById('woDeleteBtn').style.display='none';
   document.getElementById('woError').style.display='none';
-  updateTSSEstimate();
   document.getElementById('rcName').value='';
   document.getElementById('rcDate').value=dateStr||'';
   document.getElementById('rcDeleteBtn').style.display='none';
@@ -712,14 +712,14 @@ async function saveWorkout(){
   const sport=document.getElementById('woSport').value;
   const intensity=document.getElementById('woIntensity').value;
   const durationMin=document.getElementById('woDuration').value?Number(document.getElementById('woDuration').value):null;
+  const tssRaw=document.getElementById('woTSSTarget').value;
   const payload={
     athlete_id:selectedAthlete.id,
     date:document.getElementById('woDate').value,
     sport,
-    workout_type:intensity,
     title:document.getElementById('woTitle').value.trim(),
     description:document.getElementById('woDesc').value.trim(),
-    tss_target:durationMin!=null?estimateTSS(sport,intensity,durationMin):null,
+    tss_target:tssRaw!==''?Number(tssRaw):null,
     duration_minutes:durationMin,
     completed:document.getElementById('woCompleted').checked
   };
@@ -807,31 +807,6 @@ async function deleteRace(){
   }
 }
 
-// --- TSS estimation ---
-// Easy=0.5, Endurance=0.65, Tempo=0.75, Threshold=0.85, Intervals=1.0
-function estimateTSS(sport,intensity,durationMin){
-  const mult={
-    cycling:{easy:0.5,endurance:0.65,tempo:0.75,threshold:0.85,intervals:1.0},
-    running:{easy:0.5,endurance:0.65,tempo:0.75,threshold:0.85,intervals:1.0},
-    swimming:{easy:0.5,endurance:0.65,tempo:0.75,threshold:0.85,intervals:1.0},
-    strength:{easy:0.5,endurance:0.65,tempo:0.75,threshold:0.85,intervals:1.0},
-    other:{easy:0.5,endurance:0.65,tempo:0.75,threshold:0.85,intervals:1.0}
-  };
-  const m=(mult[sport]||mult.other)[intensity]||0.65;
-  return Math.round(durationMin*m);
-}
-
-function updateTSSEstimate(){
-  const sport=document.getElementById('woSport').value;
-  const intensity=document.getElementById('woIntensity').value;
-  const dur=document.getElementById('woDuration').value;
-  const el=document.getElementById('woTSSDisplay');
-  if(dur&&Number(dur)>0){
-    el.textContent=estimateTSS(sport,intensity,Number(dur));
-  }else{
-    el.textContent='—';
-  }
-}
 
 // --- AI chat helpers ---
 function parseWorkoutFromText(text){
@@ -862,6 +837,73 @@ function looksLikeWorkoutPrescription(text){
   const markers=['warm','main set','cool','duration','session type','zone','interval','x8','x4','x3','x6',':00'];
   const hits=markers.filter(m=>text.toLowerCase().includes(m)).length;
   return hits>=2;
+}
+
+function isBrickWorkout(text){
+  const lower=text.toLowerCase();
+  const hasBike=lower.includes('bike')||lower.includes('cycling')||lower.includes('ride')||lower.includes('watts')||lower.includes('ftp');
+  const hasRun=lower.includes('run')||lower.includes('pace')||lower.includes('mile');
+  return hasBike&&hasRun;
+}
+
+function parseBrickSplit(text){
+  // Extract bike portion: look for "Bike:" / "Cycling:" / "Ride:" block then Run block
+  const lower=text.toLowerCase();
+  const bikeSectionMatch=text.match(/(?:bike|cycling|ride)[:\s–-]+([^\n]+(?:\n(?!run|walk)[^\n]+)*)/i);
+  const runSectionMatch=text.match(/(?:run|running)[:\s–-]+([^\n]+(?:\n(?![^\n]*:)[^\n]+)*)/i);
+
+  const bikeText=bikeSectionMatch?bikeSectionMatch[0]:text;
+  const runText=runSectionMatch?runSectionMatch[0]:text;
+
+  const durMatch=s=>{
+    const hr=s.match(/(\d+(?:\.\d+)?)\s*(?:hour|hr)/i);
+    const min=s.match(/(\d{2,3})\s*(?:min|minute)/i);
+    if(hr)return Math.round(parseFloat(hr[1])*60);
+    if(min)return parseInt(min[1]);
+    return null;
+  };
+
+  const intensityFrom=s=>{
+    if(/interval|vo2/i.test(s))return'intervals';
+    if(/threshold/i.test(s))return'threshold';
+    if(/tempo/i.test(s))return'tempo';
+    if(/easy|recovery/i.test(s))return'easy';
+    return'endurance';
+  };
+
+  return{
+    bike:{sport:'cycling',intensity:intensityFrom(bikeText),duration:durMatch(bikeText),title:'Bike — Brick'},
+    run:{sport:'running',intensity:intensityFrom(runText),duration:durMatch(runText),title:'Run — Brick'}
+  };
+}
+
+async function splitIntoBrick(capturedReply){
+  const today=new Date().toISOString().split('T')[0];
+  const{bike,run}=parseBrickSplit(capturedReply);
+  // Open bike entry first, queue run after save
+  window._brickRunPending={...run,description:capturedReply.slice(0,600)};
+  openWoModal(today,null,{...bike,description:capturedReply.slice(0,600)});
+  // Show a note in the modal
+  const errEl=document.getElementById('woError');
+  errEl.style.color='var(--acc)';
+  errEl.style.display='block';
+  errEl.textContent='Brick split: save this bike entry, then the run entry will open automatically.';
+  // Patch saveWorkout to chain the run entry
+  const origSave=window._origSaveWorkout||saveWorkout;
+  window._origSaveWorkout=origSave;
+  const runPending=window._brickRunPending;
+  const runOnce=async function(){
+    // restore
+    window.saveWorkout=origSave;
+    window._origSaveWorkout=null;
+    window._brickRunPending=null;
+    await origSave.call(this);
+    // after bike saved, open run modal
+    setTimeout(()=>{
+      openWoModal(today,null,{...runPending});
+    },400);
+  };
+  window.saveWorkout=runOnce;
 }
 
 // --- AI chat ---
@@ -944,16 +986,31 @@ async function sendChat(){
     loadingEl.textContent=reply;
     chatHistory.push({role:'assistant',content:reply});
     if(looksLikeWorkoutPrescription(reply)){
+      const capturedReply=reply;
+      const today=new Date().toISOString().split('T')[0];
+      const btnWrap=document.createElement('div');
+      btnWrap.style.cssText='display:flex;gap:8px;margin-top:6px;flex-wrap:wrap';
+
       const addBtn=document.createElement('button');
       addBtn.className='chat-add-btn';
       addBtn.textContent='+ Add to calendar';
-      const capturedReply=reply;
       addBtn.onclick=()=>{
         const parsed=parseWorkoutFromText(capturedReply);
-        const today=new Date().toISOString().split('T')[0];
         openWoModal(today,null,parsed);
       };
-      loadingEl.parentNode.insertBefore(addBtn,loadingEl.nextSibling);
+      btnWrap.appendChild(addBtn);
+
+      if(isBrickWorkout(reply)){
+        const brickBtn=document.createElement('button');
+        brickBtn.className='chat-add-btn';
+        brickBtn.style.borderColor='#378ADD';
+        brickBtn.style.color='#378ADD';
+        brickBtn.textContent='⚡ Split into bike + run';
+        brickBtn.onclick=()=>splitIntoBrick(capturedReply);
+        btnWrap.appendChild(brickBtn);
+      }
+
+      loadingEl.parentNode.insertBefore(btnWrap,loadingEl.nextSibling);
     }
   }catch(err){
     loadingEl.classList.remove('loading');
