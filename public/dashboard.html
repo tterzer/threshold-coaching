@@ -250,7 +250,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <div class="activities-box">
         <div class="act-header">
           <div class="act-title">Recent activities</div>
-          <button class="unit-toggle" id="unitToggle" onclick="toggleUnits()">Switch to miles</button>
+          <button class="unit-toggle" id="unitToggle" onclick="toggleUnits()">km / m</button>
         </div>
         <div id="actList"><div class="empty-note">Loading activities...</div></div>
       </div>
@@ -282,7 +282,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 </div>
 
 <script>
-let pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=true;
+let pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=false; // default imperial (mi/yd)
 let allActivities=[];
 let allTimeActivities=[];
 let zoneStreamCache={};
@@ -404,13 +404,18 @@ async function saveProfileAndLoad(){
 
 function toggleUnits(){
   useMetric=!useMetric;
-  document.getElementById('unitToggle').textContent=useMetric?'Switch to miles':'Switch to km';
+  document.getElementById('unitToggle').textContent=useMetric?'km / m':'mi / yd';
   buildActs(lastActs);
 }
 
-function fmtDist(m){
+function fmtDist(m,type){
   if(!m)return'—';
-  return useMetric?(m/1000).toFixed(1)+' km':(m/1609.34).toFixed(1)+' mi';
+  const isSwim=(type||'').toLowerCase().includes('swim');
+  if(useMetric){
+    return isSwim?Math.round(m)+' m':(m/1000).toFixed(1)+' km';
+  }else{
+    return isSwim?Math.round(m*1.09361)+' yd':(m/1609.34).toFixed(1)+' mi';
+  }
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
@@ -712,7 +717,7 @@ function buildActs(acts){
     const t=(a.type||'').toLowerCase();
     const cls=t.includes('ride')||t.includes('cycl')?'ride':t.includes('run')?'run':t.includes('swim')?'swim':'';
     const label=t.includes('ride')||t.includes('cycl')?'Ride':t.includes('run')?'Run':t.includes('swim')?'Swim':a.type||'Workout';
-    return`<div class="act-row"><div class="act-left"><span class="act-badge ${cls}">${label}</span><div><div class="act-name">${a.name||'Activity'}</div><div class="act-date">${fmtDate(a.start_date_local)}</div></div></div><div class="act-stats"><div class="act-stat"><div class="act-stat-val">${fmtDist(a.distance)}</div><div class="act-stat-label">Dist</div></div><div class="act-stat"><div class="act-stat-val">${fmtTime(a.moving_time)}</div><div class="act-stat-label">Time</div></div><div class="act-stat"><div class="act-stat-val">${Math.round(a.icu_training_load||0)||'—'}</div><div class="act-stat-label">Load</div></div></div></div>`;
+    return`<div class="act-row"><div class="act-left"><span class="act-badge ${cls}">${label}</span><div><div class="act-name">${a.name||'Activity'}</div><div class="act-date">${fmtDate(a.start_date_local)}</div></div></div><div class="act-stats"><div class="act-stat"><div class="act-stat-val">${fmtDist(a.distance,a.type)}</div><div class="act-stat-label">Dist</div></div><div class="act-stat"><div class="act-stat-val">${fmtTime(a.moving_time)}</div><div class="act-stat-label">Time</div></div><div class="act-stat"><div class="act-stat-val">${Math.round(a.icu_training_load||0)||'—'}</div><div class="act-stat-label">TSS</div></div></div></div>`;
   }).join('');
 }
 
