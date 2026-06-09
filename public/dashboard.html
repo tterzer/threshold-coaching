@@ -1006,8 +1006,8 @@ async function onZoneDistControlChange(){
   const acts=allActivities.filter(a=>sportClass(a.type)===sport&&new Date(a.start_date_local)>=cutoff).slice(0,20);
   if(!acts.length){el.innerHTML='<div class="empty-note">No '+sport+' activities in this window</div>';return;}
   try{
-    // Cycling only: fetch watts (HR disabled for now — only power streams used)
-    const streamType=metric==='hr'?'heartrate':'watts';
+    // Cycling only: watts streams
+    const streamType='watts';
     const results=await Promise.all(acts.map(a=>fetchStream(a.id,streamType)));
     const bounds=zoneBoundsFor(sport,metric);
     const totals=new Array(bounds.length).fill(0);
@@ -1023,7 +1023,7 @@ async function onZoneDistControlChange(){
         }
       });
     });
-    if(!any){el.innerHTML='<div class="empty-note">No '+(metric==='hr'?'heart rate':'power')+' stream data found</div>';return;}
+    if(!any){el.innerHTML='<div class="empty-note">No power stream data found</div>';return;}
     const total=totals.reduce((s,v)=>s+v,0);
     if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
     el.innerHTML=totals.map((t,i)=>{
@@ -1037,30 +1037,23 @@ async function onZoneDistControlChange(){
   }
 }
 
-// Caching strategy by stream type:
-//   watts          — full Supabase cache (read + write). Bike power is accurate.
-//   velocity_smooth — write to Supabase (building cache from today), but skip reading
-//                    old entries (may be stale/corrupt). Once enough history
-//                    accumulates the all-time curves will be enabled.
-const NO_CACHE_READ=new Set(['velocity_smooth']); // skip Supabase GET; still write
-
+// Stream fetching is used exclusively for cycling watts streams.
+// Run and swim streams are not fetched — those curves are disabled while data collects.
 async function fetchStream(activityId,type){
   const cacheKey=activityId+':'+type;
-  // 1. In-memory cache (fastest, always valid within session)
+  // 1. In-memory cache
   if(zoneStreamCache[cacheKey])return zoneStreamCache[cacheKey];
-  // 2. Supabase stream cache (skipped for velocity_smooth reads — fresh start)
-  if(!NO_CACHE_READ.has(type)){
-    try{
-      const cached=await fetch('/api/stream-cache?activity_id='+activityId+'&stream_type='+type);
-      if(cached.ok){
-        const cj=await cached.json();
-        if(cj.cached&&Array.isArray(cj.data)){
-          zoneStreamCache[cacheKey]=cj.data;
-          return zoneStreamCache[cacheKey];
-        }
+  // 2. Supabase stream cache
+  try{
+    const cached=await fetch('/api/stream-cache?activity_id='+activityId+'&stream_type='+type);
+    if(cached.ok){
+      const cj=await cached.json();
+      if(cj.cached&&Array.isArray(cj.data)){
+        zoneStreamCache[cacheKey]=cj.data;
+        return zoneStreamCache[cacheKey];
       }
-    }catch(_){}
-  }
+    }
+  }catch(_){}
   // 3. Fetch from intervals.icu
   try{
     const data=await apiCall(curId,curKey,activityId+'/streams','types='+type,'activity');
@@ -1075,7 +1068,7 @@ async function fetchStream(activityId,type){
     }
     arr=arr||[];
     zoneStreamCache[cacheKey]=arr;
-    // 4. Write to Supabase for ALL types (including velocity_smooth — builds cache going forward)
+    // 4. Write to Supabase cache in background
     if(arr.length){
       fetch('/api/stream-cache',{
         method:'POST',
@@ -1094,7 +1087,7 @@ async function fetchStream(activityId,type){
 const CURVE_DURATIONS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
 const CURVE_LABELS=['5s','10s','30s','1m','2m','5m','10m','20m','30m','1h','90m','2h'];
 
-// Standard rolling max average — used for cycling watts.
+// Rolling max average over a sliding window — used for cycling watts.
 function rollingMax(arr,windowSecs){
   if(!arr||arr.length<windowSecs)return null;
   let sum=0,max=-Infinity;
@@ -1104,23 +1097,6 @@ function rollingMax(arr,windowSecs){
     if(i>=windowSecs-1)max=Math.max(max,sum/windowSecs);
   }
   return isFinite(max)?max:null;
-}
-
-// Peak average velocity over a sliding window of windowSize samples.
-// Clamps any value above MAX_RUN_MPS to 0 before windowing.
-const MAX_RUN_MPS=7.5;
-function peakAvgRun(stream, windowSize){
-  if(!stream||stream.length<windowSize)return null;
-  // Pre-clamp GPS spikes
-  const s=stream.map(v=>{const n=Number(v)||0;return n>MAX_RUN_MPS?0:n;});
-  let best=0;
-  for(let i=0;i<=s.length-windowSize;i++){
-    let sum=0;
-    for(let j=i;j<i+windowSize;j++)sum+=s[j];
-    const avg=sum/windowSize;
-    if(avg>best)best=avg;
-  }
-  return best>0?best:null;
 }
 
 function calcCurveBest(actList,streamMap){
@@ -1136,17 +1112,6 @@ function calcCurveBest(actList,streamMap){
   return best;
 }
 
-// Convert m/s velocity to secs/mile (used as chart Y value — inverted axis).
-function mpsToSecsPerMile(v){return v>0?1609.34/v:null;}
-
-// Format secs/mile as MM:SS/mi string.
-function fmtPace(secsPerMile){
-  if(secsPerMile==null||!isFinite(secsPerMile))return'—';
-  const m=Math.floor(secsPerMile/60);
-  const s=Math.round(secsPerMile%60);
-  return m+':'+(s<10?'0':'')+s+'/mi';
-}
-
 // Score an intervals.icu label by window length (higher = longer).
 function windowScore(l){
   const s=(l||'').toLowerCase();
@@ -1158,11 +1123,9 @@ function windowScore(l){
   return 0;
 }
 
-// Fetch streams for a list of activities and compute per-duration best values.
-// streamType: 'watts' for cycling, 'velocity_smooth' for running.
-// Returns array aligned to CURVE_DURATIONS, values are raw stream units.
+// Fetch watts streams for a list of cycling activities and compute per-duration best values.
+// Returns array aligned to CURVE_DURATIONS in watts.
 async function buildStreamCurve(acts, streamType, progressId){
-  const isVelocity=streamType==='velocity_smooth';
   const best=CURVE_DURATIONS.map(()=>null);
   let done=0;
   await Promise.all(acts.map(async a=>{
@@ -1172,7 +1135,7 @@ async function buildStreamCurve(acts, streamType, progressId){
     if(el)el.style.width=Math.round(done/acts.length*100)+'%';
     if(!arr||!arr.length)return;
     CURVE_DURATIONS.forEach((d,i)=>{
-      const m=isVelocity?peakAvgRun(arr,d):rollingMax(arr,d);
+      const m=rollingMax(arr,d);
       if(m!=null&&(best[i]==null||m>best[i]))best[i]=m;
     });
   }));
@@ -1363,85 +1326,8 @@ async function renderCurve(){
 
   if(sport==='swimming'){
     // ── SWIMMING ─────────────────────────────────────────────────────────
-    // velocity_smooth streams only. Cache builds from today forward.
-    // Pace displayed as min:sec/100m (swim threshold pace units).
-    // Only durations ≥60s used (short splits are noisy).
-    const SWIM_DURATIONS=CURVE_DURATIONS.filter(d=>d>=60);
-
-    box.innerHTML='<div class="curve-loading">Building swim pace curve from streams…'
-      +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
-
-    try{
-      const allSwims=allActivities.filter(a=>(a.type||'').toLowerCase().includes('swim'));
-      if(!allSwims.length){box.innerHTML='<div class="empty-note">No swimming activities found.</div>';return;}
-
-      const recentSwims=allSwims.filter(a=>new Date(a.start_date_local)>=thirtyDaysAgo).slice(0,15);
-      if(!recentSwims.length){box.innerHTML='<div class="empty-note">No swims in the last 30 days.</div>';return;}
-      document.getElementById('curveProg').style.width='10%';
-      const recBest=await buildStreamCurve(recentSwims,'velocity_smooth','curveProg');
-      const recentPairs=SWIM_DURATIONS.map(s=>{
-        const i=CURVE_DURATIONS.indexOf(s);
-        return recBest[i]!=null?{s,v:recBest[i]}:null;
-      }).filter(Boolean);
-      if(!recentPairs.length){box.innerHTML='<div class="empty-note">Collecting data… check back after your next swim is synced.</div>';return;}
-
-      // Swim pace: m/s → secs per 100m (lower = faster, invert Y)
-      const mpsToSecsPer100m=v=>v>0?100/v:null;
-      const fmtSwimPace=secs=>{
-        if(secs==null)return'—';
-        const m=Math.floor(secs/60),s=Math.round(secs%60);
-        return m+':'+(s<10?'0':'')+s+'/100m';
-      };
-
-      // Draw using a custom chart since swim pace units differ from run (per 100m not per mile)
-      if(curveInst)curveInst.destroy();
-      box.style.overflow='hidden';
-      const swimLabels=SWIM_DURATIONS.map(s=>s<60?s+'s':s<3600?(s/60)%1===0?(s/60)+'m':(s/60).toFixed(1)+'m':s%3600===0?(s/3600)+'h':(s/3600).toFixed(1)+'h');
-      const swimData=recentPairs.map(p=>mpsToSecsPer100m(p.v));
-      const swimLabelFull=swimLabels.filter((_,i)=>recentPairs[i]!=null);
-      const swimDataFull=swimData.filter(v=>v!=null);
-
-      box.innerHTML='<div style="position:relative;height:230px;width:100%;max-width:100%;overflow:hidden"><canvas id="curveChart" style="max-width:100%;width:100%"></canvas></div><div id="curveTableWrap"></div>';
-
-      curveInst=new Chart(document.getElementById('curveChart'),{
-        type:'line',
-        data:{
-          labels:swimLabelFull,
-          datasets:[{
-            label:'Last 30 days',
-            data:swimDataFull,
-            borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.13)',
-            fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#1D9E75',order:1
-          }]
-        },
-        options:{
-          responsive:true,maintainAspectRatio:false,
-          interaction:{mode:'index',intersect:false},
-          plugins:{
-            legend:{display:true,labels:{color:'#999',font:{size:10,family:'DM Mono, monospace'},boxWidth:12,padding:14}},
-            tooltip:{callbacks:{label:ctx=>{
-              const raw=ctx.parsed.y;
-              return ctx.dataset.label+': '+(raw!=null?fmtSwimPace(raw):'—');
-            }}}
-          },
-          scales:{
-            x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}},
-            y:{reverse:true,min:60,max:240,
-              ticks:{color:'#555',font:{size:10},callback:v=>fmtSwimPace(v)},
-              grid:{color:'#1a1a1a'}}
-          }
-        }
-      });
-
-      const wrap=document.getElementById('curveTableWrap');
-      wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
-        +'<thead><tr><th>Duration</th>'+swimLabelFull.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
-        +'<tbody><tr><td style="color:#1D9E75">30 days</td>'+swimDataFull.map(v=>'<td>'+fmtSwimPace(v)+'</td>').join('')+'</tr></tbody>'
-        +'</table>'
-        +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:0.6rem">Last 30 days: '+recentSwims.length+' swims | All-time curve building… check back as more swims are cached</div>';
-    }catch(e){
-      box.innerHTML='<div class="empty-note">Could not build swim pace curve: '+(e.message||'error')+'</div>';
-    }
+    // Stream fetching disabled — collecting data.
+    box.innerHTML='<div class="empty-note">Swim pace curve collecting data — will populate after your next swim is synced from intervals.icu</div>';
     return;
   }
 }
