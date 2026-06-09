@@ -989,12 +989,25 @@ async function onZoneDistControlChange(){
   const metric=document.getElementById('zdMetric').value;
   const win=Number(document.getElementById('zdWindow').value);
   const el=document.getElementById('zoneRows');
+
+  // Stream fetching is only enabled for cycling. Run and swim velocity/HR streams
+  // are disabled while data collection builds up.
+  if(sport==='running'){
+    el.innerHTML='<div class="empty-note">Zone data collecting — will populate after your next run</div>';
+    return;
+  }
+  if(sport==='swimming'){
+    el.innerHTML='<div class="empty-note">Zone data collecting — will populate after your next swim</div>';
+    return;
+  }
+
   el.innerHTML='<div class="empty-note">Loading zones...</div>';
   const cutoff=new Date();cutoff.setDate(cutoff.getDate()-win);
   const acts=allActivities.filter(a=>sportClass(a.type)===sport&&new Date(a.start_date_local)>=cutoff).slice(0,20);
   if(!acts.length){el.innerHTML='<div class="empty-note">No '+sport+' activities in this window</div>';return;}
   try{
-    const streamType=metric==='hr'?'heartrate':(sport==='cycling'?'watts':'velocity_smooth');
+    // Cycling only: fetch watts (HR disabled for now — only power streams used)
+    const streamType=metric==='hr'?'heartrate':'watts';
     const results=await Promise.all(acts.map(a=>fetchStream(a.id,streamType)));
     const bounds=zoneBoundsFor(sport,metric);
     const totals=new Array(bounds.length).fill(0);
@@ -1004,24 +1017,13 @@ async function onZoneDistControlChange(){
       any=true;
       stream.forEach(v=>{
         if(v==null)return;
-        let val=v;
-        if(metric!=='hr'){
-          if(sport==='running'||sport==='swimming'){
-            // velocity_smooth (m/s) -> compare against threshold speed multiples
-            const s=zs[sport];
-            const threshSecs=sport==='running'?parsePace(s.threshold_pace):parsePace(s.css);
-            // threshold speed in m/s: running per-mile -> 1609.34/threshSecs ; swim per-100 -> 100/threshSecs
-            const threshSpeed=sport==='running'?(1609.34/threshSecs):(100/threshSecs);
-            val=threshSpeed>0?v/threshSpeed:0;
-          }
-        }
         for(let i=0;i<bounds.length;i++){
           const[lo,hi]=bounds[i];
-          if(val>=lo&&val<hi){totals[i]+=1;break;}
+          if(v>=lo&&v<hi){totals[i]+=1;break;}
         }
       });
     });
-    if(!any){el.innerHTML='<div class="empty-note">No '+(metric==='hr'?'heart rate':'power/pace')+' stream data found</div>';return;}
+    if(!any){el.innerHTML='<div class="empty-note">No '+(metric==='hr'?'heart rate':'power')+' stream data found</div>';return;}
     const total=totals.reduce((s,v)=>s+v,0);
     if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
     el.innerHTML=totals.map((t,i)=>{
