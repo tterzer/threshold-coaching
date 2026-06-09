@@ -442,10 +442,14 @@ async function apiCall(athleteId,apiKey,path,qs,base){
 function fmtTime(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
 function fmtDate(d){return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 
+function isRunActivity(type){
+  const t=(type||'').toLowerCase();
+  return t.includes('run')||t==='race'||t.includes('trail')||t.includes('treadmill');
+}
 function sportClass(type){
   const t=(type||'').toLowerCase();
   if(t.includes('ride')||t.includes('cycl')||t.includes('bike'))return'cycling';
-  if(t.includes('run'))return'running';
+  if(isRunActivity(t))return'running';
   if(t.includes('swim'))return'swimming';
   return'other';
 }
@@ -1002,8 +1006,8 @@ async function fetchStream(activityId,type){
 }
 
 /* ---------- Peak power / pace duration curve ---------- */
-const CURVE_DURATIONS=[5,10,30,60,120,300,600,1200,1800,3600,5400];
-const CURVE_LABELS=['5s','10s','30s','1m','2m','5m','10m','20m','30m','1h','90m'];
+const CURVE_DURATIONS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
+const CURVE_LABELS=['5s','10s','30s','1m','2m','5m','10m','20m','30m','1h','90m','2h'];
 
 function rollingMax(arr,windowSecs){
   if(!arr||arr.length<windowSecs)return null;
@@ -1081,7 +1085,7 @@ async function buildStreamCurve(acts, streamType, progressId){
 // isRun: true → convert m/s → secs/mile, inverted Y axis
 // note: small attribution text
 function drawCurveChart(box, allTimePairs, recentPairs, isRun, note){
-  const DISPLAY_SECS=[5,10,30,60,120,300,600,1200,1800,3600,5400];
+  const DISPLAY_SECS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
   function fmtSecs(s){return s<60?s+'s':s<3600?(s/60)%1===0?(s/60)+'m':(s/60).toFixed(1)+'m':s%3600===0?(s/3600)+'h':(s/3600).toFixed(1)+'h';}
 
   function makeLookup(pairs){
@@ -1259,17 +1263,25 @@ async function renderCurve(){
   box.innerHTML='<div class="curve-loading">Building run pace curve from streams…'
     +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
 
+  // Log all activity types so we can see what race/run types are present
+  const typeSet=[...new Set(allActivities.map(a=>a.type))].sort();
+  console.log('[activities] all types in allActivities:', typeSet);
+
   // Log run power-curves API response for diagnostics (don't block on it)
   apiCall(curId,curKey,'power-curves','type=Run').then(d=>{
     const list=(d&&d.list)||[];
     console.log('[power-curves] Run — list length:',list.length,'| labels:',list.map(c=>c.label));
-    if(list.length){console.log('[power-curves] Run first item keys:',Object.keys(list[0]));}
+    if(list.length){
+      console.log('[power-curves] Run first item keys:',Object.keys(list[0]));
+      console.log('[power-curves] Run first item sample:',list[0]);
+    }
   }).catch(()=>{});
 
   try{
-    const allRuns=allActivities.filter(a=>sportClass(a.type)==='running');
+    const allRuns=allActivities.filter(a=>isRunActivity(a.type));
     const recentRuns=allRuns.filter(a=>new Date(a.start_date_local)>=thirtyDaysAgo).slice(0,10);
     const allTimeRuns=allRuns.slice(0,20);
+    console.log('[streams] run types found:',allRuns.map(a=>a.type).slice(0,20));
     console.log('[streams] all-time runs:',allTimeRuns.length,'| last-30 runs:',recentRuns.length);
 
     if(!allTimeRuns.length){box.innerHTML='<div class="empty-note">No running activities found.</div>';return;}
