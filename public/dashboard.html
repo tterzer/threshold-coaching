@@ -59,10 +59,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .leg-line{width:16px;height:2px;flex-shrink:0}
 .leg-sw{width:10px;height:10px;flex-shrink:0;display:inline-block}
 .zone-rows{display:flex;flex-direction:column;gap:10px;padding-top:0.25rem}
-.zone-row-d{display:grid;grid-template-columns:32px 1fr 36px;gap:10px;align-items:center}
+.zone-row-d{display:grid;grid-template-columns:32px 1fr 36px auto;gap:8px;align-items:center}
 .zone-name-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em}
-.zone-bg-d{background:var(--bc3);height:6px}
-.zone-fill-d{height:100%}
+.zone-bg-d{background:var(--bc3);height:18px;border-radius:2px;overflow:hidden}
+.zone-fill-d{height:100%;display:flex;align-items:center}
+.zone-range-in{padding-left:6px;font-family:'DM Mono',monospace;font-size:9px;color:rgba(0,0,0,0.72);white-space:nowrap;overflow:hidden}
+.zone-range-col{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);white-space:nowrap}
 .zone-pct-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:right}
 .zd-controls{display:flex;gap:6px;flex-wrap:wrap}
 .zd-select{font-family:'DM Mono',monospace;font-size:10px;background:var(--bc3);border:1px solid var(--border);color:var(--tc2);padding:5px 8px;letter-spacing:0.05em;text-transform:uppercase;outline:none}
@@ -741,7 +743,7 @@ function buildZones(acts){
   }
   el.innerHTML=totals.map((t,i)=>{
     const pct=total>0?Math.round((t/total)*100):0;
-    return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${colors[i]}"></div></div><span class="zone-pct-d">${pct}%</span></div>`;
+    return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${colors[i]}"></div></div><span class="zone-pct-d">${pct}%</span><span></span></div>`;
   }).join('');
 }
 
@@ -925,6 +927,45 @@ function zoneBoundsFor(sport,metric){
   });
 }
 
+// Returns a human-readable zone boundary range string for display inside the bar.
+// Uses the same threshold math as renderZoneTable so values always match.
+function fmtZoneBoundsDisplay(sport,metric,i){
+  const s=zs[sport];
+  if(metric==='hr'){
+    const base=s.lthr||s.max_hr;
+    const z=CYCLING_HR[i]; if(!z)return'';
+    const ov=(s.overrides.hr||{})[i];
+    const lo=ov?ov[0]:Math.round(base*z.lo/100);
+    const hi=ov?ov[1]:Math.round(base*z.hi/100);
+    return lo+'–'+hi+' bpm';
+  }
+  if(sport==='cycling'){
+    const z=CYCLING_PWR[i]; if(!z)return'';
+    const ov=(s.overrides.power||{})[i];
+    const lo=ov?ov[0]:Math.round(s.ftp*z.lo/100);
+    const hi=ov?ov[1]:Math.round(s.ftp*z.hi/100);
+    return lo+'–'+hi+'w';
+  }
+  if(sport==='running'){
+    const z=RUNNING_PACE[i]; if(!z)return'';
+    const thresh=parsePace(s.threshold_pace);
+    const ov=(s.overrides.pace||{})[i];
+    const faster=ov?ov[0]:secsToMMSS(Math.round(thresh*100/z.hi));
+    const slower=ov?ov[1]:(z.lo===0?null:secsToMMSS(Math.round(thresh*100/z.lo)));
+    return slower?faster+'–'+slower+'/mi':'<'+faster+'/mi';
+  }
+  if(sport==='swimming'){
+    const z=SWIM_PACE[i]; if(!z)return'';
+    const thresh=parsePace(s.css);
+    const ov=(s.overrides.pace||{})[i];
+    const faster=ov?ov[0]:secsToMMSS(Math.round(thresh*100/z.hi));
+    const slower=ov?ov[1]:(z.lo===0?null:secsToMMSS(Math.round(thresh*100/z.lo)));
+    const unit='/'+s.css_unit;
+    return slower?faster+'–'+slower+unit:'<'+faster+unit;
+  }
+  return'';
+}
+
 async function loadZoneDistribution(){
   await onZoneDistControlChange();
 }
@@ -978,7 +1019,10 @@ async function onZoneDistControlChange(){
     if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
     el.innerHTML=totals.map((t,i)=>{
       const pct=Math.round((t/total)*100);
-      return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${ZC_COLORS[i]||'#7F77DD'}"></div></div><span class="zone-pct-d">${pct}%</span></div>`;
+      const color=ZC_COLORS[i]||'#7F77DD';
+      const range=fmtZoneBoundsDisplay(sport,metric,i);
+      const inside=pct>15;
+      return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}">${inside&&range?`<span class="zone-range-in">${range}</span>`:''}</div></div><span class="zone-pct-d">${pct}%</span><span class="zone-range-col">${!inside&&range?range:''}</span></div>`;
     }).join('');
   }catch(e){
     el.innerHTML='<div class="empty-note">Could not load stream-based zone data</div>';
@@ -1104,8 +1148,27 @@ async function buildStreamCurve(acts, streamType, progressId){
   const isVelocity=streamType==='velocity_smooth';
   const best=CURVE_DURATIONS.map(()=>null);
   let done=0;
+  let diagDone=false;
   await Promise.all(acts.map(async a=>{
     const arr=await fetchStream(a.id,streamType);
+    if(isVelocity&&!diagDone){
+      diagDone=true;
+      console.log('[diag] activity:',a.name,'|',a.start_date_local,'| dist:',(a.distance/1609.34).toFixed(2)+'mi');
+      console.log('[diag] stream length:',arr.length,'| first 10:',arr.slice(0,10).map(v=>+Number(v).toFixed(3)));
+      const W=1200;
+      if(arr.length>=W){
+        const clamped=arr.map(v=>{const n=Number(v)||0;return n>MAX_RUN_MPS?0:n;});
+        let best1200=0,bestIdx=0;
+        for(let i=0;i<=clamped.length-W;i++){
+          let sum=0;for(let j=i;j<i+W;j++)sum+=clamped[j];
+          const avg=sum/W;if(avg>best1200){best1200=avg;bestIdx=i;}
+        }
+        console.log('[diag] best 1200s avg:',best1200.toFixed(4),'m/s →',fmtPace(mpsToSecsPerMile(best1200)),'| window starts at index:',bestIdx);
+        console.log('[diag] 5 values at start index:',arr.slice(bestIdx,bestIdx+5).map(v=>+Number(v).toFixed(3)));
+      }else{
+        console.log('[diag] stream too short for 1200s window (length='+arr.length+')');
+      }
+    }
     done++;
     const el=document.getElementById(progressId);
     if(el)el.style.width=Math.round(done/acts.length*100)+'%';
