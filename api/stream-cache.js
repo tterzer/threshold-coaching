@@ -2,7 +2,7 @@ import { supabase } from './supabase.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -37,6 +37,19 @@ export default async function handler(req, res) {
                  { onConflict: 'activity_id,stream_type' });
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ ok: true });
+    }
+
+    if (req.method === 'DELETE') {
+      const { stream_type } = req.query;
+      if (!stream_type) {
+        return res.status(400).json({ error: 'Missing stream_type' });
+      }
+      const { error, count } = await supabase
+        .from('stream_cache')
+        .delete({ count: 'exact' })
+        .eq('stream_type', stream_type);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true, deleted: count });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

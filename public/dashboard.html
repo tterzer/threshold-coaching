@@ -600,6 +600,13 @@ async function loadDashboard(){
     buildActs(sorted.slice(0,7));
     initZoneCalc();
     loadZoneDistribution();
+    // One-time wipe of stale velocity_smooth entries (old run/swim cache may be corrupt).
+    // Runs once per browser; afterwards the cache builds fresh from today forward.
+    if(!localStorage.getItem('hm2l_stream_cache_v2')){
+      fetch('/api/stream-cache?stream_type=velocity_smooth',{method:'DELETE'})
+        .then(()=>localStorage.setItem('hm2l_stream_cache_v2','cleared'))
+        .catch(()=>{}); // fire-and-forget; renderCurve proceeds regardless
+    }
     renderCurve();
   }catch(e){
     if(errEl)errEl.style.display='block';
@@ -1367,7 +1374,7 @@ async function renderCurve(){
         const i=CURVE_DURATIONS.indexOf(s);
         return recBest[i]!=null?{s,v:recBest[i]}:null;
       }).filter(Boolean);
-      if(!recentPairs.length){box.innerHTML='<div class="empty-note">No usable run stream data.</div>';return;}
+      if(!recentPairs.length){box.innerHTML='<div class="empty-note">Collecting data… check back after your next run is synced.</div>';return;}
 
       const note='Last 30 days: '+recentRuns.length+' runs | All-time curve building… check back as more runs are cached';
       drawCurveChart(box,recentPairs,null,true,note,'Last 30 days');
@@ -1399,7 +1406,7 @@ async function renderCurve(){
         const i=CURVE_DURATIONS.indexOf(s);
         return recBest[i]!=null?{s,v:recBest[i]}:null;
       }).filter(Boolean);
-      if(!recentPairs.length){box.innerHTML='<div class="empty-note">No usable swim stream data.</div>';return;}
+      if(!recentPairs.length){box.innerHTML='<div class="empty-note">Collecting data… check back after your next swim is synced.</div>';return;}
 
       // Swim pace: m/s → secs per 100m (lower = faster, invert Y)
       const mpsToSecsPer100m=v=>v>0?100/v:null;
