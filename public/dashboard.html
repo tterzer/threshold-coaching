@@ -192,7 +192,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     <div class="grid-2">
       <div class="chart-box">
         <div class="chart-title">Performance management chart
-          <button onclick="openCtlSeedModal()" title="CTL seed settings" style="background:none;border:none;cursor:pointer;color:var(--tc3);font-size:14px;padding:0 0 0 6px;line-height:1" aria-label="CTL seed settings">⚙</button>
+          <button onclick="openCtlSeedModal()" title="CTL calibration settings" style="background:none;border:none;cursor:pointer;color:var(--tc3);font-size:14px;padding:0 0 0 6px;line-height:1" aria-label="CTL calibration settings">⚙</button><span id="ctlRefDisplay" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-left:4px;vertical-align:middle"></span>
           <div class="legend" style="margin:0">
             <div class="leg-item"><span class="leg-dot" style="background:#378ADD"></span>CTL</div>
             <div class="leg-item"><span class="leg-dot" style="background:#E24B4A"></span>ATL</div>
@@ -455,7 +455,8 @@ function sportClass(type){
 // the remaining (FITNESS_DAYS - WARMUP_DAYS) days, which is ~30 months.
 const FITNESS_DAYS=1095; // 3 years of activity history to fetch
 const WARMUP_DAYS=180;   // 6-month silent warm-up — model runs but nothing stored
-const CTL_SEED_KEY='hm2l_ctl_seed'; // localStorage key for optional starting CTL seed
+const CTL_REF_KEY='hm2l_ctl_ref';       // localStorage: TP reference CTL entered by user
+const CTL_OFFSET_KEY='hm2l_ctl_offset'; // localStorage: computed offset (ref - calculated)
 let fitnessSeries=[],fitnessByDate={};
 
 function dayKey(d){return new Date(d).toISOString().split('T')[0];}
@@ -479,8 +480,7 @@ function computeFitness(acts){
   const atlDecay=1-Math.exp(-1/7);
   const series=[];
   const byDate={};
-  const seedVal=Number(localStorage.getItem(CTL_SEED_KEY)||0)||0;
-  let ctlPrev=seedVal,atlPrev=seedVal;
+  let ctlPrev=0,atlPrev=0;
   for(let i=0;i<totalDays;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);
     const key=dayKey(d);
@@ -496,6 +496,22 @@ function computeFitness(acts){
     }
     ctlPrev=ctl;atlPrev=atl;
   }
+  return{series,byDate};
+}
+
+// Shift CTL by offset and ATL proportionally (ATL time-constant 7 vs CTL 42).
+// Recalculates TSB for every day after shifting.
+function applyCtlOffset(fit,offset){
+  if(!offset)return fit;
+  const atlOffset=offset*(7/42);
+  const series=fit.series.map(e=>({
+    date:e.date,
+    ctl:e.ctl+offset,
+    atl:e.atl+atlOffset,
+    tsb:(e.ctl+offset)-(e.atl+atlOffset)
+  }));
+  const byDate={};
+  series.forEach(e=>byDate[e.date]=e);
   return{series,byDate};
 }
 
@@ -539,10 +555,13 @@ async function loadDashboard(){
     // Compute CTL/ATL/TSB from scratch (Banister impulse-response model) using
     // icu_training_load as TSS, rather than trusting the API's icu_ctl/icu_atl.
     const fitSorted=[...fitnessActs].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
-    window._fitnessFetchedActs=fitSorted; // cached for CTL seed recalculation
+    window._fitnessFetchedActs=fitSorted; // cached for recalculation on offset change
     const fit=computeFitness(fitSorted);
-    fitnessSeries=fit.series;
-    fitnessByDate=fit.byDate;
+    const storedOffset=Number(localStorage.getItem(CTL_OFFSET_KEY)||0)||0;
+    const adjustedFit=storedOffset?applyCtlOffset(fit,storedOffset):fit;
+    fitnessSeries=adjustedFit.series;
+    fitnessByDate=adjustedFit.byDate;
+    updateCtlRefDisplay();
     const todayEntry=fitnessSeries[fitnessSeries.length-1];
     let ctl=0,atl=0,tsb=0;
     if(todayEntry){
@@ -1186,10 +1205,17 @@ async function renderCurve(){
   }
 }
 
-// --- CTL seed modal ---
+// --- CTL calibration modal ---
+
+function updateCtlRefDisplay(){
+  const el=document.getElementById('ctlRefDisplay');
+  if(!el)return;
+  const ref=localStorage.getItem(CTL_REF_KEY);
+  el.textContent=ref?'TP ref: '+ref:'';
+}
 
 function openCtlSeedModal(){
-  const cur=localStorage.getItem(CTL_SEED_KEY)||'';
+  const cur=localStorage.getItem(CTL_REF_KEY)||'';
   document.getElementById('ctlSeedInput').value=cur;
   document.getElementById('ctlSeedError').style.display='none';
   document.getElementById('ctlSeedModal').style.display='flex';
@@ -1203,37 +1229,77 @@ function closeCtlSeedModal(){
 function saveCtlSeed(){
   const raw=document.getElementById('ctlSeedInput').value.trim();
   const errEl=document.getElementById('ctlSeedError');
+  errEl.style.display='none';
+
   if(raw===''){
-    localStorage.removeItem(CTL_SEED_KEY);
-  }else{
-    const n=Number(raw);
-    if(isNaN(n)||n<0||n>300){
-      errEl.textContent='Enter a number between 0 and 300.';
-      errEl.style.display='block';
-      return;
+    // Clear calibration — reset to pure calculated values
+    localStorage.removeItem(CTL_REF_KEY);
+    localStorage.removeItem(CTL_OFFSET_KEY);
+    if(window._fitnessFetchedActs){
+      const fit=computeFitness(window._fitnessFetchedActs);
+      fitnessSeries=fit.series;
+      fitnessByDate=fit.byDate;
+      _applyFitnessToUI();
     }
-    localStorage.setItem(CTL_SEED_KEY,String(n));
+    updateCtlRefDisplay();
+    closeCtlSeedModal();
+    return;
   }
+
+  const n=Number(raw);
+  if(isNaN(n)||n<0||n>300){
+    errEl.textContent='Enter a number between 0 and 300.';
+    errEl.style.display='block';
+    return;
+  }
+
+  if(!window._fitnessFetchedActs){
+    errEl.textContent='Activity data not loaded yet — try again in a moment.';
+    errEl.style.display='block';
+    return;
+  }
+
+  // Run Banister from scratch (seed=0), measure today's raw CTL, derive offset.
+  const baseFit=computeFitness(window._fitnessFetchedActs);
+  const todayRaw=baseFit.series[baseFit.series.length-1];
+  const calcCTL=todayRaw?todayRaw.ctl:0;
+  const offset=n-calcCTL;
+
+  localStorage.setItem(CTL_REF_KEY,String(n));
+  localStorage.setItem(CTL_OFFSET_KEY,String(offset));
+
+  const adjusted=applyCtlOffset(baseFit,offset);
+  fitnessSeries=adjusted.series;
+  fitnessByDate=adjusted.byDate;
+  _applyFitnessToUI();
+  updateCtlRefDisplay();
   closeCtlSeedModal();
-  // Recalculate with new seed using the already-fetched activities
-  if(window._fitnessFetchedActs){
-    const fit=computeFitness(window._fitnessFetchedActs);
-    fitnessSeries=fit.series;
-    fitnessByDate=fit.byDate;
-    buildPMC();
-    buildRamp();
+}
+
+// Update snapshot metrics, PMC and ramp chart from current fitnessSeries.
+function _applyFitnessToUI(){
+  const todayEntry=fitnessSeries[fitnessSeries.length-1];
+  if(todayEntry){
+    document.getElementById('mCTL').textContent=Math.round(todayEntry.ctl);
+    document.getElementById('mATL').textContent=Math.round(todayEntry.atl);
+    const tsb=Math.round(todayEntry.ctl-todayEntry.atl);
+    const tsbEl=document.getElementById('mTSB');
+    tsbEl.textContent=(tsb>=0?'+':'')+tsb;
+    tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
   }
+  buildPMC();
+  buildRamp();
 }
 </script>
 
 <div id="ctlSeedModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center">
   <div style="background:var(--bc2);border:1px solid var(--border);padding:2rem;max-width:400px;width:92%">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.2rem">PMC settings</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.2rem">CTL calibration</div>
     <div class="field">
-      <label>Starting CTL (seed value)</label>
-      <input type="number" id="ctlSeedInput" placeholder="e.g. 45" min="0" max="300" onkeydown="if(event.key==='Enter')saveCtlSeed()" />
+      <label>Your current CTL from TrainingPeaks</label>
+      <input type="number" id="ctlSeedInput" placeholder="e.g. 68" min="0" max="300" onkeydown="if(event.key==='Enter')saveCtlSeed()" />
     </div>
-    <p style="font-size:12px;color:var(--tc3);line-height:1.6;margin-bottom:1.2rem">Set this to your known CTL from a date before your training history in intervals.icu to improve accuracy. Your current CTL in TrainingPeaks is a good reference. Leave blank to start from zero.</p>
+    <p style="font-size:12px;color:var(--tc3);line-height:1.6;margin-bottom:1.2rem">Enter your current CTL as shown in TrainingPeaks. The Banister model will be calculated from scratch (seed 0) and then shifted so today's value matches your reference. The same proportional offset is applied across the full history. Leave blank to remove calibration.</p>
     <div class="error-msg" id="ctlSeedError" style="display:none"></div>
     <div style="display:flex;gap:10px;margin-top:0.25rem">
       <button class="btn" style="width:auto" onclick="saveCtlSeed()">Save &amp; recalculate</button>
