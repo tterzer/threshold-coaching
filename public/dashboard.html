@@ -1449,7 +1449,7 @@ function renderAthCal(){
   const woByDate={};
   athWorkoutsCache.forEach(w=>{ (woByDate[w.date]=woByDate[w.date]||[]).push(w); });
   const raceByDate={};
-  athRacesCache.forEach(r=>{ (raceByDate[r.race_date]=raceByDate[r.race_date]||[]).push(r); });
+  athRacesCache.forEach(r=>{ (raceByDate[r.date]=raceByDate[r.date]||[]).push(r); });
 
   for(let i=0;i<42;i++){
     const d=new Date(gridStart);
@@ -1461,8 +1461,9 @@ function renderAthCal(){
 
     const racesHtml=races.map(r=>{
       const pri=r.priority||'C';
+      const dist=r.distance?(' · '+r.distance):'';
       return '<div class="ath-cal-race priority-'+pri+'" onclick="event.stopPropagation();openAthRaceModal(\''+String(r.id)+'\')" title="'+athEscHtml(r.name)+'">'
-        +'&#9873; '+athEscHtml(r.name||'Race')+'</div>';
+        +'&#9873; '+athEscHtml(r.name||'Race')+athEscHtml(dist)+'</div>';
     }).join('');
 
     const wosHtml=wos.map(w=>{
@@ -1533,7 +1534,7 @@ function openAthRaceModal(id){
   document.getElementById('athRaceTitle').textContent=r.name||'Race';
   const priorityLabels={A:'A — Peak race',B:'B — Training stimulus',C:'C — Low priority'};
   const rows=[
-    ['Date',r.race_date||'—'],
+    ['Date',r.date||'—'],
     ['Priority',priorityLabels[r.priority]||r.priority||'—'],
     ['Sport',r.sport_type||'—'],
     ['Distance',r.distance||'—'],
