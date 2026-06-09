@@ -1003,143 +1003,35 @@ async function renderCurve(){
   const sport=document.getElementById('curveSport').value;
   const isRun=sport==='running';
   const box=document.getElementById('curveBox');
-  const streamType=isRun?'velocity_smooth':'watts';
+  const actType=isRun?'Run':'Ride';
 
-  // Last-30 from allActivities
-  const cutoff30=new Date();cutoff30.setDate(cutoff30.getDate()-30);
-  const acts30=allActivities.filter(a=>sportClass(a.type)===sport&&new Date(a.start_date_local)>=cutoff30);
+  box.innerHTML='<div class="curve-loading">Loading power curve from intervals.icu…</div>';
 
-  // All-time from allTimeActivities, up to 150, newest first
-  const actsAll=[...allTimeActivities].filter(a=>sportClass(a.type)===sport)
-    .sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))
-    .slice(0,150);
+  try{
+    const data=await apiCall(curId,curKey,'power-curves','type='+actType);
 
-  if(!actsAll.length&&!acts30.length){
-    box.innerHTML='<div class="empty-note">No '+sport+' activities found.</div>';return;
-  }
-
-  // Unique IDs to fetch (cache handles dedup at request level)
-  const seen=new Set();
-  const fetchList=[...actsAll,...acts30].filter(a=>{if(seen.has(a.id))return false;seen.add(a.id);return true;});
-
-  box.innerHTML='<div class="curve-loading">Fetching streams for '+fetchList.length+' '+sport+' activities…'
-    +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
-
-  let done=0;
-  const streamMap={};
-  await Promise.all(fetchList.map(async a=>{
-    streamMap[a.id]=await fetchStream(a.id,streamType);
-    done++;
-    const el=document.getElementById('curveProg');
-    if(el)el.style.width=Math.round(done/fetchList.length*100)+'%';
-  }));
-
-  const bestAll=calcCurveBest(actsAll,streamMap);
-  const best30=calcCurveBest(acts30,streamMap);
-
-  // Convert to chart values:
-  // Cycling → watts (higher = better)
-  // Running → seconds/mile pace (lower = faster; Y axis inverted so faster = higher)
-  function toChart(v){
-    if(v==null)return null;
-    if(isRun)return v>0?Math.round(1609.34/v):null;
-    return Math.round(v);
-  }
-  function fmtVal(v){
-    if(v==null)return'—';
-    if(isRun){if(v<=0)return'—';return secsToMMSS(Math.round(1609.34/v))+'/mi';}
-    return Math.round(v)+'w';
-  }
-
-  const chartAll=bestAll.map(toChart);
-  const chart30=best30.map(toChart);
-
-  // Determine per-point whether last-30 is a new peak
-  function isNewPeak(i){
-    const a=chartAll[i],b=chart30[i];
-    if(a==null||b==null)return false;
-    return isRun?b<a:b>a; // run: lower pace = faster = new peak; cycling: higher watts = new peak
-  }
-
-  if(curveInst)curveInst.destroy();
-  box.innerHTML='<div style="position:relative;height:230px"><canvas id="curveChart"></canvas></div><div id="curveTableWrap"></div>';
-  const canvas=document.getElementById('curveChart');
-
-  curveInst=new Chart(canvas,{
-    type:'line',
-    data:{
-      labels:CURVE_LABELS,
-      datasets:[
-        {
-          label:'All-time best',
-          data:chartAll,
-          borderColor:'#c8f036',
-          backgroundColor:'rgba(200,240,54,0.15)',
-          fill:true,tension:0.3,pointRadius:3,
-          pointBackgroundColor:'#c8f036',
-          order:2
-        },
-        {
-          label:'Last 30 days',
-          data:chart30,
-          borderColor:'#378ADD',
-          backgroundColor:'transparent',
-          fill:false,tension:0.3,pointRadius:4,
-          pointBackgroundColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
-          pointBorderColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
-          segment:{
-            borderColor:ctx=>isNewPeak(ctx.p0DataIndex)?'#00ff88':'#378ADD'
-          },
-          order:1
-        }
-      ]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:true,labels:{color:'#999',font:{size:10,family:'DM Mono, monospace'},boxWidth:12,padding:14}},
-        tooltip:{
-          callbacks:{
-            label:ctx=>{
-              const raw=ctx.parsed.y;
-              if(raw==null)return ctx.dataset.label+': —';
-              const disp=isRun?secsToMMSS(raw)+'/mi':raw+'w';
-              const peak=ctx.datasetIndex===1&&isNewPeak(ctx.dataIndex)?' ★ new peak':'';
-              return ctx.dataset.label+': '+disp+peak;
-            }
-          }
-        }
-      },
-      scales:{
-        x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}},
-        y:{
-          reverse:isRun,
-          ticks:{
-            color:'#555',font:{size:10},
-            callback:v=>isRun?secsToMMSS(v)+'/mi':v
-          },
-          grid:{color:'#1a1a1a'}
-        }
-      }
+    // Log the full raw response so we can inspect the shape before building the chart
+    console.log('[power-curves] sport='+sport+' type='+actType);
+    console.log('[power-curves] typeof response:', typeof data);
+    console.log('[power-curves] Array.isArray:', Array.isArray(data));
+    console.log('[power-curves] full response:', JSON.parse(JSON.stringify(data)));
+    if(Array.isArray(data)&&data.length){
+      console.log('[power-curves] first element keys:', Object.keys(data[0]));
+      console.log('[power-curves] first element:', data[0]);
+    }else if(data&&typeof data==='object'){
+      console.log('[power-curves] top-level keys:', Object.keys(data));
     }
-  });
 
-  // Summary table
-  const wrap=document.getElementById('curveTableWrap');
-  wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
-    +'<thead><tr><th>Duration</th>'+CURVE_LABELS.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
-    +'<tbody>'
-    +'<tr><td>All-time</td>'+bestAll.map(v=>'<td>'+fmtVal(v)+'</td>').join('')+'</tr>'
-    +'<tr><td style="color:#378ADD">30 days</td>'+best30.map((v,i)=>{
-      const pk=isNewPeak(i);
-      return'<td style="'+(pk?'color:#00ff88;font-weight:600':'')+'">'+fmtVal(v)+(pk?' ★':'')+'</td>';
-    }).join('')+'</tr>'
-    +'</tbody></table>'
-    +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:0.6rem">'
-    +'Built from '+actsAll.length+' '+sport+(actsAll.length===1?'':'s')
-    +(acts30.length?' · '+acts30.length+' in last 30 days':'')
-    +'</div>';
+    // Show raw response on screen until we know the shape
+    box.innerHTML='<div class="empty-note" style="color:var(--tc2)">API response logged to browser console (F12 → Console).</div>'
+      +'<pre style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:1rem;overflow:auto;max-height:300px;white-space:pre-wrap;word-break:break-all;background:var(--bc3);padding:1rem;border:1px solid var(--border)">'
+      +JSON.stringify(data,null,2).slice(0,4000)+(JSON.stringify(data).length>4000?'\n… (truncated)':'')
+      +'</pre>';
+
+  }catch(err){
+    console.error('[power-curves] error:', err);
+    box.innerHTML='<div class="empty-note">Could not load power curve: '+(err.message||'unknown error')+'</div>';
+  }
 }
 </script>
 </body>
