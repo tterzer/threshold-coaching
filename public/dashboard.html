@@ -63,7 +63,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .zone-name-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em}
 .zone-bg-d{background:var(--bc3);height:18px;border-radius:2px;overflow:hidden}
 .zone-fill-d{height:100%;display:flex;align-items:center}
-.zone-range-in{padding-left:6px;font-family:'DM Mono',monospace;font-size:9px;color:rgba(0,0,0,0.72);white-space:nowrap;overflow:hidden}
+.zone-range-in{padding-left:6px;font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.88);white-space:nowrap;overflow:hidden}
 .zone-range-col{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);white-space:nowrap}
 .zone-pct-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:right}
 .zd-controls{display:flex;gap:6px;flex-wrap:wrap}
@@ -1148,27 +1148,8 @@ async function buildStreamCurve(acts, streamType, progressId){
   const isVelocity=streamType==='velocity_smooth';
   const best=CURVE_DURATIONS.map(()=>null);
   let done=0;
-  let diagDone=false;
   await Promise.all(acts.map(async a=>{
     const arr=await fetchStream(a.id,streamType);
-    if(isVelocity&&!diagDone){
-      diagDone=true;
-      console.log('[diag] activity:',a.name,'|',a.start_date_local,'| dist:',(a.distance/1609.34).toFixed(2)+'mi');
-      console.log('[diag] stream length:',arr.length,'| first 10:',arr.slice(0,10).map(v=>+Number(v).toFixed(3)));
-      const W=1200;
-      if(arr.length>=W){
-        const clamped=arr.map(v=>{const n=Number(v)||0;return n>MAX_RUN_MPS?0:n;});
-        let best1200=0,bestIdx=0;
-        for(let i=0;i<=clamped.length-W;i++){
-          let sum=0;for(let j=i;j<i+W;j++)sum+=clamped[j];
-          const avg=sum/W;if(avg>best1200){best1200=avg;bestIdx=i;}
-        }
-        console.log('[diag] best 1200s avg:',best1200.toFixed(4),'m/s →',fmtPace(mpsToSecsPerMile(best1200)),'| window starts at index:',bestIdx);
-        console.log('[diag] 5 values at start index:',arr.slice(bestIdx,bestIdx+5).map(v=>+Number(v).toFixed(3)));
-      }else{
-        console.log('[diag] stream too short for 1200s window (length='+arr.length+')');
-      }
-    }
     done++;
     const el=document.getElementById(progressId);
     if(el)el.style.width=Math.round(done/acts.length*100)+'%';
