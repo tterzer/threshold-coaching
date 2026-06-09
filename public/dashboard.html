@@ -125,6 +125,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .curve-table th{color:var(--tc3);text-align:left;padding:6px 10px;letter-spacing:0.06em;text-transform:uppercase;border-bottom:1px solid var(--border)}
 .curve-table td{padding:6px 10px;color:var(--tc);border-bottom:1px solid var(--border)}
 .empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#555}
+.curve-loading{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);padding:1rem 0}
+.curve-progress-bar{margin-top:8px;height:3px;background:var(--bc3);border-radius:2px;overflow:hidden}
+.curve-progress-fill{height:100%;background:var(--acc);border-radius:2px;transition:width 0.2s}
 @media(max-width:900px){
   .metrics{grid-template-columns:repeat(3,1fr)}
 }
@@ -282,6 +285,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 <script>
 let pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=true;
 let allActivities=[];
+let allTimeActivities=[];
 let zoneStreamCache={};
 let currentAthlete=null;
 let authMode='login'; // 'login' | 'register'
@@ -497,11 +501,15 @@ async function loadDashboard(){
     const oldestStr=oldest.toISOString().split('T')[0];
     const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-(FITNESS_DAYS+2));
     const fitOldestStr=fitOldest.toISOString().split('T')[0];
-    const[athlete,activities,fitnessActs]=await Promise.all([
+    const allTimeOldest=new Date(today);allTimeOldest.setDate(today.getDate()-365);
+    const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
+    const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
       apiCall(id,key,'profile'),
       apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times'),
-      apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
+      apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type'),
+      apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local')
     ]);
+    allTimeActivities=Array.isArray(allTimeActs)?allTimeActs:[];
     document.getElementById('connectGate').style.display='none';
     document.getElementById('dash').style.display='block';
     const name=(currentAthlete&&currentAthlete.name)||athlete.athlete?.name||athlete.name||'Athlete';
@@ -958,7 +966,9 @@ async function fetchStream(activityId,type){
 }
 
 /* ---------- Peak power / pace duration curve ---------- */
-const CURVE_DURATIONS=[5,15,30,60,300,600,1200,1800,3600];
+const CURVE_DURATIONS=[5,10,30,60,120,300,600,1200,1800,3600,5400];
+const CURVE_LABELS=['5s','10s','30s','1m','2m','5m','10m','20m','30m','1h','90m'];
+
 function rollingMax(arr,windowSecs){
   if(!arr||arr.length<windowSecs)return null;
   let sum=0,max=-Infinity;
@@ -970,42 +980,156 @@ function rollingMax(arr,windowSecs){
   return isFinite(max)?max:null;
 }
 
+function calcCurveBest(actList,streamMap){
+  const best=CURVE_DURATIONS.map(()=>null);
+  actList.forEach(a=>{
+    const arr=streamMap[a.id];
+    if(!arr||!arr.length)return;
+    CURVE_DURATIONS.forEach((d,i)=>{
+      const m=rollingMax(arr,d);
+      if(m!=null&&(best[i]==null||m>best[i]))best[i]=m;
+    });
+  });
+  return best;
+}
+
 async function renderCurve(){
   const sport=document.getElementById('curveSport').value;
+  const isRun=sport==='running';
   const box=document.getElementById('curveBox');
-  box.innerHTML='<div class="empty-note">Loading durations curve...</div>';
-  const acts=allActivities.filter(a=>sportClass(a.type)===sport).slice(0,15);
-  if(!acts.length){box.innerHTML='<div class="empty-note">No '+sport+' activities found</div>';return;}
-  const streamType=sport==='cycling'?'watts':'velocity_smooth';
-  try{
-    const streams=await Promise.all(acts.map(a=>fetchStream(a.id,streamType)));
-    const best=CURVE_DURATIONS.map(()=>null);
-    streams.forEach(arr=>{
-      if(!arr||!arr.length)return;
-      CURVE_DURATIONS.forEach((d,i)=>{
-        const m=rollingMax(arr,d);
-        if(m!=null&&(best[i]==null||m>best[i]))best[i]=m;
-      });
-    });
-    const labels=CURVE_DURATIONS.map(d=>d<60?d+'s':(d<3600?Math.round(d/60)+'m':Math.round(d/3600)+'h'));
-    const display=best.map(v=>{
-      if(v==null)return'—';
-      if(sport==='cycling')return Math.round(v)+'w';
-      // velocity m/s -> pace per mile
-      if(v<=0)return'—';
-      const secsPerMile=1609.34/v;
-      return secsToMMSS(secsPerMile)+'/mi';
-    });
-    if(curveInst)curveInst.destroy();
-    let canvas=document.getElementById('curveChart');
-    box.innerHTML='<div style="position:relative;height:200px"><canvas id="curveChart"></canvas></div><table class="curve-table"><thead><tr><th>Duration</th>'+labels.map(l=>`<th>${l}</th>`).join('')+'</tr></thead><tbody><tr><td>Best</td>'+display.map(d=>`<td>${d}</td>`).join('')+'</tr></tbody></table>';
-    canvas=document.getElementById('curveChart');
-    const chartData=best.map(v=>v==null?null:Math.round(v));
-    curveInst=new Chart(canvas,{type:'line',data:{labels,datasets:[{label:sport==='cycling'?'Power (w)':'Speed (m/s)',data:sport==='cycling'?chartData:best.map(v=>v==null?null:+v.toFixed(2)),borderColor:'#c8f036',backgroundColor:'rgba(200,240,54,0.08)',fill:true,tension:0.2,pointRadius:3}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
-  }catch(e){
-    box.innerHTML='<div class="empty-note">Could not load duration curve data</div>';
+  const streamType=isRun?'velocity_smooth':'watts';
+
+  // Last-30 from allActivities
+  const cutoff30=new Date();cutoff30.setDate(cutoff30.getDate()-30);
+  const acts30=allActivities.filter(a=>sportClass(a.type)===sport&&new Date(a.start_date_local)>=cutoff30);
+
+  // All-time from allTimeActivities, up to 60, newest first
+  const actsAll=[...allTimeActivities].filter(a=>sportClass(a.type)===sport)
+    .sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))
+    .slice(0,60);
+
+  if(!actsAll.length&&!acts30.length){
+    box.innerHTML='<div class="empty-note">No '+sport+' activities found.</div>';return;
   }
+
+  // Unique IDs to fetch (cache handles dedup at request level)
+  const seen=new Set();
+  const fetchList=[...actsAll,...acts30].filter(a=>{if(seen.has(a.id))return false;seen.add(a.id);return true;});
+
+  box.innerHTML='<div class="curve-loading">Fetching streams for '+fetchList.length+' '+sport+' activities…'
+    +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
+
+  let done=0;
+  const streamMap={};
+  await Promise.all(fetchList.map(async a=>{
+    streamMap[a.id]=await fetchStream(a.id,streamType);
+    done++;
+    const el=document.getElementById('curveProg');
+    if(el)el.style.width=Math.round(done/fetchList.length*100)+'%';
+  }));
+
+  const bestAll=calcCurveBest(actsAll,streamMap);
+  const best30=calcCurveBest(acts30,streamMap);
+
+  // Convert to chart values:
+  // Cycling → watts (higher = better)
+  // Running → seconds/mile pace (lower = faster; Y axis inverted so faster = higher)
+  function toChart(v){
+    if(v==null)return null;
+    if(isRun)return v>0?Math.round(1609.34/v):null;
+    return Math.round(v);
+  }
+  function fmtVal(v){
+    if(v==null)return'—';
+    if(isRun){if(v<=0)return'—';return secsToMMSS(Math.round(1609.34/v))+'/mi';}
+    return Math.round(v)+'w';
+  }
+
+  const chartAll=bestAll.map(toChart);
+  const chart30=best30.map(toChart);
+
+  // Determine per-point whether last-30 is a new peak
+  function isNewPeak(i){
+    const a=chartAll[i],b=chart30[i];
+    if(a==null||b==null)return false;
+    return isRun?b<a:b>a; // run: lower pace = faster = new peak; cycling: higher watts = new peak
+  }
+
+  if(curveInst)curveInst.destroy();
+  box.innerHTML='<div style="position:relative;height:230px"><canvas id="curveChart"></canvas></div><div id="curveTableWrap"></div>';
+  const canvas=document.getElementById('curveChart');
+
+  curveInst=new Chart(canvas,{
+    type:'line',
+    data:{
+      labels:CURVE_LABELS,
+      datasets:[
+        {
+          label:'All-time best',
+          data:chartAll,
+          borderColor:'#c8f036',
+          backgroundColor:'rgba(200,240,54,0.15)',
+          fill:true,tension:0.3,pointRadius:3,
+          pointBackgroundColor:'#c8f036',
+          order:2
+        },
+        {
+          label:'Last 30 days',
+          data:chart30,
+          borderColor:'#378ADD',
+          backgroundColor:'transparent',
+          fill:false,tension:0.3,pointRadius:4,
+          pointBackgroundColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
+          pointBorderColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
+          segment:{
+            borderColor:ctx=>isNewPeak(ctx.p0DataIndex)?'#00ff88':'#378ADD'
+          },
+          order:1
+        }
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true,labels:{color:'#999',font:{size:10,family:'DM Mono, monospace'},boxWidth:12,padding:14}},
+        tooltip:{
+          callbacks:{
+            label:ctx=>{
+              const raw=ctx.parsed.y;
+              if(raw==null)return ctx.dataset.label+': —';
+              const disp=isRun?secsToMMSS(raw)+'/mi':raw+'w';
+              const peak=ctx.datasetIndex===1&&isNewPeak(ctx.dataIndex)?' ★ new peak':'';
+              return ctx.dataset.label+': '+disp+peak;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}},
+        y:{
+          reverse:isRun,
+          ticks:{
+            color:'#555',font:{size:10},
+            callback:v=>isRun?secsToMMSS(v)+'/mi':v
+          },
+          grid:{color:'#1a1a1a'}
+        }
+      }
+    }
+  });
+
+  // Summary table
+  const wrap=document.getElementById('curveTableWrap');
+  wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
+    +'<thead><tr><th>Duration</th>'+CURVE_LABELS.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
+    +'<tbody>'
+    +'<tr><td>All-time</td>'+bestAll.map(v=>'<td>'+fmtVal(v)+'</td>').join('')+'</tr>'
+    +'<tr><td style="color:#378ADD">30 days</td>'+best30.map((v,i)=>{
+      const pk=isNewPeak(i);
+      return'<td style="'+(pk?'color:#00ff88;font-weight:600':'')+'">'+fmtVal(v)+(pk?' ★':'')+'</td>';
+    }).join('')+'</tr>'
+    +'</tbody></table>';
 }
 </script>
 </body>
