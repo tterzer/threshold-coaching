@@ -1010,220 +1010,179 @@ function calcCurveBest(actList,streamMap){
   return best;
 }
 
+// Shared chart renderer — takes a single dataset of {secs, val} pairs.
+// isRun=true → val is m/s velocity; chart uses inverted secs/mile axis.
+// isRun=false → val is watts; chart uses normal watts axis.
+function drawCurveChart(box, pairs, label, isRun, note){
+  const DISPLAY_SECS=[5,10,30,60,120,300,600,1200,1800,3600,5400];
+  function fmtSecs(s){return s<60?s+'s':s<3600?(s/60)%1===0?(s/60)+'m':(s/60).toFixed(1)+'m':s%3600===0?(s/3600)+'h':(s/3600).toFixed(1)+'h';}
+
+  // Build lookup with ±20% tolerance
+  function lookup(secs){
+    let best=null,bestDiff=Infinity;
+    pairs.forEach(p=>{const d=Math.abs(p.s-secs);if(d<bestDiff){bestDiff=d;best=p;}});
+    return(best&&bestDiff<secs*0.2)?best.v:null;
+  }
+
+  const validSecs=DISPLAY_SECS.filter(s=>lookup(s)!=null);
+  if(!validSecs.length){box.innerHTML='<div class="empty-note">No curve data for these durations.</div>';return;}
+  const chartLabels=validSecs.map(fmtSecs);
+
+  // Cycling: plot watts directly.
+  // Running: convert m/s → secs/mile; inverted axis makes faster=higher.
+  const toChart=v=>v==null?null:(isRun?Math.round(1609.34/v):Math.round(v));
+  const fmtVal=v=>v==null?'—':(isRun?secsToMMSS(Math.round(1609.34/v))+'/mi':Math.round(v)+'w');
+  const chartData=validSecs.map(s=>toChart(lookup(s)));
+  const dispData=validSecs.map(s=>fmtVal(lookup(s)));
+
+  if(curveInst)curveInst.destroy();
+  box.innerHTML='<div style="position:relative;height:230px"><canvas id="curveChart"></canvas></div><div id="curveTableWrap"></div>';
+  curveInst=new Chart(document.getElementById('curveChart'),{
+    type:'line',
+    data:{labels:chartLabels,datasets:[{
+      label,data:chartData,
+      borderColor:'#c8f036',backgroundColor:'rgba(200,240,54,0.15)',
+      fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#c8f036'
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true,labels:{color:'#999',font:{size:10,family:'DM Mono, monospace'},boxWidth:12,padding:14}},
+        tooltip:{callbacks:{label:ctx=>{
+          const raw=ctx.parsed.y;
+          if(raw==null)return label+': —';
+          return label+': '+(isRun?secsToMMSS(raw)+'/mi':raw+'w');
+        }}}
+      },
+      scales:{
+        x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}},
+        y:{
+          reverse:isRun,
+          ticks:{color:'#555',font:{size:10},callback:v=>isRun?secsToMMSS(v)+'/mi':v+'w'},
+          grid:{color:'#1a1a1a'}
+        }
+      }
+    }
+  });
+
+  const wrap=document.getElementById('curveTableWrap');
+  wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
+    +'<thead><tr><th>Duration</th>'+chartLabels.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
+    +'<tbody><tr><td>Best</td>'+dispData.map(v=>'<td>'+v+'</td>').join('')+'</tr></tbody>'
+    +'</table>'
+    +(note?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:0.6rem">'+note+'</div>':'');
+}
+
 async function renderCurve(){
   const sport=document.getElementById('curveSport').value;
   const isRun=sport==='running';
   const box=document.getElementById('curveBox');
-  const actType=isRun?'Run':'Ride';
 
-  box.innerHTML='<div class="curve-loading">Loading power curve from intervals.icu…</div>';
-
-  try{
-    const data=await apiCall(curId,curKey,'power-curves','type='+actType);
-    const list=(data&&data.list)||[];
-
-    // Always log available labels so we can see what intervals.icu returns
-    console.log('[power-curves] type='+actType+' — available labels:', list.map(c=>c.label||'(no label)'));
-    if(isRun&&list.length){
-      console.log('[power-curves] run first-item keys:', Object.keys(list[0]));
-      console.log('[power-curves] run first-item sample (first 5 secs/values):',{
-        secs:(list[0].secs||[]).slice(0,5),
-        watts:(list[0].watts||[]).slice(0,5),
-        secs_per_metre:(list[0].secs_per_metre||[]).slice(0,5),
-        velocity:(list[0].velocity||[]).slice(0,5),
-        values:(list[0].values||[]).slice(0,5)
-      });
-    }
-
-    if(!list.length){
-      box.innerHTML='<div class="empty-note">No power curve data available.</div>';return;
-    }
-
-    // Match list items to all-time (longest window) and recent (~4 weeks / 30 days).
-    // intervals.icu labels are typically: "1 year", "6 months", "3 months",
-    // "4 weeks", "All time", "Last 30 days", etc.
-    // Strategy: score each item — highest score wins for each slot.
-    function windowScore(label){
-      const l=(label||'').toLowerCase();
-      if(/all.?time/.test(l))return 1000;
-      if(/1.?year|12.?month/.test(l))return 365;
-      if(/6.?month/.test(l))return 180;
-      if(/3.?month/.test(l))return 90;
-      if(/4.?week|28.?day|last.?30|30.?day/.test(l))return 30;
-      if(/2.?week/.test(l))return 14;
-      if(/1.?week|7.?day/.test(l))return 7;
-      return -1; // unrecognised — avoid picking
-    }
-    const scored=list.map((c,i)=>({c,i,score:windowScore(c.label)}));
-    const sorted=[...scored].sort((a,b)=>b.score-a.score);
-    // All-time = highest score; fall back to list[0]
-    const allTimeCurve=(sorted[0]&&sorted[0].score>0?sorted[0].c:null)||list[0];
-    // Recent = lowest positive score that isn't the same item; fall back to list[list.length-1]
-    const recCandidate=sorted.slice().reverse().find(x=>x.score>0&&x.c!==allTimeCurve);
-    const recentCurve=recCandidate?recCandidate.c:(list.length>1?list[list.length-1]:null);
-    console.log('[power-curves] selected all-time label:', allTimeCurve.label, '| recent label:', recentCurve&&recentCurve.label);
-
-    // Extract (secs, value) pairs from a curve item.
-    // Cycling: watts field. Running: check for secs_per_metre, velocity, or watts/value.
-    function extractPairs(curve){
-      if(!curve)return[];
-      const secsArr=curve.secs||[];
-      // prefer explicit field names; fall back to first numeric array that isn't secs
-      let vals=null;
-      if(isRun){
-        vals=curve.secs_per_metre||curve.velocity||curve.values||curve.value||curve.watts||null;
-      }else{
-        vals=curve.watts||curve.values||curve.value||null;
+  if(!isRun){
+    // ── CYCLING: use intervals.icu power-curves endpoint ──────────────────
+    box.innerHTML='<div class="curve-loading">Loading power curve…</div>';
+    try{
+      const data=await apiCall(curId,curKey,'power-curves','type=Ride');
+      const list=(data&&data.list)||[];
+      console.log('[power-curves] Ride — labels:', list.map(c=>c.label));
+      if(!list.length){box.innerHTML='<div class="empty-note">No cycling power curve data.</div>';return;}
+      // Pick the longest window (highest score); prefer "1 year"
+      function windowScore(l){
+        const s=(l||'').toLowerCase();
+        if(/all.?time/.test(s))return 1000;
+        if(/1.?year|12.?month/.test(s))return 365;
+        if(/6.?month/.test(s))return 180;
+        if(/3.?month/.test(s))return 90;
+        return 0;
       }
-      if(!vals||!secsArr.length)return[];
+      const best=list.reduce((a,c)=>windowScore(c.label)>=windowScore(a.label)?c:a,list[0]);
+      console.log('[power-curves] Ride — using:', best.label);
+      const secsArr=best.secs||[];
+      const wattArr=best.watts||best.values||best.value||[];
       const pairs=[];
-      for(let i=0;i<Math.min(secsArr.length,vals.length);i++){
-        const s=secsArr[i],v=vals[i];
-        if(s==null||v==null||v<=0)continue;
-        pairs.push({s,v});
+      for(let i=0;i<Math.min(secsArr.length,wattArr.length);i++){
+        if(secsArr[i]>0&&wattArr[i]>0)pairs.push({s:secsArr[i],v:wattArr[i]});
       }
-      return pairs;
+      if(!pairs.length){box.innerHTML='<div class="empty-note">Cycling curve has no data points.</div>';return;}
+      drawCurveChart(box,pairs,'1 year best',false,'Source: intervals.icu power curves ('+best.label+')');
+    }catch(e){
+      box.innerHTML='<div class="empty-note">Could not load cycling curve: '+(e.message||'error')+'</div>';
     }
+    return;
+  }
 
-    // Convert raw value to chart-friendly number.
-    // Cycling: watts → watts (plot directly).
-    // Running: detect unit from magnitude then convert to seconds/mile for inverted axis.
-    //   m/s  →  secs/mile = 1609.34 / v
-    //   sec/m → secs/mile = v * 1609.34
-    // Heuristic: if average value < 30 assume m/s; if > 50 assume sec/m.
-    function detectRunUnit(pairs){
-      if(!pairs.length)return'ms';
-      const avg=pairs.reduce((s,p)=>s+p.v,0)/pairs.length;
-      return avg<30?'ms':'sm'; // m/s or sec/m
-    }
-    function toSecsPerMile(v,unit){
-      return unit==='ms'?(1609.34/v):(v*1609.34);
-    }
-
-    const allPairs=extractPairs(allTimeCurve);
-    const recPairs=extractPairs(recentCurve);
-    const runUnit=isRun?detectRunUnit(allPairs.length?allPairs:recPairs):'';
-
-    // Select display durations — use the secs from the all-time curve, capped
-    // at a reasonable set of tick points so the chart isn't too dense.
-    const DISPLAY_SECS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
-    // Build a lookup from the curve arrays by finding nearest secs value
-    function buildLookup(pairs){
-      const map=new Map(pairs.map(p=>[p.s,p.v]));
-      return secs=>{
-        if(map.has(secs))return map.get(secs);
-        // find closest
-        let best=null,bestDiff=Infinity;
-        pairs.forEach(p=>{const d=Math.abs(p.s-secs);if(d<bestDiff){bestDiff=d;best=p.v;}});
-        return bestDiff<secs*0.2?best:null; // only use if within 20% of target
-      };
-    }
-    const lookupAll=buildLookup(allPairs);
-    const lookupRec=buildLookup(recPairs);
-
-    // Filter to durations that exist in at least one curve
-    const validSecs=DISPLAY_SECS.filter(s=>lookupAll(s)!=null||lookupRec(s)!=null);
-    if(!validSecs.length){
-      box.innerHTML='<div class="empty-note">Power curve data has no matching durations.</div>';return;
-    }
-
-    function fmtSecs(s){return s<60?s+'s':s<3600?(s/60)%1===0?(s/60)+'m':(s/60).toFixed(1)+'m':s%3600===0?(s/3600)+'h':(s/3600).toFixed(1)+'h';}
-    const labels=validSecs.map(fmtSecs);
-
-    function toChartVal(rawVal){
-      if(rawVal==null)return null;
-      if(isRun)return Math.round(toSecsPerMile(rawVal,runUnit));
-      return Math.round(rawVal);
-    }
-    function fmtDisplay(rawVal){
-      if(rawVal==null)return'—';
-      if(isRun)return secsToMMSS(Math.round(toSecsPerMile(rawVal,runUnit)))+'/mi';
-      return Math.round(rawVal)+'w';
-    }
-
-    const chartAll=validSecs.map(s=>toChartVal(lookupAll(s)));
-    const chartRec=validSecs.map(s=>toChartVal(lookupRec(s)));
-
-    function isNewPeak(i){
-      const a=chartAll[i],b=chartRec[i];
-      if(a==null||b==null)return false;
-      return isRun?b<a:b>a;
-    }
-
-    if(curveInst)curveInst.destroy();
-    box.innerHTML='<div style="position:relative;height:230px"><canvas id="curveChart"></canvas></div><div id="curveTableWrap"></div>';
-    const canvas=document.getElementById('curveChart');
-
-    curveInst=new Chart(canvas,{
-      type:'line',
-      data:{
-        labels,
-        datasets:[
-          {
-            label:allTimeCurve.label||'All-time best',
-            data:chartAll,
-            borderColor:'#c8f036',backgroundColor:'rgba(200,240,54,0.15)',
-            fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#c8f036',order:2
-          },
-          ...(recentCurve?[{
-            label:recentCurve.label||'Last 30 days',
-            data:chartRec,
-            borderColor:'#378ADD',backgroundColor:'transparent',
-            fill:false,tension:0.3,pointRadius:4,
-            pointBackgroundColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
-            pointBorderColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
-            segment:{borderColor:ctx=>isNewPeak(ctx.p0DataIndex)?'#00ff88':'#378ADD'},
-            order:1
-          }]:[])
-        ]
-      },
-      options:{
-        responsive:true,maintainAspectRatio:false,
-        interaction:{mode:'index',intersect:false},
-        plugins:{
-          legend:{display:true,labels:{color:'#999',font:{size:10,family:'DM Mono, monospace'},boxWidth:12,padding:14}},
-          tooltip:{callbacks:{label:ctx=>{
-            const raw=ctx.parsed.y;
-            if(raw==null)return ctx.dataset.label+': —';
-            const disp=isRun?secsToMMSS(raw)+'/mi':raw+'w';
-            const pk=ctx.datasetIndex===1&&isNewPeak(ctx.dataIndex)?' ★ new peak':'';
-            return ctx.dataset.label+': '+disp+pk;
-          }}}
-        },
-        scales:{
-          x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}},
-          y:{
-            reverse:isRun,
-            ticks:{color:'#555',font:{size:10},callback:v=>isRun?secsToMMSS(v)+'/mi':v},
-            grid:{color:'#1a1a1a'}
+  // ── RUNNING: try API types in order, fall back to stream calculation ────
+  box.innerHTML='<div class="curve-loading">Loading run pace curve…</div>';
+  const runTypes=['Run','Running','VirtualRun'];
+  let apiPairs=null;
+  for(const t of runTypes){
+    try{
+      const data=await apiCall(curId,curKey,'power-curves','type='+t);
+      const list=(data&&data.list)||[];
+      console.log('[power-curves] type='+t+' — list length:', list.length, '| labels:', list.map(c=>c.label));
+      if(list.length){
+        console.log('[power-curves] type='+t+' first item keys:', Object.keys(list[0]));
+        const item=list[0];
+        const secsArr=item.secs||[];
+        // Try every plausible pace/velocity field
+        const valArr=item.secs_per_metre||item.velocity||item.watts||item.values||item.value||[];
+        console.log('[power-curves] type='+t+' first 5 secs:', secsArr.slice(0,5), '| first 5 vals:', valArr.slice(0,5));
+        if(secsArr.length&&valArr.length){
+          const pairs=[];
+          for(let i=0;i<Math.min(secsArr.length,valArr.length);i++){
+            if(secsArr[i]>0&&valArr[i]>0)pairs.push({s:secsArr[i],v:valArr[i]});
+          }
+          if(pairs.length){
+            // Detect unit: if using secs_per_metre convert to m/s for uniform downstream handling
+            const usingSPM=!!(item.secs_per_metre&&item.secs_per_metre.length);
+            const normalised=usingSPM?pairs.map(p=>({s:p.s,v:1/p.v})):pairs;
+            apiPairs={pairs:normalised,source:'intervals.icu (type='+t+')'};
+            break;
           }
         }
       }
+    }catch(e){
+      console.log('[power-curves] type='+t+' error:', e.message);
+    }
+  }
+
+  if(apiPairs){
+    drawCurveChart(box,apiPairs.pairs,'Best pace',true,'Source: '+apiPairs.source);
+    return;
+  }
+
+  // API returned nothing useful — fall back to stream-based calculation
+  console.log('[power-curves] all API types failed, falling back to velocity_smooth streams');
+  box.innerHTML='<div class="curve-loading">Building run pace curve from activity streams…'
+    +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
+
+  try{
+    const runActs=allActivities.filter(a=>sportClass(a.type)==='running').slice(0,20);
+    if(!runActs.length){box.innerHTML='<div class="empty-note">No running activities found.</div>';return;}
+    let done=0;
+    const streams=await Promise.all(runActs.map(async a=>{
+      const s=await fetchStream(a.id,'velocity_smooth');
+      done++;
+      const el=document.getElementById('curveProg');
+      if(el)el.style.width=Math.round(done/runActs.length*100)+'%';
+      return s;
+    }));
+    // Build best m/s at each duration via sliding window
+    const DURS=[5,10,30,60,120,300,600,1200,1800,3600,5400];
+    const best=DURS.map(()=>null);
+    streams.forEach(arr=>{
+      if(!arr||!arr.length)return;
+      DURS.forEach((d,i)=>{
+        const m=rollingMax(arr,d);
+        if(m!=null&&(best[i]==null||m>best[i]))best[i]=m;
+      });
     });
-
-    // Summary table
-    const wrap=document.getElementById('curveTableWrap');
-    const rows=[
-      {label:allTimeCurve.label||'All-time',vals:validSecs.map(s=>fmtDisplay(lookupAll(s))),color:'var(--tc)'},
-      ...(recentCurve?[{label:recentCurve.label||'30 days',vals:validSecs.map((s,i)=>{
-        const pk=isNewPeak(i);
-        return{v:fmtDisplay(lookupRec(s)),pk};
-      }),color:'#378ADD'}]:[])
-    ];
-    wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
-      +'<thead><tr><th>Duration</th>'+labels.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
-      +'<tbody>'
-      +rows.map(r=>'<tr><td style="color:'+r.color+'">'+r.label+'</td>'
-        +r.vals.map(v=>{
-          if(typeof v==='object'&&v.pk!==undefined)
-            return'<td style="'+(v.pk?'color:#00ff88;font-weight:600':'')+'">'+v.v+(v.pk?' ★':'')+'</td>';
-          return'<td>'+v+'</td>';
-        }).join('')+'</tr>'
-      ).join('')
-      +'</tbody></table>';
-
-  }catch(err){
-    box.innerHTML='<div class="empty-note">Could not load power curve: '+(err.message||'unknown error')+'</div>';
+    const pairs=DURS.map((s,i)=>best[i]!=null?{s,v:best[i]}:null).filter(Boolean);
+    if(!pairs.length){box.innerHTML='<div class="empty-note">No usable stream data for run curve.</div>';return;}
+    drawCurveChart(box,pairs,'Best pace (streams)',true,'Built from '+runActs.length+' runs via activity streams');
+  }catch(e){
+    box.innerHTML='<div class="empty-note">Could not build run pace curve: '+(e.message||'error')+'</div>';
   }
 }
 
