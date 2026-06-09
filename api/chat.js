@@ -1,3 +1,5 @@
+import { supabase } from './supabase.js';
+
 const BASE_SYSTEM_PROMPT = `You are an expert endurance sports coach assistant for HM2L Racing, working alongside coach Travis Terzer. Your role is to help Travis analyze athlete data and prescribe workouts that align with his coaching philosophy and methodology.
 
 COACHING PHILOSOPHY:
@@ -34,6 +36,14 @@ You will be provided with the athlete's current CTL, ATL, TSB, ramp rate, recent
 
 When the coach asks a question, be direct and specific. Lead with the data insight, then the recommendation.`;
 
+function weeksOut(dateStr) {
+  const race = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((race - today) / (7 * 24 * 3600 * 1000));
+  return diff;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -46,8 +56,53 @@ export default async function handler(req, res) {
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
-  const { system, messages } = body || {};
+  const { system, messages, athlete_id, ctl, atl, tsb } = body || {};
   if (!Array.isArray(messages)) return res.status(400).json({ error: 'Missing messages' });
+
+  // Build athlete context block with upcoming races
+  let athleteContext = '';
+  if (athlete_id) {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: races } = await supabase
+        .from('races')
+        .select('*')
+        .eq('athlete_id', athlete_id)
+        .gte('race_date', today)
+        .order('race_date', { ascending: true })
+        .limit(10);
+
+      if (races && races.length > 0) {
+        athleteContext += '\nATHLETE UPCOMING RACES:\n';
+        races.forEach(r => {
+          const wks = weeksOut(r.race_date);
+          athleteContext += `- ${r.name} | ${r.race_date} | ${r.distance || 'unknown distance'} | Priority: ${r.priority || '?'} | ${wks} weeks out\n`;
+        });
+
+        const nextA = races.find(r => r.priority === 'A');
+        if (nextA) {
+          const wks = weeksOut(nextA.race_date);
+          athleteContext += `\nNEXT A-RACE: ${nextA.name} on ${nextA.race_date} (${wks} weeks out). All periodization and taper planning should be anchored to this date.\n`;
+        }
+      } else {
+        athleteContext += '\nATHLETE UPCOMING RACES: None scheduled.\n';
+      }
+    } catch {
+      // races table may not exist yet — continue without race context
+    }
+  }
+
+  if (ctl != null || atl != null || tsb != null) {
+    athleteContext += '\nATHLETE FITNESS METRICS (from client):';
+    if (ctl != null) athleteContext += ` CTL=${ctl}`;
+    if (atl != null) athleteContext += ` ATL=${atl}`;
+    if (tsb != null) athleteContext += ` TSB=${tsb}`;
+    athleteContext += '\n';
+  }
+
+  const fullSystem = athleteContext
+    ? BASE_SYSTEM_PROMPT + '\n' + athleteContext + (system ? '\n\n' + system : '')
+    : (system ? BASE_SYSTEM_PROMPT + '\n\n' + system : BASE_SYSTEM_PROMPT);
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -60,7 +115,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 1500,
-        system: system ? BASE_SYSTEM_PROMPT + '\n\n' + system : BASE_SYSTEM_PROMPT,
+        system: fullSystem,
         messages
       })
     });
