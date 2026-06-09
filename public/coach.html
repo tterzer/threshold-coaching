@@ -67,7 +67,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 /* Calendar */
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
 .cal-head{background:var(--bc3);padding:8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.cal-cell{background:var(--bc2);min-height:120px;padding:6px;display:flex;flex-direction:column;gap:3px;cursor:pointer;overflow:hidden}
+.cal-cell{background:var(--bc2);height:100px;padding:6px;display:flex;flex-direction:column;gap:3px;cursor:pointer;overflow:hidden}
 .cal-cell:hover{background:var(--bc3)}
 .cal-cell.other-month{opacity:0.35}
 .cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
@@ -79,7 +79,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .cal-wo.completed{opacity:0.55;text-decoration:line-through}
 /* New unified cal-block styles */
-.cal-block{font-family:'DM Mono',monospace;font-size:9px;padding:4px 6px;overflow:hidden;white-space:normal;cursor:pointer;height:52px;line-height:1.3;box-sizing:border-box;border-radius:1px}
+.cal-block{font-family:'DM Mono',monospace;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;height:24px;line-height:24px;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box;border-radius:1px}
 .cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
 .cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
 .cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
@@ -91,9 +91,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-block.completed.sport-strength{background:#8B5CF6;color:#fff;border:none}
 .cal-block.completed.sport-other{background:#c8f036;color:#000;border:none}
 /* Block detail modal */
-.block-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:60;align-items:center;justify-content:center;padding:20px}
+.block-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:20px}
 .block-modal-bg.show{display:flex}
-.block-modal{background:var(--bc2);border:1px solid var(--border);width:100%;max-width:760px;min-width:min(700px,92vw);max-height:90vh;overflow-y:auto;padding:28px 32px;position:relative}
+.block-modal{background:var(--bc2);border:1px solid var(--border);width:100%;max-width:900px;min-width:850px;padding:32px 36px;position:relative;max-height:90vh;overflow-y:auto}
 .block-modal-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;text-transform:uppercase;margin-bottom:0.25rem}
 .block-modal-meta{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-bottom:1.25rem;display:flex;align-items:center;gap:10px}
 .block-modal-sport-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;padding:2px 9px;border-radius:2px}
@@ -107,7 +107,27 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .block-row-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase;min-width:72px;padding-top:1px}
 .block-row-val{color:var(--tc);flex:1;text-align:right}
 .completed-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;padding:3px 10px;background:rgba(99,153,34,0.18);border:1px solid rgba(99,153,34,0.4);color:#8fce3a}
-.cal-race{font-family:'DM Mono',monospace;font-size:9px;padding:4px 6px;overflow:hidden;white-space:normal;cursor:pointer;font-weight:700;display:flex;align-items:flex-start;gap:4px;height:52px;line-height:1.3;box-sizing:border-box}
+.modal-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:700;text-transform:uppercase;line-height:1.1}
+.modal-sport-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;padding:3px 10px;border-radius:20px;text-transform:uppercase;margin-left:10px;vertical-align:middle}
+.modal-date{font-family:'DM Mono',monospace;font-size:12px;color:var(--tc2);white-space:nowrap}
+.modal-metrics{display:flex;gap:1px;margin-bottom:20px}
+.modal-metric{flex:1;background:var(--bc3);border:1px solid var(--border);padding:14px 12px;text-align:center;min-width:0}
+.modal-metric-val{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;color:var(--tc);line-height:1;margin-bottom:4px}
+.modal-metric-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em}
+.modal-comparison{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.modal-comp-col{background:var(--bc3);border:1px solid var(--border);padding:14px 16px}
+.modal-comp-col-title{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px}
+.modal-comp-row{display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px}
+.modal-comp-label{color:var(--tc2)}
+.modal-comp-val{font-family:'DM Mono',monospace;color:var(--tc)}
+.modal-section-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
+.modal-coach-notes{font-size:13px;color:var(--tc2);line-height:1.6;margin-bottom:20px;background:var(--bc3);border:1px solid var(--border);padding:12px 14px;white-space:pre-wrap}
+.modal-btn-close{font-family:'DM Mono',monospace;font-size:11px;background:none;color:var(--tc2);border:1px solid var(--border);padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
+.modal-btn-close:hover{border-color:var(--tc2);color:var(--tc)}
+.modal-close-x{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--tc3);font-size:22px;cursor:pointer;line-height:1;padding:4px 8px}
+.modal-close-x:hover{color:var(--tc)}
+.cal-race{font-family:'DM Mono',monospace;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:24px;line-height:24px;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box}
 .cal-race.priority-A{background:#FFD700;color:#1a1000}
 .cal-race.priority-B{background:#C0C0C0;color:#111}
 .cal-race.priority-C{background:#CD7F32;color:#fff}
@@ -684,97 +704,71 @@ function _fmtPaceMs(ms){if(!ms||ms<=0)return'—';const spk=1000/ms;const mn=Mat
 // Open a block detail modal (coach view — read only, shows planned vs actual)
 function openBlockModal(evt, mode, woId, icuId){
   if(evt)evt.stopPropagation();
-  const w=woId?workoutsCache.find(x=>String(x.id)===woId):null;
-  const icu=icuId?athleteIcuActivities.find(x=>String(x.id)===icuId):null;
-  const modal=document.getElementById('blockModal');
-  const titleEl=document.getElementById('blockModalTitle');
-  const bodyEl=document.getElementById('blockModalBody');
+  const wo=woId?workoutsCache.find(x=>String(x.id)===woId):null;
+  const act=icuId?athleteIcuActivities.find(x=>String(x.id)===icuId):null;
 
-  function sportBadgeColor(sport){
-    const s=(sport||'').toLowerCase();
-    if(s==='cycling')return'#378ADD';
-    if(s==='running')return'#639922';
-    if(s==='swimming')return'#1D9E75';
-    return'var(--tc3)';
-  }
+  function _fmtDur2(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
+  function _fmtDist2(m){if(!m)return'—';return m>=1000?(m/1000).toFixed(1)+' km':Math.round(m)+' m';}
+  function _fmtPace2(ms){if(!ms||ms<=0)return'—';const spk=1000/ms,mm=Math.floor(spk/60),ss=Math.round(spk%60);return mm+':'+(ss<10?'0':'')+ss+'/km';}
 
-  function buildMetricsStrip(metrics){
-    return '<div class="block-metrics-strip">'+metrics.map(m=>
-      '<div class="block-metric-cell"><div class="block-metric-label">'+m.label+'</div><div class="block-metric-value">'+escHtml(String(m.value))+'</div></div>'
-    ).join('')+'</div>';
-  }
+  const sport=act?icuTypeToSport(act.type):(wo?wo.sport:'');
+  const sportColor=sport==='cycling'?'#378ADD':sport==='running'?'#639922':sport==='swimming'?'#1D9E75':'#666';
+  const actName=act?(act.name||'Activity'):(wo?(wo.title||'Planned Workout'):'Workout');
+  const actDate=act?(act.start_date_local||'').split('T')[0]:(wo?wo.date:'');
 
-  function buildPlannedVsActual(w, icu){
-    const planDur=w.duration_minutes?w.duration_minutes+'min':'—';
-    const planTSS=w.tss_target!=null?String(w.tss_target):'—';
-    const actDur=icu.moving_time?_fmtDur(icu.moving_time):'—';
-    const actTSS=icu.icu_training_load?Math.round(icu.icu_training_load):'—';
-    return '<div style="margin-bottom:1.25rem">'
-      +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--acc);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem;padding-bottom:6px;border-bottom:1px solid var(--border)">Planned vs Actual</div>'
-      +'<div class="block-cols">'
-        +'<div><div class="block-col-head">Planned</div>'
-          +'<div class="block-row"><span class="block-row-label">Duration</span><span class="block-row-val">'+escHtml(planDur)+'</span></div>'
-          +'<div class="block-row"><span class="block-row-label">TSS target</span><span class="block-row-val">'+escHtml(planTSS)+'</span></div>'
-          +(w.description||w.coach_notes||w.notes?'<div class="block-row"><span class="block-row-label">Notes</span><span class="block-row-val">'+escHtml(w.description||w.coach_notes||w.notes||'—')+'</span></div>':'')
-        +'</div>'
-        +'<div><div class="block-col-head">Actual</div>'
-          +'<div class="block-row"><span class="block-row-label">Duration</span><span class="block-row-val">'+escHtml(actDur)+'</span></div>'
-          +'<div class="block-row"><span class="block-row-label">TSS</span><span class="block-row-val">'+escHtml(String(actTSS))+'</span></div>'
-        +'</div>'
-      +'</div></div>';
-  }
+  const metrics=[
+    {label:'Duration',val:act?_fmtDur2(act.moving_time||act.elapsed_time):(wo&&wo.duration_minutes?wo.duration_minutes+'min':'—')},
+    {label:'Distance',val:act?_fmtDist2(act.distance):'—'},
+    {label:'TSS',val:act&&act.icu_training_load?Math.round(act.icu_training_load):'—'},
+    {label:'Avg HR',val:act&&act.average_heartrate?Math.round(act.average_heartrate)+' bpm':'—'},
+    {label:'Avg Pace',val:act?_fmtPace2(act.average_speed):'—'},
+    {label:'Avg Power',val:act&&act.average_watts?Math.round(act.average_watts)+' w':'—'},
+  ];
 
-  if(mode==='planned'&&w){
-    const sport=w.sport||'other';
-    const badgeColor=sportBadgeColor(sport);
-    titleEl.innerHTML=escHtml(w.title||w.sport||'Workout');
-    bodyEl.innerHTML=
-      '<div class="block-modal-meta">'+escHtml(w.date||'—')
-        +' &nbsp;•&nbsp; <span class="block-modal-sport-badge" style="background:'+badgeColor+'22;border:1px solid '+badgeColor+'55;color:'+badgeColor+'">'+escHtml(sport)+'</span>'
+  let html='<button class="modal-close-x" onclick="closeBlockModal()">&times;</button>'
+    +'<div class="modal-header">'
+      +'<div><span class="modal-title">'+escHtml(actName)+'</span>'
+        +'<span class="modal-sport-badge" style="background:'+sportColor+'22;color:'+sportColor+';border:1px solid '+sportColor+'44">'+escHtml(sport||'activity')+'</span>'
       +'</div>'
-      +(w.description||w.coach_notes?'<div style="margin-bottom:1.25rem"><div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--acc);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Coach notes</div><div style="font-size:13px;color:var(--tc2);line-height:1.7">'+escHtml(w.description||w.coach_notes||'')+'</div></div>':'')
-      +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-bottom:0.4rem">Duration: '+escHtml(w.duration_minutes!=null?w.duration_minutes+' min':'—')+' &nbsp;|&nbsp; TSS target: '+escHtml(w.tss_target!=null?String(w.tss_target):'—')+'</div>'
-      +'<div style="margin-top:1rem"><button class="btn btn-sm" onclick="openWoEdit(\''+String(w.id)+'\')">Edit workout</button></div>';
-  } else if(mode==='completed'&&w&&icu){
-    const sport=w.sport||icuTypeToSport(icu.type)||'other';
-    const badgeColor=sportBadgeColor(sport);
-    const tss=icu.icu_training_load?Math.round(icu.icu_training_load):null;
-    const metrics=[
-      {label:'Duration',value:_fmtDur(icu.moving_time||icu.elapsed_time)},
-      {label:'Distance',value:_fmtDistM(icu.distance)},
-      {label:'TSS',value:tss!=null?tss:'—'},
-      {label:'Avg HR',value:icu.average_heartrate?Math.round(icu.average_heartrate)+' bpm':'—'},
-      {label:sport==='cycling'?'Avg Power':'Avg Pace',value:sport==='cycling'?(icu.average_watts?Math.round(icu.average_watts)+'w':'—'):_fmtPaceMs(icu.average_speed)},
-    ];
-    titleEl.innerHTML=escHtml(w.title||w.sport||'Workout')+' <span class="completed-badge">Completed ✓</span>';
-    bodyEl.innerHTML=
-      '<div class="block-modal-meta">'+escHtml(w.date||'—')
-        +' &nbsp;•&nbsp; <span class="block-modal-sport-badge" style="background:'+badgeColor+'22;border:1px solid '+badgeColor+'55;color:'+badgeColor+'">'+escHtml(sport)+'</span>'
+      +'<div class="modal-date">'+escHtml(actDate)+'</div>'
+    +'</div>'
+    +'<div class="modal-metrics">'
+      +metrics.map(m=>'<div class="modal-metric"><div class="modal-metric-val">'+escHtml(String(m.val))+'</div><div class="modal-metric-label">'+m.label+'</div></div>').join('')
+    +'</div>';
+
+  if(wo&&act){
+    const planDur=wo.duration_minutes?wo.duration_minutes+'min':'—';
+    const planTSS=wo.tss_target||'—';
+    const actDur=act.moving_time?_fmtDur2(act.moving_time):'—';
+    const actTSS=act.icu_training_load?Math.round(act.icu_training_load):'—';
+    html+='<div class="modal-comparison">'
+      +'<div class="modal-comp-col"><div class="modal-comp-col-title">Planned</div>'
+        +'<div class="modal-comp-row"><span class="modal-comp-label">Duration</span><span class="modal-comp-val">'+escHtml(planDur)+'</span></div>'
+        +'<div class="modal-comp-row"><span class="modal-comp-label">TSS</span><span class="modal-comp-val">'+escHtml(String(planTSS))+'</span></div>'
       +'</div>'
-      +buildMetricsStrip(metrics)
-      +buildPlannedVsActual(w, icu)
-      +'<div style="margin-top:1rem"><button class="btn btn-sm btn-ghost" onclick="openWoEdit(\''+String(w.id)+'\')">Edit planned workout</button></div>';
-  } else if(mode==='icu_only'&&icu){
-    const sport=icuTypeToSport(icu.type);
-    const badgeColor=sportBadgeColor(sport);
-    const tss=icu.icu_training_load?Math.round(icu.icu_training_load):null;
-    const metrics=[
-      {label:'Duration',value:_fmtDur(icu.moving_time||icu.elapsed_time)},
-      {label:'Distance',value:_fmtDistM(icu.distance)},
-      {label:'TSS',value:tss!=null?tss:'—'},
-      {label:'Avg HR',value:icu.average_heartrate?Math.round(icu.average_heartrate)+' bpm':'—'},
-      {label:sport==='cycling'?'Avg Power':'Avg Pace',value:sport==='cycling'?(icu.average_watts?Math.round(icu.average_watts)+'w':'—'):_fmtPaceMs(icu.average_speed)},
-    ];
-    titleEl.innerHTML=escHtml(icu.name||'Activity');
-    bodyEl.innerHTML=
-      '<div class="block-modal-meta">'+escHtml((icu.start_date_local||'').slice(0,10)||'—')
-        +' &nbsp;•&nbsp; <span class="block-modal-sport-badge" style="background:'+badgeColor+'22;border:1px solid '+badgeColor+'55;color:'+badgeColor+'">'+escHtml(sport)+'</span>'
+      +'<div class="modal-comp-col"><div class="modal-comp-col-title">Actual</div>'
+        +'<div class="modal-comp-row"><span class="modal-comp-label">Duration</span><span class="modal-comp-val">'+escHtml(actDur)+'</span></div>'
+        +'<div class="modal-comp-row"><span class="modal-comp-label">TSS</span><span class="modal-comp-val">'+escHtml(String(actTSS))+'</span></div>'
       +'</div>'
-      +buildMetricsStrip(metrics);
-  } else {
-    return; // Nothing to show
+    +'</div>';
   }
-  modal.classList.add('show');
+
+  const coachNotes=wo?(wo.coach_notes||wo.description||''):'';
+  if(coachNotes){
+    html+='<div class="modal-section-label">Coach Notes</div><div class="modal-coach-notes">'+escHtml(coachNotes)+'</div>';
+  }
+
+  if(wo&&mode==='planned'){
+    html+='<div style="margin-top:1rem"><button class="btn btn-sm" onclick="openWoEdit(\''+String(wo.id)+'\')">Edit workout</button></div>';
+  } else if(wo&&(mode==='completed')){
+    html+='<div style="margin-top:1rem"><button class="btn btn-sm btn-ghost" onclick="openWoEdit(\''+String(wo.id)+'\')">Edit planned workout</button></div>';
+  }
+
+  html+='<div style="margin-top:1.5rem;text-align:right"><button class="modal-btn-close" onclick="closeBlockModal()">Close</button></div>';
+
+  document.getElementById('blockModalBody').innerHTML=html;
+  document.getElementById('blockModalTitle').innerHTML='';
+  document.getElementById('blockModal').classList.add('show');
 }
 
 function closeBlockModal(){
@@ -1312,12 +1306,8 @@ async function sendChat(){
 <!-- Block detail modal (coach calendar) -->
 <div class="block-modal-bg" id="blockModal">
   <div class="block-modal">
-    <button onclick="closeBlockModal()" style="position:absolute;top:16px;right:20px;background:none;border:none;color:var(--tc3);font-size:20px;cursor:pointer;line-height:1;padding:0">&times;</button>
-    <div class="block-modal-title" id="blockModalTitle"></div>
+    <div id="blockModalTitle" style="display:none"></div>
     <div id="blockModalBody"></div>
-    <div style="margin-top:1.5rem">
-      <button class="btn btn-ghost btn-sm" onclick="closeBlockModal()">Close</button>
-    </div>
   </div>
 </div>
 
