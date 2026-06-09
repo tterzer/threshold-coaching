@@ -1018,18 +1018,46 @@ async function renderCurve(){
     const data=await apiCall(curId,curKey,'power-curves','type='+actType);
     const list=(data&&data.list)||[];
 
+    // Always log available labels so we can see what intervals.icu returns
+    console.log('[power-curves] type='+actType+' — available labels:', list.map(c=>c.label||'(no label)'));
+    if(isRun&&list.length){
+      console.log('[power-curves] run first-item keys:', Object.keys(list[0]));
+      console.log('[power-curves] run first-item sample (first 5 secs/values):',{
+        secs:(list[0].secs||[]).slice(0,5),
+        watts:(list[0].watts||[]).slice(0,5),
+        secs_per_metre:(list[0].secs_per_metre||[]).slice(0,5),
+        velocity:(list[0].velocity||[]).slice(0,5),
+        values:(list[0].values||[]).slice(0,5)
+      });
+    }
+
     if(!list.length){
       box.innerHTML='<div class="empty-note">No power curve data available.</div>';return;
     }
 
-    // Match list items to all-time vs recent by label.
-    // Labels from intervals.icu are typically: "All time", "1 year", "6 months",
-    // "3 months", "30 days", "4 weeks", "Last 30 days", etc.
-    // We want: longest window = all-time, shortest ~30-day window = recent.
-    const allTimeKeywords=/all.?time|1.?year|12.?month/i;
-    const recentKeywords=/30.?day|4.?week|last.?30|month/i;
-    const allTimeCurve=list.find(c=>allTimeKeywords.test(c.label||''))||list[0];
-    const recentCurve=list.find(c=>recentKeywords.test(c.label||'')&&c!==allTimeCurve)||list[1]||null;
+    // Match list items to all-time (longest window) and recent (~4 weeks / 30 days).
+    // intervals.icu labels are typically: "1 year", "6 months", "3 months",
+    // "4 weeks", "All time", "Last 30 days", etc.
+    // Strategy: score each item — highest score wins for each slot.
+    function windowScore(label){
+      const l=(label||'').toLowerCase();
+      if(/all.?time/.test(l))return 1000;
+      if(/1.?year|12.?month/.test(l))return 365;
+      if(/6.?month/.test(l))return 180;
+      if(/3.?month/.test(l))return 90;
+      if(/4.?week|28.?day|last.?30|30.?day/.test(l))return 30;
+      if(/2.?week/.test(l))return 14;
+      if(/1.?week|7.?day/.test(l))return 7;
+      return -1; // unrecognised — avoid picking
+    }
+    const scored=list.map((c,i)=>({c,i,score:windowScore(c.label)}));
+    const sorted=[...scored].sort((a,b)=>b.score-a.score);
+    // All-time = highest score; fall back to list[0]
+    const allTimeCurve=(sorted[0]&&sorted[0].score>0?sorted[0].c:null)||list[0];
+    // Recent = lowest positive score that isn't the same item; fall back to list[list.length-1]
+    const recCandidate=sorted.slice().reverse().find(x=>x.score>0&&x.c!==allTimeCurve);
+    const recentCurve=recCandidate?recCandidate.c:(list.length>1?list[list.length-1]:null);
+    console.log('[power-curves] selected all-time label:', allTimeCurve.label, '| recent label:', recentCurve&&recentCurve.label);
 
     // Extract (secs, value) pairs from a curve item.
     // Cycling: watts field. Running: check for secs_per_metre, velocity, or watts/value.
