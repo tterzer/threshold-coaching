@@ -1021,8 +1021,7 @@ async function onZoneDistControlChange(){
       const pct=Math.round((t/total)*100);
       const color=ZC_COLORS[i]||'#7F77DD';
       const range=fmtZoneBoundsDisplay(sport,metric,i);
-      const inside=pct>15;
-      return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}">${inside&&range?`<span class="zone-range-in">${range}</span>`:''}</div></div><span class="zone-pct-d">${pct}%</span><span class="zone-range-col">${!inside&&range?range:''}</span></div>`;
+      return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}"></div></div><span class="zone-pct-d">${pct}%</span><span class="zone-range-col">${range}</span></div>`;
     }).join('');
   }catch(e){
     el.innerHTML='<div class="empty-note">Could not load stream-based zone data</div>';
