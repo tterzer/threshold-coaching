@@ -1024,10 +1024,10 @@ function rollingMax(arr,windowSecs){
 }
 
 // Rolling max average for run velocity with GPS spike rejection.
-// - Hard cap: values above MAX_RUN_MPS (6.5 m/s ≈ 4:06/mi) are zeroed.
+// - Hard cap: values above MAX_RUN_MPS (5.5 m/s ≈ 6:30/mi) are zeroed.
 // - Short durations (<30 s): collect all window averages and return the
 //   95th-percentile to eliminate GPS transient spikes.
-const MAX_RUN_MPS=6.5;
+const MAX_RUN_MPS=5.5;
 function rollingMaxRun(arr,windowSecs){
   if(!arr||arr.length<windowSecs)return null;
   // Clamp spikes in the raw signal first
@@ -1281,28 +1281,74 @@ async function renderCurve(){
   }
 
   // ── RUNNING ───────────────────────────────────────────────────────────
-  box.innerHTML='<div class="curve-loading">Building run pace curve from streams…'
+  // Running only uses durations ≥60s — sub-minute efforts are GPS-noise-dominated.
+  const RUN_DURATIONS=CURVE_DURATIONS.filter(d=>d>=60); // [60,120,300,600,1200,1800,3600,5400,7200]
+
+  box.innerHTML='<div class="curve-loading">Loading run pace curve…'
     +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
 
   try{
+    // ── All-time: probe intervals.icu power-curves for whichever type has data ──
+    const runApiTypes=['Run','Running','VirtualRun','TrailRun',''];
+    let allTimePairs=null;
+    let allTimeSource='';
+    for(const t of runApiTypes){
+      const qs=t?'type='+t:'';
+      const d=await apiCall(curId,curKey,'power-curves',qs);
+      const list=(d&&d.list)||[];
+      console.log('[power-curves] type='+(t||'(none)')+' → list.length='+list.length);
+      if(list.length){
+        const item=list.reduce((a,c)=>windowScore(c.label)>=windowScore(a.label)?c:a,list[0]);
+        const secsArr=item.secs||[];
+        // For running: prefer secs_per_metre (invert to m/s), then velocity, then watts
+        let rawArr=null;
+        let needInvert=false;
+        if(item.secs_per_metre&&item.secs_per_metre.length){rawArr=item.secs_per_metre;needInvert=true;}
+        else if(item.velocity&&item.velocity.length){rawArr=item.velocity;}
+        else if(item.watts&&item.watts.length){rawArr=item.watts;} // some setups store pace as watts
+        if(rawArr&&secsArr.length){
+          const pairs=[];
+          for(let i=0;i<Math.min(secsArr.length,rawArr.length);i++){
+            if(secsArr[i]>=60&&rawArr[i]>0){
+              const v=needInvert?1/rawArr[i]:rawArr[i];
+              if(v>0&&v<=MAX_RUN_MPS)pairs.push({s:secsArr[i],v});
+            }
+          }
+          if(pairs.length){allTimePairs=pairs;allTimeSource='intervals.icu (type='+(t||'none')+', '+item.label+')';break;}
+        }
+      }
+      document.getElementById('curveProg').style.width=Math.round((runApiTypes.indexOf(t)+1)/runApiTypes.length*40)+'%';
+    }
+
+    // ── All-time fallback: build from streams if API yielded nothing ──────
+    if(!allTimePairs){
+      const allRuns=allActivities.filter(a=>isRunActivity(a.type)).slice(0,20);
+      if(!allRuns.length){box.innerHTML='<div class="empty-note">No running activities found.</div>';return;}
+      const atBest=await buildStreamCurve(allRuns,'velocity_smooth','curveProg');
+      const ap=RUN_DURATIONS.map(s=>{
+        const i=CURVE_DURATIONS.indexOf(s);
+        return atBest[i]!=null?{s,v:atBest[i]}:null;
+      }).filter(Boolean);
+      if(!ap.length){box.innerHTML='<div class="empty-note">No usable run stream data.</div>';return;}
+      allTimePairs=ap;
+      allTimeSource='streams ('+allRuns.length+' runs)';
+    }
+
+    // ── Last 30 days: stream-based, ≥60s only ────────────────────────────
     const allRuns=allActivities.filter(a=>isRunActivity(a.type));
     const recentRuns=allRuns.filter(a=>new Date(a.start_date_local)>=thirtyDaysAgo).slice(0,10);
-    const allTimeRuns=allRuns.slice(0,20);
-
-    if(!allTimeRuns.length){box.innerHTML='<div class="empty-note">No running activities found.</div>';return;}
-
-    const atBest=await buildStreamCurve(allTimeRuns,'velocity_smooth','curveProg');
-    const allTimePairs=CURVE_DURATIONS.map((s,i)=>atBest[i]!=null?{s,v:atBest[i]}:null).filter(Boolean);
-    if(!allTimePairs.length){box.innerHTML='<div class="empty-note">No usable run stream data.</div>';return;}
-
     let recentPairs=null;
     if(recentRuns.length){
+      document.getElementById('curveProg').style.width='60%';
       const recBest=await buildStreamCurve(recentRuns,'velocity_smooth','curveProg');
-      const rp=CURVE_DURATIONS.map((s,i)=>recBest[i]!=null?{s,v:recBest[i]}:null).filter(Boolean);
+      const rp=RUN_DURATIONS.map(s=>{
+        const i=CURVE_DURATIONS.indexOf(s);
+        return recBest[i]!=null?{s,v:recBest[i]}:null;
+      }).filter(Boolean);
       if(rp.length)recentPairs=rp;
     }
 
-    const note='Built from '+allTimeRuns.length+' runs (all-time) + '+(recentRuns.length)+' runs (last 30 days) via streams';
+    const note='All-time: '+allTimeSource+(recentPairs?' | 30 days: '+recentRuns.length+' runs via streams':'');
     drawCurveChart(box,allTimePairs,recentPairs,true,note);
   }catch(e){
     box.innerHTML='<div class="empty-note">Could not build run pace curve: '+(e.message||'error')+'</div>';
