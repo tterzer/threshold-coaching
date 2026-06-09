@@ -1,8 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/auth", "destination": "/api/auth" },
-    { "source": "/api/workouts", "destination": "/api/workouts" },
-    { "source": "/api/stream-cache", "destination": "/api/stream-cache" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/public/$1" }
   ]

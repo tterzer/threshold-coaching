@@ -1027,21 +1027,27 @@ async function onZoneDistControlChange(){
   }
 }
 
+// velocity_smooth streams bypass Supabase cache (old entries may be corrupt/stale).
+// All other stream types use three-tier: memory → Supabase → API.
+const SKIP_SUPABASE_TYPES=new Set(['velocity_smooth']);
+
 async function fetchStream(activityId,type){
   const cacheKey=activityId+':'+type;
-  // 1. In-memory cache (fastest)
+  // 1. In-memory cache (fastest, always valid within session)
   if(zoneStreamCache[cacheKey])return zoneStreamCache[cacheKey];
-  // 2. Supabase stream cache
-  try{
-    const cached=await fetch('/api/stream-cache?activity_id='+activityId+'&stream_type='+type);
-    if(cached.ok){
-      const cj=await cached.json();
-      if(cj.cached&&Array.isArray(cj.data)){
-        zoneStreamCache[cacheKey]=cj.data;
-        return zoneStreamCache[cacheKey];
+  // 2. Supabase stream cache (skipped for run velocity — building fresh)
+  if(!SKIP_SUPABASE_TYPES.has(type)){
+    try{
+      const cached=await fetch('/api/stream-cache?activity_id='+activityId+'&stream_type='+type);
+      if(cached.ok){
+        const cj=await cached.json();
+        if(cj.cached&&Array.isArray(cj.data)){
+          zoneStreamCache[cacheKey]=cj.data;
+          return zoneStreamCache[cacheKey];
+        }
       }
-    }
-  }catch(_){}
+    }catch(_){}
+  }
   // 3. Fetch from intervals.icu
   try{
     const data=await apiCall(curId,curKey,activityId+'/streams','types='+type,'activity');
@@ -1056,8 +1062,8 @@ async function fetchStream(activityId,type){
     }
     arr=arr||[];
     zoneStreamCache[cacheKey]=arr;
-    // 4. Save to Supabase cache in background (don't await — don't block rendering)
-    if(arr.length){
+    // 4. Save to Supabase cache in background (velocity_smooth skipped intentionally)
+    if(arr.length&&!SKIP_SUPABASE_TYPES.has(type)){
       fetch('/api/stream-cache',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -1165,7 +1171,7 @@ async function buildStreamCurve(acts, streamType, progressId){
 // recentPairs:  [{s,v}] or null
 // isRun: true → convert m/s → secs/mile, inverted Y axis
 // note: small attribution text
-function drawCurveChart(box, allTimePairs, recentPairs, isRun, note){
+function drawCurveChart(box, allTimePairs, recentPairs, isRun, note, allTimeLabel){
   const DISPLAY_SECS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
   function fmtSecs(s){return s<60?s+'s':s<3600?(s/60)%1===0?(s/60)+'m':(s/60).toFixed(1)+'m':s%3600===0?(s/3600)+'h':(s/3600).toFixed(1)+'h';}
 
@@ -1204,7 +1210,7 @@ function drawCurveChart(box, allTimePairs, recentPairs, isRun, note){
   box.innerHTML='<div style="position:relative;height:230px;width:100%;max-width:100%;overflow:hidden"><canvas id="curveChart" style="max-width:100%;width:100%"></canvas></div><div id="curveTableWrap"></div>';
 
   const datasets=[{
-    label:'All-time best',
+    label:allTimeLabel||'All-time best',
     data:allTimeData,
     borderColor:'#c8f036',backgroundColor:'rgba(200,240,54,0.13)',
     fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#c8f036',order:2
@@ -1258,7 +1264,7 @@ function drawCurveChart(box, allTimePairs, recentPairs, isRun, note){
   // Summary table
   const wrap=document.getElementById('curveTableWrap');
   const tableRows=[
-    {lbl:'All-time',data:validSecs.map(s=>fmtVal(lookupAll(s))),color:'var(--tc)'},
+    {lbl:allTimeLabel||'All-time',data:validSecs.map(s=>fmtVal(lookupAll(s))),color:'var(--tc)'},
     ...(recentData?[{lbl:'30 days',data:validSecs.map((s,i)=>({v:fmtVal(lookupRec(s)),pk:isNewPeak(i)})),color:'#378ADD'}]:[])
   ];
   wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
@@ -1339,6 +1345,7 @@ async function renderCurve(){
   // ── RUNNING ───────────────────────────────────────────────────────────
   // intervals.icu power-curves does not support running — use streams only.
   // Only durations ≥60s: sub-minute running efforts are GPS-noise-dominated.
+  // All-time curve disabled until stream data is verified; showing last 30 days only.
   const RUN_DURATIONS=CURVE_DURATIONS.filter(d=>d>=60);
 
   box.innerHTML='<div class="curve-loading">Building run pace curve from streams…'
@@ -1348,31 +1355,21 @@ async function renderCurve(){
     const allRuns=allActivities.filter(a=>isRunActivity(a.type));
     if(!allRuns.length){box.innerHTML='<div class="empty-note">No running activities found.</div>';return;}
 
-    // ── All-time: up to 20 runs (cache grows automatically) ──────────────
-    const allTimeRuns=allRuns.slice(0,20);
-    document.getElementById('curveProg').style.width='5%';
-    const atBest=await buildStreamCurve(allTimeRuns,'velocity_smooth','curveProg');
-    const allTimePairs=RUN_DURATIONS.map(s=>{
-      const i=CURVE_DURATIONS.indexOf(s);
-      return atBest[i]!=null?{s,v:atBest[i]}:null;
-    }).filter(Boolean);
-    if(!allTimePairs.length){box.innerHTML='<div class="empty-note">No usable run stream data.</div>';return;}
-
-    // ── Last 30 days: stream-based, ≥60s only ────────────────────────────
-    const recentRuns=allRuns.filter(a=>new Date(a.start_date_local)>=thirtyDaysAgo).slice(0,10);
-    let recentPairs=null;
-    if(recentRuns.length){
-      document.getElementById('curveProg').style.width='60%';
-      const recBest=await buildStreamCurve(recentRuns,'velocity_smooth','curveProg');
-      const rp=RUN_DURATIONS.map(s=>{
-        const i=CURVE_DURATIONS.indexOf(s);
-        return recBest[i]!=null?{s,v:recBest[i]}:null;
-      }).filter(Boolean);
-      if(rp.length)recentPairs=rp;
+    // ── Last 30 days only: stream-based, ≥60s ────────────────────────────
+    const recentRuns=allRuns.filter(a=>new Date(a.start_date_local)>=thirtyDaysAgo).slice(0,15);
+    if(!recentRuns.length){
+      box.innerHTML='<div class="empty-note">No runs in the last 30 days.</div>';return;
     }
+    document.getElementById('curveProg').style.width='10%';
+    const recBest=await buildStreamCurve(recentRuns,'velocity_smooth','curveProg');
+    const recentPairs=RUN_DURATIONS.map(s=>{
+      const i=CURVE_DURATIONS.indexOf(s);
+      return recBest[i]!=null?{s,v:recBest[i]}:null;
+    }).filter(Boolean);
+    if(!recentPairs.length){box.innerHTML='<div class="empty-note">No usable run stream data.</div>';return;}
 
-    const note='All-time best ('+allTimeRuns.length+' runs)'+(recentPairs?' | Last 30 days: '+recentRuns.length+' runs':'');
-    drawCurveChart(box,allTimePairs,recentPairs,true,note);
+    const note='Last 30 days: '+recentRuns.length+' runs | All-time curve building… check back as more runs are cached';
+    drawCurveChart(box,recentPairs,null,true,note,'Last 30 days');
   }catch(e){
     box.innerHTML='<div class="empty-note">Could not build run pace curve: '+(e.message||'error')+'</div>';
   }
