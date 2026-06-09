@@ -149,6 +149,18 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-wo.sport-strength{border-left:2px solid #BA7517;background:rgba(186,117,23,0.12);color:var(--tc2)}
 .ath-cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .ath-cal-wo.completed{opacity:0.55;text-decoration:line-through}
+/* Athlete calendar block styles */
+.ath-cal-block{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;height:18px;line-height:14px;box-sizing:border-box;border-radius:1px}
+.ath-cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
+.ath-cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
+.ath-cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
+.ath-cal-block.planned.sport-strength{border:1.5px solid #8B5CF6;background:transparent;color:#8B5CF6}
+.ath-cal-block.planned.sport-other{border:1.5px solid #c8f036;background:transparent;color:#c8f036}
+.ath-cal-block.completed.sport-cycling{background:#378ADD;color:#fff;border:none}
+.ath-cal-block.completed.sport-running{background:#639922;color:#fff;border:none}
+.ath-cal-block.completed.sport-swimming{background:#1D9E75;color:#fff;border:none}
+.ath-cal-block.completed.sport-strength{background:#8B5CF6;color:#fff;border:none}
+.ath-cal-block.completed.sport-other{background:#c8f036;color:#000;border:none}
 .ath-cal-race{font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:3px}
 .ath-cal-race.priority-A{background:#FFD700;color:#1a1000}
 .ath-cal-race.priority-B{background:#C0C0C0;color:#111}
@@ -1433,6 +1445,15 @@ function athSportClass(sport){
 
 function athEscHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+function athIcuTypeToSport(type){
+  const t=(type||'').toLowerCase();
+  if(t.includes('ride')||t.includes('cycl')||t.includes('virtual'))return'cycling';
+  if(t.includes('run')||t.includes('jog')||t.includes('trail')||t.includes('treadmill'))return'running';
+  if(t.includes('swim'))return'swimming';
+  if(t.includes('weight')||t.includes('strength')||t.includes('gym'))return'strength';
+  return'other';
+}
+
 function renderAthCal(){
   const grid=document.getElementById('athCalGrid');
   const title=document.getElementById('athCalTitle');
@@ -1451,6 +1472,14 @@ function renderAthCal(){
   const raceByDate={};
   athRacesCache.forEach(r=>{ (raceByDate[r.date]=raceByDate[r.date]||[]).push(r); });
 
+  // Build ICU activities by date from allActivities
+  const icuByDate={};
+  (allActivities||[]).forEach(a=>{
+    const key=(a.start_date_local||'').slice(0,10);
+    if(!key)return;
+    (icuByDate[key]=icuByDate[key]||[]).push(a);
+  });
+
   for(let i=0;i<42;i++){
     const d=new Date(gridStart);
     d.setDate(gridStart.getDate()+i);
@@ -1458,6 +1487,7 @@ function renderAthCal(){
     const otherMonth=d.getMonth()!==athCalMonth.getMonth();
     const wos=woByDate[key]||[];
     const races=raceByDate[key]||[];
+    const icuForDay=(icuByDate[key]||[]).slice();
 
     const racesHtml=races.map(r=>{
       const pri=r.priority||'C';
@@ -1466,43 +1496,122 @@ function renderAthCal(){
         +'&#9873; '+athEscHtml(r.name||'Race')+athEscHtml(dist)+'</div>';
     }).join('');
 
-    const wosHtml=wos.map(w=>{
-      const cls=athSportClass(w.sport);
-      return '<div class="ath-cal-wo '+cls+(w.completed?' completed':'')+'" onclick="event.stopPropagation();openAthWoModal(\''+String(w.id)+'\')" title="'+athEscHtml(w.title||w.sport||'Workout')+'">'
-        +athEscHtml(w.title||w.sport||'Workout')+'</div>';
+    // Match planned workouts with ICU activities by sport
+    const matchedIcuIds=new Set();
+    const blocksHtml=wos.map(w=>{
+      const spClass='sport-'+(w.sport||'other');
+      const woIdStr=String(w.id);
+      const matchIdx=icuForDay.findIndex(a=>athIcuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
+      if(matchIdx!==-1){
+        const icu=icuForDay[matchIdx];
+        matchedIcuIds.add(icu.id);
+        const mins=Math.round((icu.moving_time||0)/60);
+        const tss=Math.round(icu.icu_training_load||0);
+        const label=athEscHtml((icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+        const icuIdStr=String(icu.id);
+        return '<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>';
+      }else{
+        const label=athEscHtml(w.title||w.sport||'Workout');
+        return '<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+label+'</div>';
+      }
+    }).join('');
+
+    // Unmatched ICU activities
+    const unmatchedHtml=icuForDay.filter(a=>!matchedIcuIds.has(a.id)).map(a=>{
+      const sp=athIcuTypeToSport(a.type);
+      const spClass='sport-'+sp;
+      const mins=Math.round((a.moving_time||0)/60);
+      const tss=Math.round(a.icu_training_load||0);
+      const label=athEscHtml((a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+      const icuIdStr=String(a.id);
+      return '<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>';
     }).join('');
 
     html+='<div class="ath-cal-cell'+(otherMonth?' other-month':'')+'">'
       +'<div class="ath-cal-date">'+d.getDate()+'</div>'
-      +racesHtml+wosHtml
+      +racesHtml+blocksHtml+unmatchedHtml
       +'</div>';
   }
   grid.innerHTML=html;
 }
 
 function openAthWoModal(id){
-  const w=athWorkoutsCache.find(x=>String(x.id)===String(id));
-  if(!w)return;
-  athViewingWo=w;
-  document.getElementById('athWoTitle').textContent=w.title||w.sport||'Workout';
-  const rows=[
-    ['Date',w.date||'—'],
-    ['Sport',w.sport||'—'],
-    ['Type',w.workout_type||'—'],
-    ['Duration',w.duration_minutes!=null?w.duration_minutes+' min':'—'],
-    ['TSS target',w.tss_target!=null?String(w.tss_target):'—'],
-    ['Description',w.description||'—'],
-    ['Coach notes',w.coach_notes||w.notes||'—'],
-    ['Status',w.completed?'Completed':'Planned'],
-  ];
-  document.getElementById('athWoDetails').innerHTML=rows.map(([l,v])=>
-    '<div class="ath-detail-row"><span class="ath-detail-label">'+athEscHtml(l)+'</span><span class="ath-detail-val">'+athEscHtml(v)+'</span></div>'
-  ).join('');
-  document.getElementById('athWoNote').value=w.compliance_note||'';
-  const btn=document.getElementById('athMarkCompleteBtn');
-  btn.disabled=!!w.completed;
-  btn.textContent=w.completed?'Completed':'Mark Complete';
-  document.getElementById('athWoModal').classList.add('show');
+  openAthBlockModal('planned',id,null);
+}
+
+function openAthBlockModal(mode, woId, icuId){
+  const w=woId?athWorkoutsCache.find(x=>String(x.id)===String(woId)):null;
+  const icu=icuId?allActivities.find(x=>String(x.id)===String(icuId)):null;
+
+  if(mode==='planned'&&w){
+    athViewingWo=w;
+    document.getElementById('athWoTitle').textContent=w.title||w.sport||'Workout';
+    const rows=[
+      ['Date',w.date||'—'],
+      ['Sport',w.sport||'—'],
+      ['Type',w.workout_type||'—'],
+      ['Duration',w.duration_minutes!=null?w.duration_minutes+' min':'—'],
+      ['TSS target',w.tss_target!=null?String(w.tss_target):'—'],
+      ['Description',w.description||'—'],
+      ['Coach notes',w.coach_notes||w.notes||'—'],
+      ['Status','Planned'],
+    ];
+    document.getElementById('athWoDetails').innerHTML=rows.map(([l,v])=>
+      '<div class="ath-detail-row"><span class="ath-detail-label">'+athEscHtml(l)+'</span><span class="ath-detail-val">'+athEscHtml(v)+'</span></div>'
+    ).join('');
+    document.getElementById('athWoNote').value=w.compliance_note||'';
+    const btn=document.getElementById('athMarkCompleteBtn');
+    btn.style.display='';
+    btn.disabled=!!w.completed;
+    btn.textContent=w.completed?'Completed':'Mark Complete';
+    document.getElementById('athWoModal').classList.add('show');
+  } else if(mode==='completed'&&w&&icu){
+    athViewingWo=w;
+    const mins=Math.round((icu.moving_time||0)/60);
+    const dist=icu.distance?(icu.distance/1609.34).toFixed(1)+' mi':'—';
+    const tss=Math.round(icu.icu_training_load||0);
+    document.getElementById('athWoTitle').textContent=(w.title||w.sport||'Workout')+' ✓';
+    const rows=[
+      ['Date',w.date||'—'],
+      ['Sport',w.sport||'—'],
+      ['Planned dur.',w.duration_minutes!=null?w.duration_minutes+' min':'—'],
+      ['TSS target',w.tss_target!=null?String(w.tss_target):'—'],
+      ['Coach notes',w.description||w.coach_notes||w.notes||'—'],
+      ['Activity',icu.name||'—'],
+      ['Actual dur.',mins?mins+' min':'—'],
+      ['Distance',dist],
+      ['Actual TSS',tss||'—'],
+    ];
+    document.getElementById('athWoDetails').innerHTML=rows.map(([l,v])=>
+      '<div class="ath-detail-row"><span class="ath-detail-label">'+athEscHtml(l)+'</span><span class="ath-detail-val">'+athEscHtml(v)+'</span></div>'
+    ).join('');
+    document.getElementById('athWoNote').value=w.compliance_note||'';
+    const btn=document.getElementById('athMarkCompleteBtn');
+    btn.style.display='';
+    btn.disabled=true;
+    btn.textContent='Completed ✓';
+    document.getElementById('athWoModal').classList.add('show');
+  } else if(mode==='icu_only'&&icu){
+    athViewingWo=null;
+    const mins=Math.round((icu.moving_time||0)/60);
+    const dist=icu.distance?(icu.distance/1609.34).toFixed(1)+' mi':'—';
+    const tss=Math.round(icu.icu_training_load||0);
+    document.getElementById('athWoTitle').textContent=icu.name||'Activity';
+    const rows=[
+      ['Date',(icu.start_date_local||'').slice(0,10)||'—'],
+      ['Sport',athIcuTypeToSport(icu.type)],
+      ['Duration',mins?mins+' min':'—'],
+      ['Distance',dist],
+      ['TSS',tss||'—'],
+    ];
+    document.getElementById('athWoDetails').innerHTML=rows.map(([l,v])=>
+      '<div class="ath-detail-row"><span class="ath-detail-label">'+athEscHtml(l)+'</span><span class="ath-detail-val">'+athEscHtml(v)+'</span></div>'
+    ).join('');
+    document.getElementById('athWoNote').value='';
+    const btn=document.getElementById('athMarkCompleteBtn');
+    btn.style.display='none';
+    document.getElementById('athWoModal').classList.add('show');
+  }
 }
 
 function closeAthWoModal(){

@@ -78,6 +78,29 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-wo.sport-strength{border-left:2px solid #BA7517;background:rgba(186,117,23,0.12);color:var(--tc2)}
 .cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .cal-wo.completed{opacity:0.55;text-decoration:line-through}
+/* New unified cal-block styles */
+.cal-block{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;height:18px;line-height:14px;box-sizing:border-box;border-radius:1px}
+.cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
+.cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
+.cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
+.cal-block.planned.sport-strength{border:1.5px solid #8B5CF6;background:transparent;color:#8B5CF6}
+.cal-block.planned.sport-other{border:1.5px solid #c8f036;background:transparent;color:#c8f036}
+.cal-block.completed.sport-cycling{background:#378ADD;color:#fff;border:none}
+.cal-block.completed.sport-running{background:#639922;color:#fff;border:none}
+.cal-block.completed.sport-swimming{background:#1D9E75;color:#fff;border:none}
+.cal-block.completed.sport-strength{background:#8B5CF6;color:#fff;border:none}
+.cal-block.completed.sport-other{background:#c8f036;color:#000;border:none}
+/* Block detail modal */
+.block-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:60;align-items:center;justify-content:center}
+.block-modal-bg.show{display:flex}
+.block-modal{background:var(--bc2);border:1px solid var(--border);padding:2rem;max-width:520px;width:92%;max-height:90vh;overflow-y:auto}
+.block-modal-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
+.block-cols{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.block-col-head{font-family:'DM Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:0.75rem;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.block-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;gap:8px}
+.block-row-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase;min-width:72px;padding-top:1px}
+.block-row-val{color:var(--tc);flex:1;text-align:right}
+.completed-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;padding:3px 10px;background:rgba(99,153,34,0.18);border:1px solid rgba(99,153,34,0.4);color:#8fce3a}
 .cal-race{font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:4px;height:18px;line-height:14px;box-sizing:border-box}
 .cal-race.priority-A{background:#FFD700;color:#1a1000}
 .cal-race.priority-B{background:#C0C0C0;color:#111}
@@ -375,6 +398,7 @@ async function selectAthlete(id){
   document.getElementById('mainName').textContent=selectedAthlete.name||'Unnamed athlete';
   document.getElementById('mainEmail').textContent=selectedAthlete.email||'';
   document.getElementById('aRaceBadge').style.display='none';
+  athleteIcuActivities=[];
   chatHistory=[];
   document.getElementById('chatMsgs').innerHTML='<div class="chat-msg assistant">Hi coach — ask me about '+(selectedAthlete.name||'this athlete')+'\'s training. I can see their current CTL/ATL/TSB, recent activities, zone distribution, and upcoming races, and I can help write workout prescriptions.</div>';
   switchTab('overview');
@@ -427,6 +451,7 @@ async function loadAthleteOverview(){
       intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
     ]);
     const sorted=[...acts].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
+    athleteIcuActivities=sorted; // store for calendar ICU overlay
     const fit=computeFitnessSimple(fitActs);
     const last=fit[fit.length-1]||{ctl:0,atl:0};
     const ctl=Math.round(last.ctl), atl=Math.round(last.atl), tsb=ctl-atl;
@@ -532,6 +557,18 @@ function sportClass(sport){
   return'sport-other';
 }
 
+function icuTypeToSport(type){
+  const t=(type||'').toLowerCase();
+  if(t.includes('ride')||t.includes('cycl')||t.includes('virtual'))return'cycling';
+  if(t.includes('run')||t.includes('jog')||t.includes('trail')||t.includes('treadmill'))return'running';
+  if(t.includes('swim'))return'swimming';
+  if(t.includes('weight')||t.includes('strength')||t.includes('gym'))return'strength';
+  return'other';
+}
+
+// athleteIcuActivities: array set when coach views an athlete with ICU connected
+let athleteIcuActivities=[];
+
 function renderCalendar(){
   const grid=document.getElementById('calGrid');
   const title=document.getElementById('calTitle');
@@ -550,6 +587,14 @@ function renderCalendar(){
   const raceByDate={};
   racesCache.forEach(r=>{ (raceByDate[r.date]=raceByDate[r.date]||[]).push(r); });
 
+  // Build ICU activities by date
+  const icuByDate={};
+  (athleteIcuActivities||[]).forEach(a=>{
+    const key=(a.start_date_local||'').slice(0,10);
+    if(!key)return;
+    (icuByDate[key]=icuByDate[key]||[]).push(a);
+  });
+
   for(let i=0;i<42;i++){
     const d=new Date(gridStart);
     d.setDate(gridStart.getDate()+i);
@@ -557,6 +602,7 @@ function renderCalendar(){
     const otherMonth=d.getMonth()!==calMonth.getMonth();
     const wos=woByDate[key]||[];
     const races=raceByDate[key]||[];
+    const icuForDay=(icuByDate[key]||[]).slice(); // copy to track matched
 
     const racesHtml=races.map(r=>{
       const pri=r.priority||'C';
@@ -568,20 +614,114 @@ function renderCalendar(){
         +'</div>';
     }).join('');
 
-    const wosHtml=wos.map(w=>{
-      const cls=sportClass(w.sport);
-      return '<div class="cal-wo '+cls+(w.completed?' completed':'')+'" onclick="event.stopPropagation();openWoEdit(\''+String(w.id)+'\')" title="'+escAttr(w.title||w.sport||'Workout')+'">'
-        +escHtml(w.title||w.sport||'Workout')
-        +'</div>';
+    // Match planned workouts with ICU activities by sport
+    const matchedIcuIds=new Set();
+    const blocksHtml=wos.map(w=>{
+      const spClass='sport-'+(w.sport||'other');
+      const woIdStr=String(w.id);
+      // Try to find matching ICU activity
+      const matchIdx=icuForDay.findIndex(a=>icuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
+      if(matchIdx!==-1){
+        const icu=icuForDay[matchIdx];
+        matchedIcuIds.add(icu.id);
+        const mins=Math.round((icu.moving_time||0)/60);
+        const tss=Math.round(icu.icu_training_load||0);
+        const label=escHtml((icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+        const icuIdStr=String(icu.id);
+        return '<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>';
+      }else{
+        // Planned only
+        const label=escHtml(w.title||w.sport||'Workout');
+        return '<div class="cal-block planned '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+label+'</div>';
+      }
+    }).join('');
+
+    // Unmatched ICU activities (no planned workout)
+    const unmatchedHtml=icuForDay.filter(a=>!matchedIcuIds.has(a.id)).map(a=>{
+      const sp=icuTypeToSport(a.type);
+      const spClass='sport-'+sp;
+      const mins=Math.round((a.moving_time||0)/60);
+      const tss=Math.round(a.icu_training_load||0);
+      const label=escHtml((a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+      const icuIdStr=String(a.id);
+      return '<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>';
     }).join('');
 
     html+='<div class="cal-cell'+(otherMonth?' other-month':'')+'" onclick="openDayModal(\''+key+'\')">'
       +'<div class="cal-date">'+d.getDate()+'</div>'
       +racesHtml
-      +wosHtml
+      +blocksHtml
+      +unmatchedHtml
       +'</div>';
   }
   grid.innerHTML=html;
+}
+
+// Open a block detail modal (coach view — read only, shows planned vs actual)
+function openBlockModal(evt, mode, woId, icuId){
+  if(evt)evt.stopPropagation();
+  const w=woId?workoutsCache.find(x=>String(x.id)===woId):null;
+  const icu=icuId?athleteIcuActivities.find(x=>String(x.id)===icuId):null;
+  const modal=document.getElementById('blockModal');
+  const titleEl=document.getElementById('blockModalTitle');
+  const bodyEl=document.getElementById('blockModalBody');
+
+  function bRow(label,val){
+    return '<div class="block-row"><span class="block-row-label">'+label+'</span><span class="block-row-val">'+escHtml(String(val||'—'))+'</span></div>';
+  }
+
+  if(mode==='planned'&&w){
+    titleEl.innerHTML=escHtml(w.title||w.sport||'Workout');
+    bodyEl.innerHTML=
+      bRow('Date',w.date||'—')+
+      bRow('Sport',w.sport||'—')+
+      bRow('Duration',w.duration_minutes!=null?w.duration_minutes+' min':'—')+
+      bRow('TSS target',w.tss_target!=null?String(w.tss_target):'—')+
+      bRow('Description',w.description||'—')+
+      bRow('Notes',w.coach_notes||w.notes||'—')+
+      '<div style="margin-top:1rem"><button class="btn btn-sm" onclick="openWoEdit(\''+String(w.id)+'\')">Edit workout</button></div>';
+  } else if(mode==='completed'&&w&&icu){
+    const mins=Math.round((icu.moving_time||0)/60);
+    const dist=icu.distance?(icu.distance/1609.34).toFixed(1)+' mi':'—';
+    const tss=Math.round(icu.icu_training_load||0);
+    titleEl.innerHTML=escHtml(w.title||w.sport||'Workout')+' <span class="completed-badge">Completed ✓</span>';
+    bodyEl.innerHTML=
+      '<div class="block-cols">'+
+        '<div><div class="block-col-head">Planned</div>'+
+          bRow('Title',w.title||'—')+
+          bRow('Duration',w.duration_minutes!=null?w.duration_minutes+' min':'—')+
+          bRow('TSS target',w.tss_target!=null?String(w.tss_target):'—')+
+          bRow('Notes',w.description||w.coach_notes||w.notes||'—')+
+        '</div>'+
+        '<div><div class="block-col-head">Actual</div>'+
+          bRow('Activity',icu.name||'—')+
+          bRow('Duration',mins?mins+' min':'—')+
+          bRow('Distance',dist)+
+          bRow('TSS',tss||'—')+
+          (icu.average_heartrate?bRow('Avg HR',Math.round(icu.average_heartrate)+' bpm'):'')+
+        '</div>'+
+      '</div>'+
+      '<div style="margin-top:1rem"><button class="btn btn-sm btn-ghost" onclick="openWoEdit(\''+String(w.id)+'\')">Edit planned workout</button></div>';
+  } else if(mode==='icu_only'&&icu){
+    const mins=Math.round((icu.moving_time||0)/60);
+    const dist=icu.distance?(icu.distance/1609.34).toFixed(1)+' mi':'—';
+    const tss=Math.round(icu.icu_training_load||0);
+    titleEl.innerHTML=escHtml(icu.name||'Activity');
+    bodyEl.innerHTML=
+      bRow('Date',(icu.start_date_local||'').slice(0,10))||'—'+
+      bRow('Sport',icuTypeToSport(icu.type))+
+      bRow('Duration',mins?mins+' min':'—')+
+      bRow('Distance',dist)+
+      bRow('TSS',tss||'—')+
+      (icu.average_heartrate?bRow('Avg HR',Math.round(icu.average_heartrate)+' bpm'):'');
+  } else {
+    return; // Nothing to show
+  }
+  modal.classList.add('show');
+}
+
+function closeBlockModal(){
+  document.getElementById('blockModal').classList.remove('show');
 }
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -1021,5 +1161,17 @@ async function sendChat(){
   }
 }
 </script>
+
+<!-- Block detail modal (coach calendar) -->
+<div class="block-modal-bg" id="blockModal">
+  <div class="block-modal">
+    <div class="block-modal-title" id="blockModalTitle"></div>
+    <div id="blockModalBody"></div>
+    <div style="margin-top:1.5rem">
+      <button class="btn btn-ghost btn-sm" onclick="closeBlockModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
