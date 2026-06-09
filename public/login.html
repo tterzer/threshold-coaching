@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HM2L Racing — Sign In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#999;--tc3:#555;--border:#2a2a2a;}
+html,body{height:100%}
+body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;display:flex;flex-direction:column;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem}
+.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;height:56px}
+.nav-logo img{height:40px;width:auto;display:block}
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:3rem 2rem}
+.content{max-width:600px;width:100%}
+.page-heading{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;margin-bottom:2rem}
+.portal-cards{display:flex;gap:12px;margin-bottom:2rem}
+.portal-card{flex:1;background:var(--bc2);border:1px solid var(--border);padding:1.5rem;cursor:pointer;transition:border-color 0.2s,background 0.2s}
+.portal-card:hover{border-color:var(--acc)}
+.portal-card.selected{border-color:var(--acc);background:var(--bc3)}
+.card-type{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:0.4rem}
+.card-desc{font-size:13px;color:var(--tc2);line-height:1.5}
+.login-form{display:none;opacity:0;transition:opacity 0.25s}
+.login-form.visible{opacity:1}
+.login-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.1em;margin-bottom:1.25rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.field input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s}
+.field input:focus{border-color:var(--acc)}
+.pw-wrap{position:relative;display:flex;align-items:center}
+.pw-wrap .pw-input{width:100%;padding-right:40px}
+.pw-toggle{position:absolute;right:10px;background:none;border:none;cursor:pointer;color:var(--tc3);padding:0;display:flex;align-items:center;transition:color 0.2s}
+.pw-toggle:hover{color:var(--tc2)}
+.pw-toggle svg{width:16px;height:16px}
+.login-btn{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:12px 28px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;width:100%;margin-top:0.5rem}
+.login-btn:disabled{opacity:0.5;cursor:not-allowed}
+.login-error{font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;margin-top:0.75rem;display:none}
+.back-link{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase;display:inline-block;margin-top:2rem}
+.back-link:hover{color:var(--tc2)}
+@media(max-width:540px){
+  .portal-cards{flex-direction:column}
+  .page-heading{font-size:40px}
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/"><img src="/hm2l_logo_transparent.png" alt="HM2L Racing" /></a>
+  </div>
+</nav>
+<div class="main">
+  <div class="content">
+    <div class="page-heading">Welcome back.</div>
+    <div class="portal-cards">
+      <div class="portal-card" id="cardAthlete" onclick="selectPortal('athlete')">
+        <div class="card-type">Athlete</div>
+        <div class="card-title">Athlete Portal</div>
+        <div class="card-desc">Access your training dashboard, calendar and zones</div>
+      </div>
+      <div class="portal-card" id="cardCoach" onclick="selectPortal('coach')">
+        <div class="card-type">Coach</div>
+        <div class="card-title">Coach Portal</div>
+        <div class="card-desc">Manage athletes, prescribe workouts and AI coaching tools</div>
+      </div>
+    </div>
+
+    <div class="login-form" id="loginForm">
+      <div class="login-label" id="loginForLabel">Logging in to: Athlete Portal</div>
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()" /></div>
+      <div class="field">
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="loginPassword" class="pw-input" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+          <button type="button" class="pw-toggle" onclick="togglePw('loginPassword', this)" tabindex="-1" aria-label="Toggle password visibility">
+            <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg class="eye-off-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">Login</button>
+    </div>
+
+    <a class="back-link" href="/index.html">&#8592; Back to site</a>
+  </div>
+</div>
+
+<script>
+let selectedPortal = null;
+
+function selectPortal(portal) {
+  selectedPortal = portal;
+  document.getElementById('cardAthlete').classList.toggle('selected', portal === 'athlete');
+  document.getElementById('cardCoach').classList.toggle('selected', portal === 'coach');
+  const label = portal === 'athlete' ? 'Athlete Portal' : 'Coach Portal';
+  document.getElementById('loginForLabel').textContent = 'Logging in to: ' + label;
+  const form = document.getElementById('loginForm');
+  form.style.display = 'block';
+  requestAnimationFrame(() => { form.classList.add('visible'); });
+  document.getElementById('loginEmail').focus();
+}
+
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  const isText = inp.type === 'text';
+  inp.type = isText ? 'password' : 'text';
+  btn.querySelector('.eye-icon').style.display = isText ? '' : 'none';
+  btn.querySelector('.eye-off-icon').style.display = isText ? 'none' : '';
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Logging in...';
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'login', email, password })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Login failed');
+    localStorage.setItem('hm2l_athlete', JSON.stringify(data.athlete));
+    if (email === 'travis.terzer95@gmail.com' || data.athlete.role === 'coach') {
+      window.location.href = '/coach.html';
+    } else {
+      window.location.href = '/dashboard.html';
+    }
+  } catch(e) {
+    errEl.textContent = e.message || 'Invalid email or password';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Login';
+  }
+}
+</script>
+</body>
+</html>

@@ -3,15 +3,23 @@ import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { action } = req.query;
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
   body = body || {};
+
+  // action can come from query string (?action=login) or JSON body ({ action: 'login' })
+  const action = req.query.action || body.action;
+
+  // GET requests: only get_profile is allowed
+  if (req.method === 'GET') {
+    if (action !== 'get_profile') return res.status(405).json({ error: 'Method not allowed' });
+  } else if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   try {
     if (action === 'register') {
@@ -49,6 +57,16 @@ export default async function handler(req, res) {
       if (name !== undefined) updates.name = name;
       const { data, error } = await supabase.from('athletes').update(updates).eq('id', athlete_id).select().single();
       if (error) return res.status(500).json({ error: error.message });
+      delete data.password_hash;
+      return res.status(200).json({ athlete: data });
+    }
+
+    if (action === 'get_profile') {
+      const athlete_id = body.athlete_id || req.query.athlete_id;
+      if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
+      const { data, error } = await supabase.from('athletes').select('*').eq('id', athlete_id).maybeSingle();
+      if (error) return res.status(500).json({ error: error.message });
+      if (!data) return res.status(404).json({ error: 'Athlete not found' });
       delete data.password_hash;
       return res.status(200).json({ athlete: data });
     }

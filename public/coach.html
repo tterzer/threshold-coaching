@@ -122,19 +122,14 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 <nav>
   <div class="nav-inner">
     <a class="nav-logo" href="/"><img src="/hm2l_logo_transparent.png" alt="HM2L Racing" /></a>
-    <a class="nav-back" href="/">← Back to site</a>
+    <div style="display:flex;align-items:center;gap:1.5rem">
+      <a class="nav-back" href="/">← Back to site</a>
+      <button onclick="localStorage.removeItem('hm2l_athlete');window.location.href='/login.html'" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);background:none;border:none;cursor:pointer;letter-spacing:0.08em;text-transform:uppercase;padding:0">Sign out</button>
+    </div>
   </div>
 </nav>
 <div class="page">
 
-  <div class="gate-box" id="passGate">
-    <div class="gate-label">Coach portal</div>
-    <div class="gate-title">Coach access</div>
-    <p class="gate-desc">Enter the coach password to view your roster, plan workouts, and chat with the AI training assistant.</p>
-    <div class="field"><label>Password</label><input type="password" id="coachPass" placeholder="••••••••" autocomplete="off" onkeydown="if(event.key==='Enter')checkCoachPass()" /></div>
-    <button class="btn" onclick="checkCoachPass()">Enter</button>
-    <div class="error-msg" id="passError">Incorrect password.</div>
-  </div>
 
   <div class="portal" id="portal">
     <div class="layout">
@@ -297,7 +292,22 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 </div>
 
 <script>
-const COACH_PASSWORD='COACH2026';
+// ── Auth guard ──────────────────────────────────────────────────────
+(function(){
+  const raw = localStorage.getItem('hm2l_athlete');
+  if (!raw) { window.location.href = '/login.html'; throw new Error('redirect'); }
+  try {
+    const ath = JSON.parse(raw);
+    if (ath.role !== 'coach' && ath.email !== 'travis.terzer95@gmail.com') {
+      window.location.href = '/login.html'; throw new Error('redirect');
+    }
+    window.coachUser = ath;
+  } catch(e) {
+    if (e.message !== 'redirect') { localStorage.removeItem('hm2l_athlete'); window.location.href = '/login.html'; }
+    throw e;
+  }
+})();
+
 let athletes=[];
 let selectedAthlete=null;
 let athleteData={}; // cache: { [id]: {ctl,atl,tsb,zones,acts} }
@@ -309,24 +319,9 @@ let editingWorkout=null;
 let editingRace=null;
 let pendingDate=null;
 
-function checkCoachPass(){
-  const val=document.getElementById('coachPass').value;
-  if(val===COACH_PASSWORD){
-    document.getElementById('passGate').style.display='none';
-    document.getElementById('portal').style.display='block';
-    sessionStorage.setItem('hm2l_coach_ok','1');
-    loadAthletes();
-  }else{
-    document.getElementById('passError').style.display='block';
-  }
-}
-
 window.addEventListener('DOMContentLoaded',()=>{
-  if(sessionStorage.getItem('hm2l_coach_ok')==='1'){
-    document.getElementById('passGate').style.display='none';
-    document.getElementById('portal').style.display='block';
-    loadAthletes();
-  }
+  document.getElementById('portal').style.display='block';
+  loadAthletes();
 });
 
 async function intervalsCall(athleteId,apiKey,path,qs,base){
