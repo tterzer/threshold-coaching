@@ -298,7 +298,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   if (!raw) { window.location.href = '/login.html'; throw new Error('redirect'); }
   try {
     const ath = JSON.parse(raw);
-    if (ath.role !== 'coach' && ath.email !== 'travis.terzer95@gmail.com') {
+    if (ath.role !== 'coach') {
       window.location.href = '/login.html'; throw new Error('redirect');
     }
     window.coachUser = ath;
