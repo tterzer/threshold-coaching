@@ -836,10 +836,13 @@ function updateTSSEstimate(){
 // --- AI chat helpers ---
 function parseWorkoutFromText(text){
   const lower=text.toLowerCase();
+  // Check most specific sport keywords first to avoid false matches
   let sport='cycling';
-  if(lower.includes('run')||lower.includes('jog'))sport='running';
-  else if(lower.includes('swim'))sport='swimming';
+  if(lower.includes('swim'))sport='swimming';
   else if(lower.includes('strength')||lower.includes('lift')||lower.includes('gym'))sport='strength';
+  else if(lower.includes('bike')||lower.includes('cycling')||lower.includes('ride')||
+          lower.includes('power')||lower.includes('watts')||lower.includes('ftp'))sport='cycling';
+  else if(lower.includes('run')||lower.includes('pace')||lower.includes('mile')||lower.includes('jog'))sport='running';
   let intensity='endurance';
   if(/interval|vo2/i.test(text))intensity='intervals';
   else if(/threshold/i.test(text))intensity='threshold';
