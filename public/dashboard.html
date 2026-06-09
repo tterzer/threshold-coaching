@@ -1354,33 +1354,8 @@ async function renderCurve(){
 
   if(sport==='running'){
     // ── RUNNING ─────────────────────────────────────────────────────────
-    // intervals.icu power-curves does not support running — use streams only.
-    // Only durations ≥60s: sub-minute running efforts are GPS-noise-dominated.
-    // All-time curve disabled until stream data is verified; showing last 30 days only.
-    const RUN_DURATIONS=CURVE_DURATIONS.filter(d=>d>=60);
-
-    box.innerHTML='<div class="curve-loading">Building run pace curve from streams…'
-      +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
-
-    try{
-      const allRuns=allActivities.filter(a=>isRunActivity(a.type));
-      if(!allRuns.length){box.innerHTML='<div class="empty-note">No running activities found.</div>';return;}
-
-      const recentRuns=allRuns.filter(a=>new Date(a.start_date_local)>=thirtyDaysAgo).slice(0,15);
-      if(!recentRuns.length){box.innerHTML='<div class="empty-note">No runs in the last 30 days.</div>';return;}
-      document.getElementById('curveProg').style.width='10%';
-      const recBest=await buildStreamCurve(recentRuns,'velocity_smooth','curveProg');
-      const recentPairs=RUN_DURATIONS.map(s=>{
-        const i=CURVE_DURATIONS.indexOf(s);
-        return recBest[i]!=null?{s,v:recBest[i]}:null;
-      }).filter(Boolean);
-      if(!recentPairs.length){box.innerHTML='<div class="empty-note">Collecting data… check back after your next run is synced.</div>';return;}
-
-      const note='Last 30 days: '+recentRuns.length+' runs | All-time curve building… check back as more runs are cached';
-      drawCurveChart(box,recentPairs,null,true,note,'Last 30 days');
-    }catch(e){
-      box.innerHTML='<div class="empty-note">Could not build run pace curve: '+(e.message||'error')+'</div>';
-    }
+    // Stream-based curve temporarily disabled while data is being collected.
+    box.innerHTML='<div class="empty-note">Run pace curve collecting data — will populate after your next run is synced from intervals.icu</div>';
     return;
   }
 
