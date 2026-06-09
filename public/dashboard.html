@@ -1009,27 +1009,181 @@ async function renderCurve(){
 
   try{
     const data=await apiCall(curId,curKey,'power-curves','type='+actType);
+    const list=(data&&data.list)||[];
 
-    // Log the full raw response so we can inspect the shape before building the chart
-    console.log('[power-curves] sport='+sport+' type='+actType);
-    console.log('[power-curves] typeof response:', typeof data);
-    console.log('[power-curves] Array.isArray:', Array.isArray(data));
-    console.log('[power-curves] full response:', JSON.parse(JSON.stringify(data)));
-    if(Array.isArray(data)&&data.length){
-      console.log('[power-curves] first element keys:', Object.keys(data[0]));
-      console.log('[power-curves] first element:', data[0]);
-    }else if(data&&typeof data==='object'){
-      console.log('[power-curves] top-level keys:', Object.keys(data));
+    if(!list.length){
+      box.innerHTML='<div class="empty-note">No power curve data available.</div>';return;
     }
 
-    // Show raw response on screen until we know the shape
-    box.innerHTML='<div class="empty-note" style="color:var(--tc2)">API response logged to browser console (F12 → Console).</div>'
-      +'<pre style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:1rem;overflow:auto;max-height:300px;white-space:pre-wrap;word-break:break-all;background:var(--bc3);padding:1rem;border:1px solid var(--border)">'
-      +JSON.stringify(data,null,2).slice(0,4000)+(JSON.stringify(data).length>4000?'\n… (truncated)':'')
-      +'</pre>';
+    // Match list items to all-time vs recent by label.
+    // Labels from intervals.icu are typically: "All time", "1 year", "6 months",
+    // "3 months", "30 days", "4 weeks", "Last 30 days", etc.
+    // We want: longest window = all-time, shortest ~30-day window = recent.
+    const allTimeKeywords=/all.?time|1.?year|12.?month/i;
+    const recentKeywords=/30.?day|4.?week|last.?30|month/i;
+    const allTimeCurve=list.find(c=>allTimeKeywords.test(c.label||''))||list[0];
+    const recentCurve=list.find(c=>recentKeywords.test(c.label||'')&&c!==allTimeCurve)||list[1]||null;
+
+    // Extract (secs, value) pairs from a curve item.
+    // Cycling: watts field. Running: check for secs_per_metre, velocity, or watts/value.
+    function extractPairs(curve){
+      if(!curve)return[];
+      const secsArr=curve.secs||[];
+      // prefer explicit field names; fall back to first numeric array that isn't secs
+      let vals=null;
+      if(isRun){
+        vals=curve.secs_per_metre||curve.velocity||curve.values||curve.value||curve.watts||null;
+      }else{
+        vals=curve.watts||curve.values||curve.value||null;
+      }
+      if(!vals||!secsArr.length)return[];
+      const pairs=[];
+      for(let i=0;i<Math.min(secsArr.length,vals.length);i++){
+        const s=secsArr[i],v=vals[i];
+        if(s==null||v==null||v<=0)continue;
+        pairs.push({s,v});
+      }
+      return pairs;
+    }
+
+    // Convert raw value to chart-friendly number.
+    // Cycling: watts → watts (plot directly).
+    // Running: detect unit from magnitude then convert to seconds/mile for inverted axis.
+    //   m/s  →  secs/mile = 1609.34 / v
+    //   sec/m → secs/mile = v * 1609.34
+    // Heuristic: if average value < 30 assume m/s; if > 50 assume sec/m.
+    function detectRunUnit(pairs){
+      if(!pairs.length)return'ms';
+      const avg=pairs.reduce((s,p)=>s+p.v,0)/pairs.length;
+      return avg<30?'ms':'sm'; // m/s or sec/m
+    }
+    function toSecsPerMile(v,unit){
+      return unit==='ms'?(1609.34/v):(v*1609.34);
+    }
+
+    const allPairs=extractPairs(allTimeCurve);
+    const recPairs=extractPairs(recentCurve);
+    const runUnit=isRun?detectRunUnit(allPairs.length?allPairs:recPairs):'';
+
+    // Select display durations — use the secs from the all-time curve, capped
+    // at a reasonable set of tick points so the chart isn't too dense.
+    const DISPLAY_SECS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
+    // Build a lookup from the curve arrays by finding nearest secs value
+    function buildLookup(pairs){
+      const map=new Map(pairs.map(p=>[p.s,p.v]));
+      return secs=>{
+        if(map.has(secs))return map.get(secs);
+        // find closest
+        let best=null,bestDiff=Infinity;
+        pairs.forEach(p=>{const d=Math.abs(p.s-secs);if(d<bestDiff){bestDiff=d;best=p.v;}});
+        return bestDiff<secs*0.2?best:null; // only use if within 20% of target
+      };
+    }
+    const lookupAll=buildLookup(allPairs);
+    const lookupRec=buildLookup(recPairs);
+
+    // Filter to durations that exist in at least one curve
+    const validSecs=DISPLAY_SECS.filter(s=>lookupAll(s)!=null||lookupRec(s)!=null);
+    if(!validSecs.length){
+      box.innerHTML='<div class="empty-note">Power curve data has no matching durations.</div>';return;
+    }
+
+    function fmtSecs(s){return s<60?s+'s':s<3600?(s/60)%1===0?(s/60)+'m':(s/60).toFixed(1)+'m':s%3600===0?(s/3600)+'h':(s/3600).toFixed(1)+'h';}
+    const labels=validSecs.map(fmtSecs);
+
+    function toChartVal(rawVal){
+      if(rawVal==null)return null;
+      if(isRun)return Math.round(toSecsPerMile(rawVal,runUnit));
+      return Math.round(rawVal);
+    }
+    function fmtDisplay(rawVal){
+      if(rawVal==null)return'—';
+      if(isRun)return secsToMMSS(Math.round(toSecsPerMile(rawVal,runUnit)))+'/mi';
+      return Math.round(rawVal)+'w';
+    }
+
+    const chartAll=validSecs.map(s=>toChartVal(lookupAll(s)));
+    const chartRec=validSecs.map(s=>toChartVal(lookupRec(s)));
+
+    function isNewPeak(i){
+      const a=chartAll[i],b=chartRec[i];
+      if(a==null||b==null)return false;
+      return isRun?b<a:b>a;
+    }
+
+    if(curveInst)curveInst.destroy();
+    box.innerHTML='<div style="position:relative;height:230px"><canvas id="curveChart"></canvas></div><div id="curveTableWrap"></div>';
+    const canvas=document.getElementById('curveChart');
+
+    curveInst=new Chart(canvas,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[
+          {
+            label:allTimeCurve.label||'All-time best',
+            data:chartAll,
+            borderColor:'#c8f036',backgroundColor:'rgba(200,240,54,0.15)',
+            fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#c8f036',order:2
+          },
+          ...(recentCurve?[{
+            label:recentCurve.label||'Last 30 days',
+            data:chartRec,
+            borderColor:'#378ADD',backgroundColor:'transparent',
+            fill:false,tension:0.3,pointRadius:4,
+            pointBackgroundColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
+            pointBorderColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
+            segment:{borderColor:ctx=>isNewPeak(ctx.p0DataIndex)?'#00ff88':'#378ADD'},
+            order:1
+          }]:[])
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:true,labels:{color:'#999',font:{size:10,family:'DM Mono, monospace'},boxWidth:12,padding:14}},
+          tooltip:{callbacks:{label:ctx=>{
+            const raw=ctx.parsed.y;
+            if(raw==null)return ctx.dataset.label+': —';
+            const disp=isRun?secsToMMSS(raw)+'/mi':raw+'w';
+            const pk=ctx.datasetIndex===1&&isNewPeak(ctx.dataIndex)?' ★ new peak':'';
+            return ctx.dataset.label+': '+disp+pk;
+          }}}
+        },
+        scales:{
+          x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}},
+          y:{
+            reverse:isRun,
+            ticks:{color:'#555',font:{size:10},callback:v=>isRun?secsToMMSS(v)+'/mi':v},
+            grid:{color:'#1a1a1a'}
+          }
+        }
+      }
+    });
+
+    // Summary table
+    const wrap=document.getElementById('curveTableWrap');
+    const rows=[
+      {label:allTimeCurve.label||'All-time',vals:validSecs.map(s=>fmtDisplay(lookupAll(s))),color:'var(--tc)'},
+      ...(recentCurve?[{label:recentCurve.label||'30 days',vals:validSecs.map((s,i)=>{
+        const pk=isNewPeak(i);
+        return{v:fmtDisplay(lookupRec(s)),pk};
+      }),color:'#378ADD'}]:[])
+    ];
+    wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
+      +'<thead><tr><th>Duration</th>'+labels.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
+      +'<tbody>'
+      +rows.map(r=>'<tr><td style="color:'+r.color+'">'+r.label+'</td>'
+        +r.vals.map(v=>{
+          if(typeof v==='object'&&v.pk!==undefined)
+            return'<td style="'+(v.pk?'color:#00ff88;font-weight:600':'')+'">'+v.v+(v.pk?' ★':'')+'</td>';
+          return'<td>'+v+'</td>';
+        }).join('')+'</tr>'
+      ).join('')
+      +'</tbody></table>';
 
   }catch(err){
-    console.error('[power-curves] error:', err);
     box.innerHTML='<div class="empty-note">Could not load power curve: '+(err.message||'unknown error')+'</div>';
   }
 }
