@@ -15,7 +15,7 @@ body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
 .nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
-.nav-logo img{height:40px;width:auto;display:block}
+.nav-logo img{height:52px;width:auto;display:block}
 .nav-back{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase}
 .nav-back:hover{color:var(--tc2)}
 .page{max-width:1200px;margin:0 auto;padding:3rem 2rem}
@@ -231,7 +231,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="mLastWeek">—</div><div class="metric-sub">Training load</div></div>
     </div>
 
-    <div class="grid-2">
+    <div class="grid-2" id="pmcGrid">
       <div class="chart-box">
         <div class="chart-title">Performance management chart
           <button onclick="openCtlSeedModal()" title="CTL calibration settings" style="background:none;border:none;cursor:pointer;color:var(--tc3);font-size:14px;padding:0 0 0 6px;line-height:1" aria-label="CTL calibration settings">⚙</button><span id="ctlRefDisplay" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-left:4px;vertical-align:middle"></span>
@@ -260,6 +260,23 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         </div>
         <div style="position:relative;height:240px;margin-top:0.5rem"><canvas id="sportLoadChart"></canvas></div>
       </div>
+    </div>
+
+    <div class="chart-box" style="margin-top:1px">
+      <div class="chart-title">Sport-specific fitness (CTL)
+        <div style="display:flex;gap:4px">
+          <button class="sub-tab active" id="sctl-6W" onclick="setSportCtlRange('6W',this)">6W</button>
+          <button class="sub-tab" id="sctl-3M" onclick="setSportCtlRange('3M',this)">3M</button>
+          <button class="sub-tab" id="sctl-6M" onclick="setSportCtlRange('6M',this)">6M</button>
+          <button class="sub-tab" id="sctl-1Y" onclick="setSportCtlRange('1Y',this)">1Y</button>
+        </div>
+      </div>
+      <div class="legend">
+        <span class="leg-item"><span class="leg-line" style="background:#378ADD"></span>Cycling CTL</span>
+        <span class="leg-item"><span class="leg-line" style="background:#639922"></span>Running CTL</span>
+        <span class="leg-item"><span class="leg-line" style="background:#1D9E75"></span>Swimming CTL</span>
+      </div>
+      <div style="position:relative;height:180px"><canvas id="sportCtlChart"></canvas></div>
     </div>
 
     <div class="grid-2" style="margin-top:1px">
@@ -588,6 +605,7 @@ async function loadDashboard(){
     document.getElementById('mWeek').textContent=thisWeekLoad;
     document.getElementById('mLastWeek').textContent=lastWeekLoad;
     buildPMC();
+    buildSportCTL();
     buildSportLoad(sorted);
     buildLoad(sorted);
     buildZones(sorted);
@@ -697,6 +715,95 @@ function buildPMC(rangeDays){
     scales:{x:{ticks:{color:'#555',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
     y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}},
     plugins:[tsbZonePlugin]});
+}
+
+// ── Per-sport CTL chart ─────────────────────────────────────────────
+let sportCtlInst = null;
+let sportCtlRangeDays = 42;
+
+function fitActSport(type) {
+  const t = (type||'').toLowerCase();
+  if (t.includes('ride') || t.includes('cycl') || t.includes('virtual')) return 'cycling';
+  if (t.includes('run') || t.includes('jog') || t.includes('trail') || t.includes('treadmill')) return 'running';
+  if (t.includes('swim')) return 'swimming';
+  return 'other';
+}
+
+function calcSportCTL(acts, sportName) {
+  const filtered = acts.filter(a => fitActSport(a.type) === sportName);
+  const tssByDay = {};
+  filtered.forEach(a => {
+    const day = (a.start_date_local||'').slice(0,10);
+    if (!day) return;
+    tssByDay[day] = (tssByDay[day]||0) + (Number(a.icu_training_load)||0);
+  });
+  const totalDays = FITNESS_DAYS;
+  const start = new Date();
+  start.setHours(0,0,0,0);
+  start.setDate(start.getDate() - (totalDays - 1));
+  const ctlDecay = 1 - Math.exp(-1/42);
+  const result = {};
+  let ctlPrev = 0;
+  for (let i = 0; i < totalDays; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const key = dayKey(d);
+    const tss = tssByDay[key]||0;
+    const ctl = ctlPrev + (tss - ctlPrev) * ctlDecay;
+    if (i >= WARMUP_DAYS) result[key] = ctl;
+    ctlPrev = ctl;
+  }
+  return result;
+}
+
+function setSportCtlRange(label, btn) {
+  const map = {'6W':42,'3M':90,'6M':180,'1Y':365};
+  sportCtlRangeDays = map[label] || 42;
+  document.querySelectorAll('[id^="sctl-"]').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  buildSportCTL();
+}
+
+function buildSportCTL() {
+  const acts = window._fitnessFetchedActs;
+  if (!acts || !acts.length) return;
+  const storedOffset = Number(localStorage.getItem(CTL_OFFSET_KEY)||0)||0;
+  const sportOffset = storedOffset / 3;
+
+  const cyclingByDate = calcSportCTL(acts, 'cycling');
+  const runningByDate = calcSportCTL(acts, 'running');
+  const swimmingByDate = calcSportCTL(acts, 'swimming');
+
+  const n = sportCtlRangeDays;
+  const days = Array.from({length:n}, (_,i) => { const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return d; });
+
+  const cycData = [], runData = [], swimData = [];
+  days.forEach(d => {
+    const k = dayKey(d);
+    cycData.push(cyclingByDate[k] != null ? Math.round(cyclingByDate[k] + sportOffset) : null);
+    runData.push(runningByDate[k] != null ? Math.round(runningByDate[k] + sportOffset) : null);
+    swimData.push(swimmingByDate[k] != null ? Math.round(swimmingByDate[k] + sportOffset) : null);
+  });
+
+  if (sportCtlInst) sportCtlInst.destroy();
+  sportCtlInst = new Chart(document.getElementById('sportCtlChart'), {
+    type: 'line',
+    data: {
+      labels: days.map(d => fmtDate(d)),
+      datasets: [
+        {label:'Cycling CTL', data:cycData, borderColor:'#378ADD', backgroundColor:'transparent', tension:0.25, pointRadius:0, borderWidth:2},
+        {label:'Running CTL', data:runData, borderColor:'#639922', backgroundColor:'transparent', tension:0.25, pointRadius:0, borderWidth:2},
+        {label:'Swimming CTL', data:swimData, borderColor:'#1D9E75', backgroundColor:'transparent', tension:0.25, pointRadius:0, borderWidth:2}
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#555',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
+        y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}
+      }
+    }
+  });
 }
 
 function buildSportLoad(acts){

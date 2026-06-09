@@ -23,16 +23,19 @@ export default async function handler(req, res) {
 
   try {
     if (action === 'register') {
-      const { email, password, name } = body;
+      const { email, password, name, intervals_athlete_id, intervals_api_key } = body;
       if (!email || !password || !name) return res.status(400).json({ error: 'Missing email, password, or name' });
       const normalizedEmail = String(email).trim().toLowerCase();
       const { data: existing } = await supabase.from('athletes').select('id').eq('email', normalizedEmail).maybeSingle();
-      if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
+      if (existing) return res.status(409).json({ error: 'Email already registered' });
       const password_hash = await bcrypt.hash(password, 10);
-      const { data, error } = await supabase.from('athletes').insert({ email: normalizedEmail, password_hash, name }).select().single();
+      const insertPayload = { email: normalizedEmail, password_hash, name, role: 'athlete' };
+      if (intervals_athlete_id) insertPayload.intervals_athlete_id = intervals_athlete_id;
+      if (intervals_api_key) insertPayload.intervals_api_key = intervals_api_key;
+      const { data, error } = await supabase.from('athletes').insert(insertPayload).select().single();
       if (error) return res.status(500).json({ error: error.message });
       delete data.password_hash;
-      return res.status(200).json({ athlete: data });
+      return res.status(200).json({ ok: true });
     }
 
     if (action === 'login') {

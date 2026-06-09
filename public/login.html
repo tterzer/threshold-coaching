@@ -15,7 +15,7 @@ body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem}
 .nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;height:56px}
-.nav-logo img{height:40px;width:auto;display:block}
+.nav-logo img{height:32px;width:auto;display:block}
 .main{flex:1;display:flex;align-items:center;justify-content:center;padding:3rem 2rem}
 .content{max-width:600px;width:100%}
 .page-heading{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;margin-bottom:2rem}
@@ -57,7 +57,11 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 </nav>
 <div class="main">
   <div class="content">
+    <img src="/hm2l_logo_transparent.png" style="height:200px;width:auto;display:block;margin:0 auto 2rem">
     <div class="page-heading">Welcome back.</div>
+    <div id="regSuccess" style="display:none;background:rgba(200,240,54,0.1);border:1px solid var(--acc);color:var(--acc);font-family:'DM Mono',monospace;font-size:11px;padding:10px 14px;margin-bottom:1.5rem;letter-spacing:0.06em">
+      Account created — please log in to your athlete portal.
+    </div>
     <div class="portal-cards">
       <div class="portal-card" id="cardAthlete" onclick="selectPortal('athlete')">
         <div class="card-type">Athlete</div>
@@ -106,6 +110,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <button class="login-btn" id="coachBtn" onclick="doCoachLogin()">Login</button>
     </div>
 
+    <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-top:1rem">
+      New athlete? <a href="/register.html" style="color:var(--acc)">Create an account →</a>
+    </p>
     <a class="back-link" href="/index.html">&#8592; Back to site</a>
   </div>
 </div>
@@ -151,6 +158,11 @@ function doCoachLogin() {
 }
 
 // ── Athlete login — email + password via API ─────────────────────────
+// Check for ?registered=1 success param
+if (new URLSearchParams(window.location.search).get('registered') === '1') {
+  document.getElementById('regSuccess').style.display = 'block';
+}
+
 async function doAthleteLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
