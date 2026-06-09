@@ -207,6 +207,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
           <button class="sub-tab" data-days="42" onclick="setPmcRange(42)">6 weeks</button>
           <button class="sub-tab" data-days="90" onclick="setPmcRange(90)">3 months</button>
           <button class="sub-tab active" data-days="180" onclick="setPmcRange(180)">6 months</button>
+          <button class="sub-tab" data-days="365" onclick="setPmcRange(365)">1 year</button>
         </div>
         <div style="position:relative;height:240px"><canvas id="pmcChart"></canvas></div>
       </div>
@@ -448,42 +449,48 @@ function sportClass(type){
   return'other';
 }
 
-const FITNESS_DAYS=365; // 12 months — needed to let CTL stabilise before the displayed 6-month window
+// Total fetch window: 3 years. First WARMUP_DAYS run the model without
+// storing results so CTL stabilises naturally; the stored series covers
+// the remaining (FITNESS_DAYS - WARMUP_DAYS) days, which is ~30 months.
+const FITNESS_DAYS=1095; // 3 years of activity history to fetch
+const WARMUP_DAYS=180;   // 6-month silent warm-up — model runs but nothing stored
 let fitnessSeries=[],fitnessByDate={};
 
 function dayKey(d){return new Date(d).toISOString().split('T')[0];}
 
-// Banister/TrainingPeaks impulse-response model: builds a daily CTL/ATL/TSB
-// series from scratch using icu_training_load as the daily TSS, starting from
-// CTL=ATL=0 at the beginning of the window (12 months ago). The extra 6 months
-// beyond the 6-month display window lets CTL stabilise so displayed values are
-// accurate rather than artificially low from a cold start.
-function computeFitness(acts,days){
-  days=days||FITNESS_DAYS;
+// Banister/TrainingPeaks impulse-response model.
+// Iterates over all FITNESS_DAYS starting at CTL=ATL=0. For the first
+// WARMUP_DAYS days the values are computed but discarded, letting the model
+// settle. Only days after the warm-up window are stored in series/byDate.
+function computeFitness(acts){
   const tssByDay={};
   acts.forEach(a=>{
     const day=(a.start_date_local||'').slice(0,10);
     if(!day)return;
     tssByDay[day]=(tssByDay[day]||0)+(Number(a.icu_training_load)||0);
   });
+  const totalDays=FITNESS_DAYS;
   const start=new Date();
   start.setHours(0,0,0,0);
-  start.setDate(start.getDate()-(days-1));
+  start.setDate(start.getDate()-(totalDays-1));
   const ctlDecay=1-Math.exp(-1/42);
   const atlDecay=1-Math.exp(-1/7);
   const series=[];
   const byDate={};
   let ctlPrev=0,atlPrev=0;
-  for(let i=0;i<days;i++){
+  for(let i=0;i<totalDays;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);
     const key=dayKey(d);
     const tss=tssByDay[key]||0;
-    const tsb=ctlPrev-atlPrev;
     const ctl=ctlPrev+(tss-ctlPrev)*ctlDecay;
     const atl=atlPrev+(tss-atlPrev)*atlDecay;
-    const entry={date:key,ctl,atl,tsb};
-    series.push(entry);
-    byDate[key]=entry;
+    const tsb=ctl-atl;
+    // Only store entries after the warm-up period
+    if(i>=WARMUP_DAYS){
+      const entry={date:key,ctl,atl,tsb};
+      series.push(entry);
+      byDate[key]=entry;
+    }
     ctlPrev=ctl;atlPrev=atl;
   }
   return{series,byDate};
@@ -505,7 +512,7 @@ async function loadDashboard(){
     const today=new Date();
     const oldest=new Date(today);oldest.setDate(today.getDate()-90);
     const oldestStr=oldest.toISOString().split('T')[0];
-    const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-(FITNESS_DAYS+2));
+    const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-FITNESS_DAYS);
     const fitOldestStr=fitOldest.toISOString().split('T')[0];
     const allTimeOldest=new Date(today);allTimeOldest.setDate(today.getDate()-548); // 18 months
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
@@ -529,7 +536,7 @@ async function loadDashboard(){
     // Compute CTL/ATL/TSB from scratch (Banister impulse-response model) using
     // icu_training_load as TSS, rather than trusting the API's icu_ctl/icu_atl.
     const fitSorted=[...fitnessActs].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
-    const fit=computeFitness(fitSorted,FITNESS_DAYS);
+    const fit=computeFitness(fitSorted);
     fitnessSeries=fit.series;
     fitnessByDate=fit.byDate;
     const todayEntry=fitnessSeries[fitnessSeries.length-1];
