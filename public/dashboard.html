@@ -59,13 +59,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .leg-line{width:16px;height:2px;flex-shrink:0}
 .leg-sw{width:10px;height:10px;flex-shrink:0;display:inline-block}
 .zone-rows{display:flex;flex-direction:column;gap:10px;padding-top:0.25rem}
-.zone-row-d{display:grid;grid-template-columns:32px 1fr 36px auto;gap:8px;align-items:center}
+.zone-row-d{display:grid;grid-template-columns:32px 1fr;gap:10px;align-items:center}
 .zone-name-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em}
-.zone-bg-d{background:var(--bc3);height:18px;border-radius:2px;overflow:hidden}
-.zone-fill-d{height:100%;display:flex;align-items:center}
-.zone-range-in{padding-left:6px;font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.88);white-space:nowrap;overflow:hidden}
-.zone-range-col{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);white-space:nowrap}
-.zone-pct-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:right}
+.zone-bg-d{position:relative;background:var(--bc3);height:18px;border-radius:2px;overflow:hidden}
+.zone-fill-d{position:absolute;top:0;left:0;height:100%;border-radius:2px}
+.zone-range-d{position:absolute;top:50%;transform:translateY(-50%);font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.85);white-space:nowrap;line-height:1;padding-left:5px}
+.zone-pct-d{position:absolute;top:50%;right:6px;transform:translateY(-50%);font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.6);white-space:nowrap;line-height:1}
 .zd-controls{display:flex;gap:6px;flex-wrap:wrap}
 .zd-select{font-family:'DM Mono',monospace;font-size:10px;background:var(--bc3);border:1px solid var(--border);color:var(--tc2);padding:5px 8px;letter-spacing:0.05em;text-transform:uppercase;outline:none}
 .zd-select:focus{border-color:var(--acc)}
@@ -743,7 +742,7 @@ function buildZones(acts){
   }
   el.innerHTML=totals.map((t,i)=>{
     const pct=total>0?Math.round((t/total)*100):0;
-    return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${colors[i]}"></div></div><span class="zone-pct-d">${pct}%</span><span></span></div>`;
+    return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${colors[i]}"></div><span class="zone-pct-d">${pct}%</span></div></div>`;
   }).join('');
 }
 
@@ -1021,7 +1020,7 @@ async function onZoneDistControlChange(){
       const pct=Math.round((t/total)*100);
       const color=ZC_COLORS[i]||'#7F77DD';
       const range=fmtZoneBoundsDisplay(sport,metric,i);
-      return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}"></div></div><span class="zone-pct-d">${pct}%</span><span class="zone-range-col">${range}</span></div>`;
+      return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}"></div>${range?`<span class="zone-range-d" style="left:${pct}%">${range}</span>`:''}<span class="zone-pct-d">${pct}%</span></div></div>`;
     }).join('');
   }catch(e){
     el.innerHTML='<div class="empty-note">Could not load stream-based zone data</div>';
