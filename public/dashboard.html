@@ -205,9 +205,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         </div>
         <div class="sub-tabs" id="pmcRangeTabs">
           <button class="sub-tab" data-days="42" onclick="setPmcRange(42)">6 weeks</button>
-          <button class="sub-tab active" data-days="90" onclick="setPmcRange(90)">3 months</button>
-          <button class="sub-tab" data-days="180" onclick="setPmcRange(180)">6 months</button>
-          <button class="sub-tab" data-days="365" onclick="setPmcRange(365)">1 year</button>
+          <button class="sub-tab" data-days="90" onclick="setPmcRange(90)">3 months</button>
+          <button class="sub-tab active" data-days="180" onclick="setPmcRange(180)">6 months</button>
         </div>
         <div style="position:relative;height:240px"><canvas id="pmcChart"></canvas></div>
       </div>
@@ -444,14 +443,16 @@ function sportClass(type){
   return'other';
 }
 
-const FITNESS_DAYS=183; // ~6 months
+const FITNESS_DAYS=365; // 12 months — needed to let CTL stabilise before the displayed 6-month window
 let fitnessSeries=[],fitnessByDate={};
 
 function dayKey(d){return new Date(d).toISOString().split('T')[0];}
 
 // Banister/TrainingPeaks impulse-response model: builds a daily CTL/ATL/TSB
 // series from scratch using icu_training_load as the daily TSS, starting from
-// CTL=ATL=0 at the beginning of the window (~6 months ago).
+// CTL=ATL=0 at the beginning of the window (12 months ago). The extra 6 months
+// beyond the 6-month display window lets CTL stabilise so displayed values are
+// accurate rather than artificially low from a cold start.
 function computeFitness(acts,days){
   days=days||FITNESS_DAYS;
   const tssByDay={};
@@ -609,7 +610,7 @@ function setPmcRange(days){
   buildPMC(days);
 }
 
-let pmcRangeDays=90;
+let pmcRangeDays=180;
 function buildPMC(rangeDays){
   if(rangeDays)pmcRangeDays=rangeDays;
   // The fitness series only spans FITNESS_DAYS (~6 months); requesting a wider
@@ -645,7 +646,7 @@ function buildPMC(rangeDays){
   };
   pmcInst=new Chart(document.getElementById('pmcChart'),{type:'line',data:{labels:days.map(d=>fmtDate(d)),datasets:[
     {label:'CTL',data:ctlData,borderColor:'#378ADD',backgroundColor:'transparent',tension:0.25,pointRadius:0,borderWidth:2,yAxisID:'y'},
-    {label:'ATL',data:atlData,borderColor:'#E24B4A',backgroundColor:'transparent',tension:0.25,pointRadius:0,borderWidth:2,yAxisID:'y'},
+    {label:'ATL',data:atlData,borderColor:'#E24B4A',backgroundColor:'transparent',tension:0,pointRadius:0,borderWidth:1.5,yAxisID:'y'},
     {label:'TSB',data:tsbData,borderColor:'#c8f036',backgroundColor:'transparent',borderDash:[4,3],tension:0.25,pointRadius:0,borderWidth:1.5,yAxisID:'y'}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
     scales:{x:{ticks:{color:'#555',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
