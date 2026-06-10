@@ -176,15 +176,15 @@ async function buildActivityAnalysis(athleteRow, ftp, messages) {
   if (ftp) out += ` | Athlete FTP: ${ftp}w`;
   out += '\n\n';
 
-  const coachPrompt = `Here is the raw power (watts) and heart rate data from this activity. Look at it the way an experienced coach would glance at a training file - identify the obvious structure. What was the warmup, what were the main efforts, what was the cooldown? Don't overthink it. If you see a clear block of elevated power that repeats, call it an interval set. If power is mostly steady and low, it's base riding. Use common sense and coaching judgment, not data science.`;
+  const coachPrompt = `You are an experienced triathlon coach. Here is the raw power data (watts) from a training ride recorded every second. Look at it exactly like you would glance at a power file in TrainingPeaks. Tell me what the athlete did in plain English - warmup, main set, cooldown. What were the intervals if any? How long, how hard, how many? Don't analyze the numbers mathematically. Just describe what you see the way a coach would.`;
 
   if (sport === 'cycling' && streams.watts) {
-    out += `Watts stream: ${JSON.stringify(streams.watts)}\n`;
-    if (streams.heartrate) out += `Heart rate stream: ${JSON.stringify(streams.heartrate)}\n`;
+    out += `Watts: ${JSON.stringify(streams.watts)}\n`;
+    if (streams.heartrate) out += `Heart rate: ${JSON.stringify(streams.heartrate)}\n`;
     out += `\n${coachPrompt}`;
   } else if (streams.velocity_smooth) {
-    out += `Velocity stream (m/s): ${JSON.stringify(streams.velocity_smooth)}\n`;
-    if (streams.heartrate) out += `Heart rate stream: ${JSON.stringify(streams.heartrate)}\n`;
+    out += `Velocity (m/s): ${JSON.stringify(streams.velocity_smooth)}\n`;
+    if (streams.heartrate) out += `Heart rate: ${JSON.stringify(streams.heartrate)}\n`;
     out += `\n${coachPrompt}`;
   } else {
     return null;
