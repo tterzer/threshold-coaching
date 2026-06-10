@@ -176,34 +176,16 @@ async function buildActivityAnalysis(athleteRow, ftp, messages) {
   if (ftp) out += ` | Athlete FTP: ${ftp}w`;
   out += '\n\n';
 
-  // Build sampled time series — one point every 5 seconds
+  const coachPrompt = `Here is the raw power (watts) and heart rate data from this activity. Look at it the way an experienced coach would glance at a training file - identify the obvious structure. What was the warmup, what were the main efforts, what was the cooldown? Don't overthink it. If you see a clear block of elevated power that repeats, call it an interval set. If power is mostly steady and low, it's base riding. Use common sense and coaching judgment, not data science.`;
+
   if (sport === 'cycling' && streams.watts) {
-    const len = streams.watts.length;
-    const points = [];
-    for (let i = 0; i < len; i += 5) {
-      const mm = Math.floor(i / 60), ss = i % 60;
-      const w = streams.watts[i] != null ? Math.round(streams.watts[i]) + 'w' : '—';
-      const hr = streams.heartrate?.[i] != null ? Math.round(streams.heartrate[i]) + 'bpm' : null;
-      points.push(hr ? `${mm}:${String(ss).padStart(2,'0')} ${w} ${hr}` : `${mm}:${String(ss).padStart(2,'0')} ${w}`);
-    }
-    out += `Power and HR time series (sampled every 5s):\n${points.join(', ')}\n\n`;
-    out += `Here is the power and HR data for this activity sampled every 5 seconds. Analyze it like an experienced triathlon coach reviewing a training file. Identify the workout structure, any interval sets, base riding, and give a natural coaching assessment. Use judgment about what constitutes meaningful efforts vs normal riding variation. Round interval durations to logical numbers.`;
+    out += `Watts stream: ${JSON.stringify(streams.watts)}\n`;
+    if (streams.heartrate) out += `Heart rate stream: ${JSON.stringify(streams.heartrate)}\n`;
+    out += `\n${coachPrompt}`;
   } else if (streams.velocity_smooth) {
-    const len = streams.velocity_smooth.length;
-    const points = [];
-    for (let i = 0; i < len; i += 5) {
-      const mm = Math.floor(i / 60), ss = i % 60;
-      const v = streams.velocity_smooth[i];
-      let paceStr = '—';
-      if (v != null && v > 0.3) {
-        const spk = Math.round(1000 / v);
-        paceStr = `${Math.floor(spk / 60)}:${String(spk % 60).padStart(2,'0')}/km`;
-      }
-      const hr = streams.heartrate?.[i] != null ? Math.round(streams.heartrate[i]) + 'bpm' : null;
-      points.push(hr ? `${mm}:${String(ss).padStart(2,'0')} ${paceStr} ${hr}` : `${mm}:${String(ss).padStart(2,'0')} ${paceStr}`);
-    }
-    out += `Pace and HR time series (sampled every 5s):\n${points.join(', ')}\n\n`;
-    out += `Here is the pace and HR data for this activity sampled every 5 seconds. Analyze it like an experienced triathlon coach reviewing a training file. Identify the workout structure, any interval sets, base running, and give a natural coaching assessment. Use judgment about what constitutes meaningful efforts vs normal variation. Round interval durations to logical numbers.`;
+    out += `Velocity stream (m/s): ${JSON.stringify(streams.velocity_smooth)}\n`;
+    if (streams.heartrate) out += `Heart rate stream: ${JSON.stringify(streams.heartrate)}\n`;
+    out += `\n${coachPrompt}`;
   } else {
     return null;
   }
