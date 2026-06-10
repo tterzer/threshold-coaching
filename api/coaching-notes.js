@@ -27,17 +27,30 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const { athlete_id, date, note } = body;
       if (!athlete_id || !date) return res.status(400).json({ error: 'Missing athlete_id or date' });
-      // Upsert so editing replaces rather than duplicates
-      const { data, error } = await supabase
+      // Check for existing row first to avoid needing a unique constraint
+      const { data: existing } = await supabase
         .from('coaching_notes')
-        .upsert({ athlete_id, date, note }, { onConflict: 'athlete_id,date' })
-        .select()
-        .single();
-      if (error) {
-        if (error.code === '42P01') return res.status(500).json({ error: 'coaching_notes table not found — create it in Supabase' });
-        return res.status(500).json({ error: error.message });
+        .select('id')
+        .eq('athlete_id', athlete_id)
+        .eq('date', date)
+        .maybeSingle();
+      let result;
+      if (existing) {
+        result = await supabase
+          .from('coaching_notes')
+          .update({ note })
+          .eq('id', existing.id)
+          .select()
+          .single();
+      } else {
+        result = await supabase
+          .from('coaching_notes')
+          .insert({ athlete_id, date, note })
+          .select()
+          .single();
       }
-      return res.status(200).json({ note: data });
+      if (result.error) return res.status(500).json({ error: result.error.message });
+      return res.status(200).json({ note: result.data });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
