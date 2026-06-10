@@ -206,6 +206,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-btn-save{font-family:'DM Mono',monospace;font-size:11px;background:var(--acc);color:#000;border:none;padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
 .modal-btn-close{font-family:'DM Mono',monospace;font-size:11px;background:none;color:var(--tc2);border:1px solid var(--border);padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
 .modal-btn-close:hover{border-color:var(--tc2);color:var(--tc)}
+.modal-btn-delete{font-family:'DM Mono',monospace;font-size:11px;background:none;color:#E24B4A;border:1px solid #E24B4A44;padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
+.modal-btn-delete:hover{background:rgba(226,75,74,0.1);border-color:#E24B4A}
 .modal-close-x{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--tc3);font-size:22px;cursor:pointer;line-height:1;padding:4px 8px}
 .modal-close-x:hover{color:var(--tc)}
 .curve-loading{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);padding:1rem 0}
@@ -1749,13 +1751,43 @@ function openAthBlockModal(mode, woId, icuId){
     html+='<div class="modal-section-label">Coach Notes</div><div class="modal-coach-notes">'+athEscHtml(wo.coach_notes)+'</div>';
   }
 
+  // "View planned" toggle for matched mode (completed activity + planned workout)
+  if(mode==='completed'&&wo&&act){
+    html+='<div style="margin-bottom:12px">'
+      +'<button onclick="openAthBlockModal(\'planned\',\''+String(wo.id)+'\',null)" '
+      +'style="background:none;border:none;color:var(--acc);font-family:\'DM Mono\',monospace;font-size:10px;cursor:pointer;letter-spacing:0.06em;padding:0;text-transform:uppercase">'
+      +'View planned workout →</button></div>';
+  }
+
+  // "View completed" back-link for planned mode when a matching ICU activity exists
+  if(mode==='planned'&&wo){
+    const pairedAct=allActivities.find(a=>{
+      const key=(a.start_date_local||'').slice(0,10);
+      return key===wo.date&&athIcuTypeToSport(a.type)===(wo.sport||'other');
+    });
+    if(pairedAct){
+      html+='<div style="margin-bottom:12px">'
+        +'<button onclick="openAthBlockModal(\'completed\',\''+String(wo.id)+'\',\''+String(pairedAct.id)+'\')" '
+        +'style="background:none;border:none;color:var(--tc3);font-family:\'DM Mono\',monospace;font-size:10px;cursor:pointer;letter-spacing:0.06em;padding:0;text-transform:uppercase">'
+        +'← View completed activity</button></div>';
+    }
+  }
+
   const existingNote=wo?(wo.compliance_note||''):'';
   html+='<div class="modal-section-label">How did it go?</div>'
-    +'<textarea class="modal-note-input" id="athCompNote" placeholder="Add a note about this session...">'+athEscHtml(existingNote)+'</textarea>'
-    +'<div class="modal-actions">'
+    +'<textarea class="modal-note-input" id="athCompNote" placeholder="Add a note about this session...">'+athEscHtml(existingNote)+'</textarea>';
+
+  // Footer: delete button only for planned-only workouts
+  const deleteBtn=(mode==='planned'&&wo)
+    ?'<button class="modal-btn-delete" onclick="deleteAthWorkout('+wo.id+')">Delete</button>'
+    :'';
+  html+='<div class="modal-actions">'
+    +'<div style="display:flex;gap:8px">'
+      +deleteBtn
       +'<button class="modal-btn-save" onclick="saveAthNote('+(wo?wo.id:'null')+')">Save note</button>'
-      +'<button class="modal-btn-close" onclick="closeAthModal()">Close</button>'
-    +'</div>';
+    +'</div>'
+    +'<button class="modal-btn-close" onclick="closeAthModal()">Close</button>'
+  +'</div>';
 
   document.getElementById('athWoModalContent').innerHTML=html;
   document.getElementById('athWoModal').classList.add('show');
@@ -1777,6 +1809,19 @@ async function saveAthNote(woId){
 }
 
 function closeAthWoModal(){ closeAthModal(); }
+
+async function deleteAthWorkout(id){
+  if(!confirm('Delete this planned workout?'))return;
+  try{
+    const res=await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    if(!res.ok)throw new Error('Delete failed');
+    closeAthModal();
+    athWorkoutsCache=athWorkoutsCache.filter(w=>w.id!==id);
+    renderAthCal();
+  }catch(e){
+    alert('Could not delete workout: '+e.message);
+  }
+}
 
 
 function openAthRaceModal(id){

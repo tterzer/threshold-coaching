@@ -125,6 +125,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-coach-notes{font-size:13px;color:var(--tc2);line-height:1.6;margin-bottom:20px;background:var(--bc3);border:1px solid var(--border);padding:12px 14px;white-space:pre-wrap}
 .modal-btn-close{font-family:'DM Mono',monospace;font-size:11px;background:none;color:var(--tc2);border:1px solid var(--border);padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
 .modal-btn-close:hover{border-color:var(--tc2);color:var(--tc)}
+.modal-btn-save{font-family:'DM Mono',monospace;font-size:11px;background:var(--acc);color:#000;border:none;padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
+.modal-btn-delete{font-family:'DM Mono',monospace;font-size:11px;background:none;color:#E24B4A;border:1px solid #E24B4A44;padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
+.modal-btn-delete:hover{background:rgba(226,75,74,0.1);border-color:#E24B4A}
 .modal-close-x{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--tc3);font-size:22px;cursor:pointer;line-height:1;padding:4px 8px}
 .modal-close-x:hover{color:var(--tc)}
 .cal-race{font-family:'DM Mono',monospace;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:24px;line-height:24px;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box}
@@ -771,13 +774,43 @@ function openBlockModal(evt, mode, woId, icuId){
     html+='<div class="modal-section-label">Coach Notes</div><div class="modal-coach-notes">'+escHtml(coachNotes)+'</div>';
   }
 
-  if(wo&&mode==='planned'){
-    html+='<div style="margin-top:1rem"><button class="btn btn-sm" onclick="openWoEdit(\''+String(wo.id)+'\')">Edit workout</button></div>';
-  } else if(wo&&(mode==='completed')){
-    html+='<div style="margin-top:1rem"><button class="btn btn-sm btn-ghost" onclick="openWoEdit(\''+String(wo.id)+'\')">Edit planned workout</button></div>';
+  // "View planned" toggle for matched (completed) mode
+  if(mode==='completed'&&wo&&act){
+    html+='<div style="margin-bottom:12px">'
+      +'<button onclick="openBlockModal(null,\'planned\',\''+String(wo.id)+'\',null)" '
+      +'style="background:none;border:none;color:var(--acc);font-family:\'DM Mono\',monospace;font-size:10px;cursor:pointer;letter-spacing:0.06em;padding:0;text-transform:uppercase">'
+      +'View planned workout →</button></div>';
   }
 
-  html+='<div style="margin-top:1.5rem;text-align:right"><button class="modal-btn-close" onclick="closeBlockModal()">Close</button></div>';
+  // "View completed" back-link for planned mode when a matching ICU activity exists
+  if(mode==='planned'&&wo){
+    const pairedAct=(athleteIcuActivities||[]).find(a=>{
+      const key=(a.start_date_local||'').slice(0,10);
+      return key===wo.date&&icuTypeToSport(a.type)===(wo.sport||'other');
+    });
+    if(pairedAct){
+      html+='<div style="margin-bottom:12px">'
+        +'<button onclick="openBlockModal(null,\'completed\',\''+String(wo.id)+'\',\''+String(pairedAct.id)+'\')" '
+        +'style="background:none;border:none;color:var(--tc3);font-family:\'DM Mono\',monospace;font-size:10px;cursor:pointer;letter-spacing:0.06em;padding:0;text-transform:uppercase">'
+        +'← View completed activity</button></div>';
+    }
+  }
+
+  // Footer buttons
+  let footerBtns='';
+  if(mode==='planned'&&wo){
+    footerBtns='<div style="display:flex;gap:8px">'
+      +'<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete</button>'
+      +'<button class="modal-btn-save" onclick="openWoEdit(\''+String(wo.id)+'\')">Edit</button>'
+      +'</div>';
+  }else if(mode==='completed'&&wo){
+    footerBtns='<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete planned</button>';
+  }
+
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem">'
+    +footerBtns
+    +'<button class="modal-btn-close" onclick="closeBlockModal()">Close</button>'
+  +'</div>';
 
   document.getElementById('blockModalBody').innerHTML=html;
   document.getElementById('blockModalTitle').innerHTML='';
@@ -786,6 +819,19 @@ function openBlockModal(evt, mode, woId, icuId){
 
 function closeBlockModal(){
   document.getElementById('blockModal').classList.remove('show');
+}
+
+async function deleteCoachWorkout(id){
+  if(!confirm('Delete this planned workout?'))return;
+  try{
+    const res=await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:Number(id)||id})});
+    if(!res.ok)throw new Error('Delete failed');
+    closeBlockModal();
+    await loadWorkouts();
+    renderCalendar();
+  }catch(e){
+    alert('Could not delete workout: '+e.message);
+  }
 }
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
