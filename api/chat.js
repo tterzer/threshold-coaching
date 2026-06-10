@@ -584,15 +584,15 @@ export default async function handler(req, res) {
     try {
       const { data: convos } = await supabase
         .from('ai_conversations')
-        .select('session_date, messages')
+        .select('created_at, messages')
         .eq('athlete_id', athlete_id)
-        .order('session_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(20);
 
       if (convos && convos.length > 0) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().slice(0, 10);
         // Exclude today's session (that's the live session, not history)
-        const pastSessions = convos.filter(c => c.session_date !== today);
+        const pastSessions = convos.filter(c => c.created_at.slice(0, 10) !== today);
 
         if (pastSessions.length > 0) {
           const recent = pastSessions.slice(0, 5);
@@ -602,7 +602,8 @@ export default async function handler(req, res) {
           for (const session of recent) {
             const msgs = Array.isArray(session.messages) ? session.messages : [];
             if (!msgs.length) continue;
-            historyContext += `\n--- Session: ${session.session_date} ---\n`;
+            const sessionDate = session.created_at.slice(0, 10);
+            historyContext += `\n--- Session: ${sessionDate} ---\n`;
             for (const m of msgs) {
               const role = m.role === 'user' ? 'Coach' : 'AI';
               historyContext += `${role}: ${m.content}\n`;
@@ -615,7 +616,8 @@ export default async function handler(req, res) {
               const msgs = Array.isArray(session.messages) ? session.messages : [];
               const userMsgs = msgs.filter(m => m.role === 'user');
               const topics = userMsgs.slice(0, 3).map(m => m.content.slice(0, 120)).join(' | ');
-              historyContext += `- ${session.session_date}: ${msgs.length} messages. Topics: ${topics || '(no content)'}\n`;
+              const sessionDate = session.created_at.slice(0, 10);
+              historyContext += `- ${sessionDate}: ${msgs.length} messages. Topics: ${topics || '(no content)'}\n`;
             }
           }
         }

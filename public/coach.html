@@ -1976,7 +1976,7 @@ async function saveChatSession(){
   try{
     const r=await fetch('/api/ai-conversations',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({athlete_id:selectedAthlete.id,session_date:today,messages})
+      body:JSON.stringify({athlete_id:selectedAthlete.id,messages})
     });
     if(r.ok){
       const d=await r.json();

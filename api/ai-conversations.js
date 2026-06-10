@@ -14,43 +14,57 @@ export default async function handler(req, res) {
         .from('ai_conversations')
         .select('*')
         .eq('athlete_id', athlete_id)
-        .order('session_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(lim ? parseInt(lim) : 50);
       if (error) {
         if (error.code === '42P01') return res.status(200).json({ conversations: [] });
         return res.status(500).json({ error: error.message, code: error.code });
       }
-      return res.status(200).json({ conversations: data || [] });
+      // Derive session_date from created_at for frontend compatibility
+      const conversations = (data || []).map(c => ({
+        ...c,
+        session_date: c.created_at.slice(0, 10)
+      }));
+      return res.status(200).json({ conversations });
     }
 
     if (req.method === 'POST') {
       let body = req.body;
       if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
       body = body || {};
-      const { athlete_id, session_date, messages } = body;
-      if (!athlete_id || !session_date || !Array.isArray(messages)) {
-        return res.status(400).json({ error: 'Missing athlete_id, session_date, or messages' });
+      const { athlete_id, messages } = body;
+      if (!athlete_id || !Array.isArray(messages)) {
+        return res.status(400).json({ error: 'Missing athlete_id or messages' });
       }
+
+      // Find today's record by created_at date range (UTC)
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      const todayStart = todayStr + 'T00:00:00.000Z';
+      const nextDay = new Date(now);
+      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+      const tomorrowStart = nextDay.toISOString().slice(0, 10) + 'T00:00:00.000Z';
 
       const { data: existing } = await supabase
         .from('ai_conversations')
         .select('id')
         .eq('athlete_id', athlete_id)
-        .eq('session_date', session_date)
+        .gte('created_at', todayStart)
+        .lt('created_at', tomorrowStart)
         .maybeSingle();
 
       let result;
       if (existing) {
         result = await supabase
           .from('ai_conversations')
-          .update({ messages, updated_at: new Date().toISOString() })
+          .update({ messages })
           .eq('id', existing.id)
           .select()
           .single();
       } else {
         result = await supabase
           .from('ai_conversations')
-          .insert({ athlete_id, session_date, messages })
+          .insert({ athlete_id, messages })
           .select()
           .single();
       }
@@ -59,7 +73,8 @@ export default async function handler(req, res) {
         console.error('[ai-conversations POST error]', result.error);
         return res.status(500).json({ error: result.error.message, code: result.error.code, details: result.error.details });
       }
-      return res.status(200).json({ conversation: result.data });
+      const conversation = { ...result.data, session_date: result.data.created_at.slice(0, 10) };
+      return res.status(200).json({ conversation });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
