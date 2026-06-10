@@ -94,29 +94,6 @@ function rollingAvg(arr, win) {
   });
 }
 
-function extractBlocks(signal, threshold, minBlockSecs, minRestGap) {
-  const effort = signal.map(v => (v != null && v >= threshold) ? 1 : 0);
-  // Merge short gaps
-  for (let i = 1; i < effort.length; i++) {
-    if (effort[i] === 0) {
-      let end = i;
-      while (end < effort.length && effort[end] === 0) end++;
-      if (end - i < minRestGap) for (let j = i; j < end; j++) effort[j] = 1;
-    }
-  }
-  const blocks = [];
-  let inBlock = false, blockStart = 0;
-  for (let i = 0; i <= effort.length; i++) {
-    const e = i < effort.length ? effort[i] : 0;
-    if (e && !inBlock) { inBlock = true; blockStart = i; }
-    else if (!e && inBlock) {
-      inBlock = false;
-      if (i - blockStart >= minBlockSecs) blocks.push({ start: blockStart, end: i, duration: i - blockStart });
-    }
-  }
-  return blocks;
-}
-
 function avgOfSlice(arr, start, end) {
   if (!arr) return null;
   const vals = arr.slice(start, end).filter(v => v != null && v > 0);
@@ -134,19 +111,114 @@ function fmtDur(secs) {
   return m > 0 ? `${m}m${s > 0 ? s + 's' : ''}` : `${s}s`;
 }
 
-function classifySession(blocks, totalSecs, sport, wattsArr, ftp) {
-  if (blocks.length === 0) return 'Endurance / steady-state';
-  const workSecs = blocks.reduce((a, b) => a + b.duration, 0);
-  const restSecs = Math.max(0, totalSecs - workSecs);
-  if (sport === 'cycling' && wattsArr && ftp) {
-    const valid = wattsArr.filter(v => v != null && v > 20);
-    const avg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : 0;
-    if (avg / ftp < 0.65 && blocks.length <= 2) return 'Endurance';
-    if (avg / ftp >= 0.76 && avg / ftp <= 0.90 && blocks.length <= 2) return 'Tempo';
+// ── Pass 1: detect all elevated segments (power ≥ 80% FTP for 10+ consecutive seconds)
+function detectElevatedSegments(smoothed, ftp) {
+  const threshold = (ftp || 250) * 0.80;
+  const segments = [];
+  let start = null;
+  for (let i = 0; i <= smoothed.length; i++) {
+    const above = i < smoothed.length && smoothed[i] != null && smoothed[i] >= threshold;
+    if (above && start === null) { start = i; }
+    else if (!above && start !== null) {
+      if (i - start >= 10) segments.push({ start, end: i, duration: i - start });
+      start = null;
+    }
   }
-  if (blocks.length >= 4 && restSecs > workSecs * 0.4) return 'Intervals';
-  if (blocks.length >= 2 && blocks.length <= 3) return 'Threshold / tempo';
-  return 'Mixed / structured';
+  return segments;
+}
+
+// Merge segments separated by short gaps (< gapSecs) into one
+function mergeSegments(segments, gapSecs) {
+  if (segments.length === 0) return [];
+  const merged = [{ ...segments[0] }];
+  for (let i = 1; i < segments.length; i++) {
+    const prev = merged[merged.length - 1];
+    if (segments[i].start - prev.end <= gapSecs) {
+      prev.end = segments[i].end;
+      prev.duration = prev.end - prev.start;
+    } else {
+      merged.push({ ...segments[i] });
+    }
+  }
+  return merged;
+}
+
+// ── Pass 2: pattern recognition — group efforts into interval sets
+function groupIntoSets(efforts, restGaps) {
+  // efforts: array of {duration, avgWatts, avgHr, avgCad, start, end}
+  // restGaps: array of rest durations between consecutive efforts
+  if (efforts.length < 2) return { sets: [], unmatched: efforts };
+
+  const within25 = (a, b) => Math.abs(a - b) / Math.max(a, b, 1) <= 0.25;
+
+  // Build adjacency: effort i and i+1 are "similar" if duration and rest both within 25%
+  const claimed = new Array(efforts.length).fill(false);
+  const sets = [];
+
+  for (let i = 0; i < efforts.length; i++) {
+    if (claimed[i]) continue;
+    const group = [i];
+    for (let j = i + 1; j < efforts.length; j++) {
+      if (claimed[j]) continue;
+      // Check duration similarity vs first effort in group
+      const refDur = efforts[group[0]].duration;
+      const refRest = restGaps[group[group.length - 1]]; // rest before j
+      if (
+        within25(efforts[j].duration, refDur) &&
+        (refRest == null || restGaps[j - 1] == null || within25(restGaps[j - 1], refRest))
+      ) {
+        group.push(j);
+      }
+    }
+    if (group.length >= 3) {
+      group.forEach(idx => (claimed[idx] = true));
+      const avgDur = Math.round(group.reduce((s, idx) => s + efforts[idx].duration, 0) / group.length);
+      const avgW = Math.round(group.reduce((s, idx) => s + (efforts[idx].avgWatts || 0), 0) / group.length);
+      const avgHr = group[0].avgHr != null
+        ? Math.round(group.reduce((s, idx) => s + (efforts[idx].avgHr || 0), 0) / group.length) : null;
+      const restIdxs = group.slice(0, -1).map(idx => restGaps[idx]).filter(r => r != null);
+      const avgRest = restIdxs.length ? Math.round(restIdxs.reduce((a, b) => a + b, 0) / restIdxs.length) : null;
+      sets.push({ type: 'set', count: group.length, avgDur, avgW, avgHr, avgRest, indices: group });
+    }
+  }
+
+  const unmatched = efforts.filter((_, i) => !claimed[i]);
+  return { sets, unmatched };
+}
+
+// ── Pass 3: classify unmatched efforts
+function classifyUnmatched(unmatched, ftp) {
+  const sustained = [];   // single effort > 10 min
+  const spikes = [];      // short isolated efforts < 2 min
+  const medium = [];      // everything else
+
+  for (const e of unmatched) {
+    if (e.duration >= 600) sustained.push(e);
+    else if (e.duration < 120) spikes.push(e);
+    else medium.push(e);
+  }
+  return { sustained, spikes, medium };
+}
+
+// ── Main session classifier
+function classifyOverallSession(sets, sustained, spikes, medium, baseSecs, ftp, wattsArr) {
+  const hasSets = sets.length > 0;
+  const hasSustained = sustained.length > 0;
+  const totalWorkSecs = sets.reduce((s, st) => s + st.avgDur * st.count, 0)
+    + sustained.reduce((s, e) => s + e.duration, 0)
+    + medium.reduce((s, e) => s + e.duration, 0);
+  const avgPwr = wattsArr ? (() => {
+    const v = wattsArr.filter(x => x != null && x > 20);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
+  })() : 0;
+
+  if (hasSets && !hasSustained) return 'Structured intervals';
+  if (hasSets && hasSustained) return 'Mixed — intervals + sustained threshold';
+  if (!hasSets && hasSustained && sustained.length === 1) return 'Sustained threshold / tempo block';
+  if (!hasSets && hasSustained && sustained.length > 1) return 'Multiple threshold blocks';
+  if (spikes.length > 0 && totalWorkSecs === 0) return 'Unstructured / endurance with power variations';
+  if (ftp && avgPwr / ftp < 0.65) return 'Endurance / base';
+  return 'Mixed / unstructured';
 }
 
 async function buildActivityAnalysis(athleteRow, ftp, messages) {
@@ -226,43 +298,6 @@ async function buildActivityAnalysis(athleteRow, ftp, messages) {
   }
 
   const totalSecs = target.moving_time || target.elapsed_time || 0;
-  let blocks = [];
-
-  if (sport === 'cycling' && streams.watts) {
-    const smoothed = rollingAvg(streams.watts, 10);
-    const threshold = (ftp || 250) * 0.75;
-    blocks = extractBlocks(smoothed, threshold, 30, 20);
-    blocks = blocks.map(b => ({
-      ...b,
-      avgWatts: Math.round(avgOfSlice(streams.watts, b.start, b.end) || 0),
-      avgHr: streams.heartrate ? Math.round(avgOfSlice(streams.heartrate, b.start, b.end) || 0) : null,
-      avgCad: streams.cadence ? Math.round(avgOfSlice(streams.cadence, b.start, b.end) || 0) : null,
-    }));
-  } else if (streams.velocity_smooth) {
-    const valid = streams.velocity_smooth.filter(v => v != null && v > 0.5);
-    if (valid.length) {
-      const sorted = [...valid].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length * 0.5)];
-      blocks = extractBlocks(streams.velocity_smooth, median * 1.1, 20, 15);
-      blocks = blocks.map(b => {
-        const avgVel = avgOfSlice(streams.velocity_smooth, b.start, b.end);
-        return {
-          ...b,
-          avgVel,
-          paceStr: secPerMile(avgVel),
-          avgHr: streams.heartrate ? Math.round(avgOfSlice(streams.heartrate, b.start, b.end) || 0) : null,
-          avgCad: streams.cadence ? Math.round(avgOfSlice(streams.cadence, b.start, b.end) || 0) : null,
-        };
-      });
-    }
-  }
-
-  const workSecs = blocks.reduce((a, b) => a + b.duration, 0);
-  const restSecs = Math.max(0, totalSecs - workSecs);
-  const sessionType = classifySession(blocks, totalSecs, sport, streams.watts, ftp);
-  const aboveThresholdSecs = (sport === 'cycling' && streams.watts && ftp)
-    ? streams.watts.filter(v => v != null && v >= ftp * 0.9).length : 0;
-
   const dist = target.distance ? (target.distance / 1000).toFixed(2) + 'km' : '—';
   const np = target.normalized_power ? target.normalized_power + 'w' : '—';
   const iff = target.intensity_factor ? target.intensity_factor.toFixed(2) : '—';
@@ -271,41 +306,169 @@ async function buildActivityAnalysis(athleteRow, ftp, messages) {
   let out = `\nACTIVITY STREAM ANALYSIS for "${target.name}" on ${(target.start_date_local || '').slice(0, 10)}:\n`;
   out += `Total duration: ${fmtDur(totalSecs)} | Distance: ${dist} | TSS: ${tss} | NP: ${np} | IF: ${iff}\n`;
 
-  if (blocks.length === 0) {
-    out += `No distinct effort blocks detected — likely ${sessionType.toLowerCase()} session.\n`;
-  } else {
-    out += `Effort structure detected:\n`;
-    let prevEnd = 0;
-    blocks.forEach((b, i) => {
-      if (b.start > prevEnd) {
-        const restLen = b.start - prevEnd;
-        const restAvg = streams.watts ? Math.round(avgOfSlice(streams.watts, prevEnd, b.start) || 0) : null;
-        out += `  Rest: ${fmtDur(restLen)}${restAvg ? ` at ${restAvg}w avg` : ''}\n`;
-      }
-      if (sport === 'cycling') {
-        const pct = ftp && b.avgWatts ? Math.round(b.avgWatts / ftp * 100) : null;
-        out += `  Effort ${i + 1}: ${fmtDur(b.duration)} at ${b.avgWatts || '—'}w avg`;
-        if (pct) out += ` (${pct}% FTP)`;
-        if (b.avgHr) out += `, HR ${b.avgHr}bpm avg`;
-        if (b.avgCad) out += `, cadence ${b.avgCad}rpm`;
-        out += '\n';
-      } else {
-        out += `  Effort ${i + 1}: ${fmtDur(b.duration)} at ${b.paceStr || '—'} avg`;
-        if (b.avgHr) out += `, HR ${b.avgHr}bpm avg`;
-        if (b.avgCad) out += `, cadence ${b.avgCad}spm`;
-        out += '\n';
-      }
-      prevEnd = b.end;
+  // ── Cycling: full pattern-recognition analysis
+  if (sport === 'cycling' && streams.watts) {
+    const effectiveFtp = ftp || 250;
+    const smoothed = rollingAvg(streams.watts, 10);
+
+    // Pass 1: all elevated segments (≥80% FTP for 10+ s)
+    const rawSegments = detectElevatedSegments(smoothed, effectiveFtp);
+
+    // Merge segments with gaps ≤ 45 s into candidate efforts
+    const efforts = mergeSegments(rawSegments, 45).map(b => ({
+      ...b,
+      avgWatts: Math.round(avgOfSlice(streams.watts, b.start, b.end) || 0),
+      avgHr: streams.heartrate ? Math.round(avgOfSlice(streams.heartrate, b.start, b.end) || 0) : null,
+      avgCad: streams.cadence ? Math.round(avgOfSlice(streams.cadence, b.start, b.end) || 0) : null,
+    }));
+
+    // Build rest-gap array (duration of rest between consecutive efforts)
+    const restGaps = efforts.map((e, i) =>
+      i === 0 ? null : e.start - efforts[i - 1].end
+    );
+
+    // Pass 2: pattern recognition
+    const { sets, unmatched } = groupIntoSets(efforts, restGaps);
+
+    // Pass 3: classify unmatched
+    const { sustained, spikes, medium } = classifyUnmatched(unmatched, effectiveFtp);
+
+    // Base riding = all seconds not in any effort
+    const allEffortSecs = efforts.reduce((s, e) => s + e.duration, 0);
+    const baseSecs = Math.max(0, totalSecs - allEffortSecs);
+
+    // Overall classification
+    const sessionType = classifyOverallSession(sets, sustained, spikes, medium, baseSecs, effectiveFtp, streams.watts);
+    out += `Overall session type: ${sessionType}\n\n`;
+
+    // Report structured sets
+    sets.forEach((s, i) => {
+      const pct = Math.round(s.avgW / effectiveFtp * 100);
+      const restStr = s.avgRest ? ` with ${fmtDur(s.avgRest)} recovery` : '';
+      out += `Set ${i + 1}: ${s.count} × ~${fmtDur(s.avgDur)} at ~${s.avgW}w (~${pct}% FTP)${restStr}`;
+      if (s.avgHr) out += `, avg HR ${s.avgHr}bpm`;
+      out += '\n';
     });
+
+    // Report sustained blocks
+    sustained.forEach((e, i) => {
+      const pct = Math.round(e.avgWatts / effectiveFtp * 100);
+      out += `Sustained effort${sustained.length > 1 ? ' ' + (i + 1) : ''}: ${fmtDur(e.duration)} at ${e.avgWatts}w (${pct}% FTP)`;
+      if (e.avgHr) out += `, HR ${e.avgHr}bpm avg`;
+      out += '\n';
+    });
+
+    // Report medium unmatched efforts
+    if (medium.length > 0) {
+      medium.forEach((e, i) => {
+        const pct = Math.round(e.avgWatts / effectiveFtp * 100);
+        out += `Effort ${i + 1}: ${fmtDur(e.duration)} at ${e.avgWatts}w (${pct}% FTP)`;
+        if (e.avgHr) out += `, HR ${e.avgHr}bpm avg`;
+        out += '\n';
+      });
+    }
+
+    // Report spikes
+    if (spikes.length > 0) {
+      const avgSpikePwr = Math.round(spikes.reduce((s, e) => s + e.avgWatts, 0) / spikes.length);
+      out += `Unstructured power variations: ${spikes.length} spike${spikes.length > 1 ? 's' : ''} (avg ${avgSpikePwr}w, likely terrain/accelerations)\n`;
+    }
+
+    // Report base riding
+    if (baseSecs > 60) {
+      const baseWatts = streams.watts.filter(v => v != null && v > 5);
+      const baseAvg = baseWatts.length ? Math.round(baseWatts.reduce((a, b) => a + b, 0) / baseWatts.length) : null;
+      const basePct = baseAvg ? Math.round(baseAvg / effectiveFtp * 100) : null;
+      out += `Base / endurance riding: ${fmtDur(baseSecs)}`;
+      if (baseAvg) out += ` at avg ${baseAvg}w (${basePct}% FTP)`;
+      out += '\n';
+    }
+
+    // Time above threshold
+    const aboveThresholdSecs = streams.watts.filter(v => v != null && v >= effectiveFtp * 0.9).length;
+    if (aboveThresholdSecs > 30) {
+      out += `Total time ≥90% FTP: ${fmtDur(aboveThresholdSecs)}\n`;
+    }
+
+  // ── Run/swim: velocity-based effort recognition
+  } else if (streams.velocity_smooth) {
+    const valid = streams.velocity_smooth.filter(v => v != null && v > 0.5);
+    if (valid.length) {
+      const sorted = [...valid].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length * 0.5)];
+      const rawSegs = (() => {
+        const threshold = median * 1.08;
+        const segs = [];
+        let start = null;
+        for (let i = 0; i <= streams.velocity_smooth.length; i++) {
+          const above = i < streams.velocity_smooth.length && streams.velocity_smooth[i] != null && streams.velocity_smooth[i] >= threshold;
+          if (above && start === null) start = i;
+          else if (!above && start !== null) {
+            if (i - start >= 15) segs.push({ start, end: i, duration: i - start });
+            start = null;
+          }
+        }
+        return segs;
+      })();
+      const efforts = mergeSegments(rawSegs, 30).map(b => {
+        const avgVel = avgOfSlice(streams.velocity_smooth, b.start, b.end);
+        return {
+          ...b,
+          paceStr: secPerMile(avgVel),
+          avgHr: streams.heartrate ? Math.round(avgOfSlice(streams.heartrate, b.start, b.end) || 0) : null,
+          avgCad: streams.cadence ? Math.round(avgOfSlice(streams.cadence, b.start, b.end) || 0) : null,
+        };
+      });
+
+      if (efforts.length === 0) {
+        out += 'No distinct pace efforts detected — steady endurance session.\n';
+      } else {
+        const restGaps = efforts.map((e, i) => i === 0 ? null : e.start - efforts[i - 1].end);
+        // Try to find repeating pace sets (same logic, on duration)
+        const within25 = (a, b) => Math.abs(a - b) / Math.max(a, b, 1) <= 0.25;
+        const claimed = new Array(efforts.length).fill(false);
+        const paceSets = [];
+        for (let i = 0; i < efforts.length; i++) {
+          if (claimed[i]) continue;
+          const group = [i];
+          for (let j = i + 1; j < efforts.length; j++) {
+            if (claimed[j]) continue;
+            const refRest = restGaps[group[group.length - 1]];
+            if (within25(efforts[j].duration, efforts[group[0]].duration) &&
+                (refRest == null || restGaps[j - 1] == null || within25(restGaps[j - 1], refRest))) {
+              group.push(j);
+            }
+          }
+          if (group.length >= 3) {
+            group.forEach(idx => (claimed[idx] = true));
+            const avgDur = Math.round(group.reduce((s, idx) => s + efforts[idx].duration, 0) / group.length);
+            const refPace = efforts[group[0]].paceStr;
+            const restIdxs = group.slice(0, -1).map(idx => restGaps[idx]).filter(r => r != null);
+            const avgRest = restIdxs.length ? Math.round(restIdxs.reduce((a, b) => a + b, 0) / restIdxs.length) : null;
+            const avgHr = efforts[group[0]].avgHr != null
+              ? Math.round(group.reduce((s, idx) => s + (efforts[idx].avgHr || 0), 0) / group.length) : null;
+            paceSets.push({ count: group.length, avgDur, refPace, avgRest, avgHr });
+          }
+        }
+        paceSets.forEach((s, i) => {
+          const restStr = s.avgRest ? ` with ${fmtDur(s.avgRest)} recovery` : '';
+          out += `Set ${i + 1}: ${s.count} × ~${fmtDur(s.avgDur)} at ~${s.refPace}${restStr}`;
+          if (s.avgHr) out += `, avg HR ${s.avgHr}bpm`;
+          out += '\n';
+        });
+        efforts.filter((_, i) => !claimed[i]).forEach((e, i) => {
+          out += `Effort ${i + 1}: ${fmtDur(e.duration)} at ${e.paceStr || '—'}`;
+          if (e.avgHr) out += `, HR ${e.avgHr}bpm avg`;
+          out += '\n';
+        });
+      }
+    } else {
+      out += 'Insufficient velocity data for effort analysis.\n';
+    }
+  } else {
+    out += 'No power or velocity stream available for this activity.\n';
   }
 
-  out += `Session type: ${sessionType}\n`;
-  if (workSecs > 0 && restSecs > 0) {
-    out += `Work:rest ratio: ${(workSecs / restSecs).toFixed(1)}:1\n`;
-  }
-  if (aboveThresholdSecs > 0) {
-    out += `Total time above threshold (90% FTP): ${fmtDur(aboveThresholdSecs)}\n`;
-  }
   return out;
 }
 
