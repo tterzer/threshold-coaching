@@ -59,9 +59,46 @@ export default async function handler(req, res) {
   const { system, messages, athlete_id, ctl, atl, tsb } = body || {};
   if (!Array.isArray(messages)) return res.status(400).json({ error: 'Missing messages' });
 
-  // Build athlete context block with upcoming races
+  // Build athlete context block with profile + races
   let athleteContext = '';
   if (athlete_id) {
+    try {
+      const { data: profile } = await supabase
+        .from('athlete_profiles')
+        .select('*')
+        .eq('athlete_id', athlete_id)
+        .maybeSingle();
+
+      if (profile) {
+        const wkg = (profile.weight_lbs && profile.ftp_watts)
+          ? (profile.ftp_watts / (profile.weight_lbs / 2.205)).toFixed(2)
+          : null;
+        const heightStr = (profile.height_feet != null && profile.height_inches != null)
+          ? `${profile.height_feet}'${profile.height_inches}"`
+          : null;
+        const parts = [];
+        if (profile.age) parts.push(`${profile.age}yo`);
+        if (profile.weight_lbs) parts.push(`${profile.weight_lbs}lbs`);
+        if (heightStr) parts.push(heightStr);
+        if (wkg) parts.push(`${wkg}w/kg`);
+        if (profile.experience_level) parts.push(profile.experience_level);
+        if (profile.years_training) parts.push(`${profile.years_training} years training`);
+        athleteContext += `\nATHLETE PROFILE: ${parts.join(', ')}.`;
+        if (profile.max_weekly_hours) athleteContext += ` Available ${profile.max_weekly_hours}hrs/week.`;
+        if (profile.available_days_per_week) athleteContext += ` ${profile.available_days_per_week} training days/week.`;
+        if (profile.rest_days && profile.rest_days.length) athleteContext += ` Rest days: ${Array.isArray(profile.rest_days) ? profile.rest_days.join(', ') : profile.rest_days}.`;
+        if (profile.primary_limiter) athleteContext += ` Primary limiter: ${profile.primary_limiter}.`;
+        if (profile.secondary_limiter) athleteContext += ` Secondary limiter: ${profile.secondary_limiter}.`;
+        if (profile.current_phase) athleteContext += ` Current phase: ${profile.current_phase}.`;
+        if (profile.long_term_goals) athleteContext += ` Goals: ${profile.long_term_goals}.`;
+        if (profile.current_injuries) athleteContext += ` Current injuries/niggles: ${profile.current_injuries}.`;
+        if (profile.injury_history) athleteContext += ` Injury history: ${profile.injury_history}.`;
+        athleteContext += '\n';
+      }
+    } catch {
+      // profile fetch failed — continue without it
+    }
+
     try {
       const today = new Date().toISOString().split('T')[0];
       const { data: races } = await supabase

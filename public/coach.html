@@ -135,6 +135,16 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-close-x:hover{color:var(--tc)}
 .modal-note-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-family:'DM Mono',monospace;font-size:12px;padding:10px 12px;resize:vertical;min-height:64px;margin-bottom:12px;outline:none}
 .modal-note-input:focus{border-color:var(--acc)}
+.prof-check{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);background:var(--bc3)}
+.prof-check input{accent-color:var(--acc);cursor:pointer}
+.prof-check:has(input:checked){border-color:var(--acc);color:var(--acc)}
+.prof-toggle{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 14px;border:1px solid var(--border);background:var(--bc3)}
+.prof-toggle input{accent-color:var(--acc);cursor:pointer;width:14px;height:14px}
+.prof-toggle:has(input:checked){border-color:var(--acc);color:var(--acc)}
+.zc-input{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%}
+.zc-input:focus{border-color:var(--acc)}
+.zc-select{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%}
+.zc-select:focus{border-color:var(--acc)}
 .cal-race{font-family:'DM Mono',monospace;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:24px;line-height:24px;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box}
 .cal-race.priority-A{background:#FFD700;color:#1a1000}
 .cal-race.priority-B{background:#C0C0C0;color:#111}
@@ -223,6 +233,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
             <button class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
             <button class="tab" data-tab="calendar" onclick="switchTab('calendar')">Calendar</button>
             <button class="tab" data-tab="chat" onclick="switchTab('chat')">AI Coach Chat</button>
+            <button class="tab" data-tab="profile" onclick="switchTab('profile')">Profile</button>
           </div>
 
           <div class="tab-panel active" id="tab-overview">
@@ -271,6 +282,130 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               </div>
             </div>
           </div>
+
+          <div class="tab-panel" id="tab-profile">
+            <div style="max-width:680px">
+
+              <!-- W/kg banner -->
+              <div id="coachProfWkg" style="display:none;background:var(--bc3);border:1px solid var(--border);padding:14px 20px;margin-bottom:1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--acc)">
+                <span id="coachProfWkgVal">—</span> <span style="font-size:14px;font-family:'DM Mono',monospace;color:var(--tc3);font-weight:400">w/kg</span>
+              </div>
+
+              <!-- Personal Info -->
+              <div class="section-label" style="margin-top:0">Personal info</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem">
+                <div class="field"><label>Age</label><input class="zc-input" type="number" id="cpf_age" min="10" max="100" placeholder="e.g. 32"></div>
+                <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="cpf_weight_lbs" min="80" max="400" placeholder="e.g. 165" oninput="coachUpdateWkg()"></div>
+                <div class="field"><label>FTP (watts)</label><input class="zc-input" type="number" id="cpf_ftp_watts" min="50" max="700" placeholder="e.g. 280" oninput="coachUpdateWkg()"></div>
+                <div class="field"><label>Height — feet</label>
+                  <select class="zc-select" id="cpf_height_feet">
+                    <option value="">—</option>
+                    <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                  </select>
+                </div>
+                <div class="field"><label>Height — inches</label>
+                  <select class="zc-select" id="cpf_height_inches">
+                    <option value="">—</option>
+                    <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                    <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                    <option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
+                  </select>
+                </div>
+                <div class="field"><label>Experience level</label>
+                  <select class="zc-select" id="cpf_experience_level">
+                    <option value="">—</option>
+                    <option value="Beginner">Beginner</option><option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option><option value="Elite">Elite</option>
+                  </select>
+                </div>
+                <div class="field"><label>Years of endurance training</label><input class="zc-input" type="number" id="cpf_years_training" min="0" max="50" placeholder="e.g. 5"></div>
+              </div>
+
+              <!-- Training Constraints -->
+              <div class="section-label">Training constraints</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+                <div class="field"><label>Available training days / week</label><input class="zc-input" type="number" id="cpf_available_days_per_week" min="1" max="7" placeholder="e.g. 6"></div>
+                <div class="field"><label>Max weekly training hours</label><input class="zc-input" type="number" id="cpf_max_weekly_hours" min="1" max="40" placeholder="e.g. 12"></div>
+                <div class="field"><label>Preferred training time</label>
+                  <select class="zc-select" id="cpf_preferred_time">
+                    <option value="">—</option>
+                    <option value="Early morning">Early morning</option><option value="Morning">Morning</option>
+                    <option value="Lunch">Lunch</option><option value="Afternoon">Afternoon</option>
+                    <option value="Evening">Evening</option><option value="Flexible">Flexible</option>
+                  </select>
+                </div>
+                <div class="field"><label>Pool access days / week</label><input class="zc-input" type="number" id="cpf_pool_days_per_week" min="0" max="7" placeholder="e.g. 3"></div>
+              </div>
+              <div class="field" style="margin-bottom:1rem">
+                <label>Rest days</label>
+                <div id="cpf_rest_days" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                  <label class="prof-check"><input type="checkbox" value="Mon"> Mon</label>
+                  <label class="prof-check"><input type="checkbox" value="Tue"> Tue</label>
+                  <label class="prof-check"><input type="checkbox" value="Wed"> Wed</label>
+                  <label class="prof-check"><input type="checkbox" value="Thu"> Thu</label>
+                  <label class="prof-check"><input type="checkbox" value="Fri"> Fri</label>
+                  <label class="prof-check"><input type="checkbox" value="Sat"> Sat</label>
+                  <label class="prof-check"><input type="checkbox" value="Sun"> Sun</label>
+                </div>
+              </div>
+              <div style="display:flex;gap:24px;margin-bottom:1.5rem;flex-wrap:wrap">
+                <label class="prof-toggle"><input type="checkbox" id="cpf_has_indoor_trainer"> Has indoor trainer</label>
+                <label class="prof-toggle"><input type="checkbox" id="cpf_has_track_access"> Has track access</label>
+              </div>
+
+              <!-- Athletic Profile -->
+              <div class="section-label">Athletic profile</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+                <div class="field"><label>Primary limiter</label>
+                  <select class="zc-select" id="cpf_primary_limiter">
+                    <option value="">—</option>
+                    <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
+                    <option value="Running">Running</option><option value="Strength">Strength</option>
+                    <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
+                  </select>
+                </div>
+                <div class="field"><label>Secondary limiter</label>
+                  <select class="zc-select" id="cpf_secondary_limiter">
+                    <option value="">—</option>
+                    <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
+                    <option value="Running">Running</option><option value="Strength">Strength</option>
+                    <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem">
+                <div class="field"><label>Injury history</label><textarea class="zc-input" id="cpf_injury_history" rows="3" placeholder="Past recurring issues..." style="resize:vertical;height:80px"></textarea></div>
+                <div class="field"><label>Current injuries / niggles</label><textarea class="zc-input" id="cpf_current_injuries" rows="3" placeholder="Anything bothering them right now..." style="resize:vertical;height:80px"></textarea></div>
+                <div class="field" style="grid-column:span 2"><label>Strengths</label><textarea class="zc-input" id="cpf_strengths" rows="2" placeholder="What are they good at?" style="resize:vertical;height:64px"></textarea></div>
+              </div>
+
+              <!-- Goals -->
+              <div class="section-label">Goals</div>
+              <div style="margin-bottom:1.5rem">
+                <div class="field"><label>Long term goals</label><textarea class="zc-input" id="cpf_long_term_goals" rows="3" placeholder='e.g. "qualify for Kona", "sub-4:30 70.3"' style="resize:vertical;height:80px"></textarea></div>
+                <div class="field"><label>Current training phase</label>
+                  <select class="zc-select" id="cpf_current_phase">
+                    <option value="">—</option>
+                    <option value="Base">Base</option><option value="Build">Build</option><option value="Peak">Peak</option>
+                    <option value="Taper">Taper</option><option value="Recovery">Recovery</option><option value="Off-season">Off-season</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Coach-only: permanent coaching notes -->
+              <div class="section-label" style="color:var(--tc3)">Coaching notes <span style="font-size:9px;letter-spacing:0.05em;text-transform:none;color:var(--tc3);font-family:'DM Sans',sans-serif">(coach only)</span></div>
+              <div class="field" style="margin-bottom:1.5rem">
+                <textarea class="zc-input" id="cpf_coach_notes" rows="5" placeholder="Private notes about this athlete — not visible to the athlete..." style="resize:vertical;height:120px"></textarea>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:16px;margin-top:0.5rem">
+                <button class="btn" style="width:auto;padding:12px 32px" onclick="saveCoachProfile()">Save profile</button>
+                <span id="coachProfSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
+                <span id="coachProfErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -465,6 +600,118 @@ async function selectAthlete(id){
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
+  if(name==='profile'&&selectedAthlete&&selectedAthlete.id) loadCoachProfile();
+}
+
+// ========== COACH PROFILE TAB ==========
+async function loadCoachProfile(){
+  if(!selectedAthlete||!selectedAthlete.id) return;
+  try {
+    const [profRes, noteRes] = await Promise.all([
+      fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(selectedAthlete.id)),
+      fetch('/api/coaching-notes?athlete_id='+encodeURIComponent(selectedAthlete.id)+'&date=2000-01-01')
+    ]);
+    const profData = await profRes.json();
+    if(profData.profile) fillCoachProfileForm(profData.profile);
+    const noteData = await noteRes.json();
+    const permNote = noteData.notes && noteData.notes[0] ? noteData.notes[0].note||'' : '';
+    const noteEl = document.getElementById('cpf_coach_notes');
+    if(noteEl) noteEl.value = permNote;
+  } catch(e){ console.error('loadCoachProfile error',e); }
+  coachUpdateWkg();
+}
+
+function fillCoachProfileForm(p){
+  const set=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null)el.value=val;};
+  const setChk=(id,val)=>{const el=document.getElementById(id);if(el)el.checked=!!val;};
+  set('cpf_age',p.age);
+  set('cpf_weight_lbs',p.weight_lbs);
+  set('cpf_height_feet',p.height_feet);
+  set('cpf_height_inches',p.height_inches);
+  set('cpf_experience_level',p.experience_level);
+  set('cpf_years_training',p.years_training);
+  set('cpf_available_days_per_week',p.available_days_per_week);
+  set('cpf_max_weekly_hours',p.max_weekly_hours);
+  set('cpf_preferred_time',p.preferred_time);
+  set('cpf_ftp_watts',p.ftp_watts);
+  set('cpf_pool_days_per_week',p.pool_days_per_week);
+  setChk('cpf_has_indoor_trainer',p.has_indoor_trainer);
+  setChk('cpf_has_track_access',p.has_track_access);
+  set('cpf_primary_limiter',p.primary_limiter);
+  set('cpf_secondary_limiter',p.secondary_limiter);
+  set('cpf_injury_history',p.injury_history);
+  set('cpf_current_injuries',p.current_injuries);
+  set('cpf_strengths',p.strengths);
+  set('cpf_long_term_goals',p.long_term_goals);
+  set('cpf_current_phase',p.current_phase);
+  const restDays=Array.isArray(p.rest_days)?p.rest_days:(p.rest_days?p.rest_days.split(','):[]);
+  document.querySelectorAll('#cpf_rest_days input[type=checkbox]').forEach(cb=>{
+    cb.checked=restDays.includes(cb.value);
+  });
+  coachUpdateWkg();
+}
+
+function coachUpdateWkg(){
+  const weight=parseFloat(document.getElementById('cpf_weight_lbs')?.value);
+  const ftp=parseFloat(document.getElementById('cpf_ftp_watts')?.value);
+  const wkgEl=document.getElementById('coachProfWkg');
+  const wkgVal=document.getElementById('coachProfWkgVal');
+  if(weight>0&&ftp>0){
+    if(wkgEl)wkgEl.style.display='block';
+    if(wkgVal)wkgVal.textContent=(ftp/(weight/2.205)).toFixed(2);
+  } else {
+    if(wkgEl)wkgEl.style.display='none';
+  }
+}
+
+async function saveCoachProfile(){
+  if(!selectedAthlete||!selectedAthlete.id) return;
+  const get=id=>{const el=document.getElementById(id);return el?el.value.trim()||null:null;};
+  const getN=id=>{const el=document.getElementById(id);const v=parseFloat(el?.value);return isNaN(v)?null:v;};
+  const getChk=id=>{const el=document.getElementById(id);return el?el.checked:false;};
+  const restDays=[...document.querySelectorAll('#cpf_rest_days input[type=checkbox]:checked')].map(cb=>cb.value);
+  const payload={
+    athlete_id:selectedAthlete.id,
+    age:getN('cpf_age'),
+    weight_lbs:getN('cpf_weight_lbs'),
+    height_feet:getN('cpf_height_feet'),
+    height_inches:getN('cpf_height_inches'),
+    experience_level:get('cpf_experience_level'),
+    years_training:getN('cpf_years_training'),
+    available_days_per_week:getN('cpf_available_days_per_week'),
+    max_weekly_hours:getN('cpf_max_weekly_hours'),
+    preferred_time:get('cpf_preferred_time'),
+    rest_days:restDays,
+    ftp_watts:getN('cpf_ftp_watts'),
+    pool_days_per_week:getN('cpf_pool_days_per_week'),
+    has_indoor_trainer:getChk('cpf_has_indoor_trainer'),
+    has_track_access:getChk('cpf_has_track_access'),
+    primary_limiter:get('cpf_primary_limiter'),
+    secondary_limiter:get('cpf_secondary_limiter'),
+    injury_history:get('cpf_injury_history'),
+    current_injuries:get('cpf_current_injuries'),
+    strengths:get('cpf_strengths'),
+    long_term_goals:get('cpf_long_term_goals'),
+    current_phase:get('cpf_current_phase'),
+  };
+  const coachNote=document.getElementById('cpf_coach_notes')?.value.trim()||'';
+  const saveMsg=document.getElementById('coachProfSaveMsg');
+  const errMsg=document.getElementById('coachProfErrMsg');
+  if(saveMsg)saveMsg.style.display='none';
+  if(errMsg)errMsg.style.display='none';
+  try {
+    const [profRes, noteRes] = await Promise.all([
+      fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),
+      fetch('/api/coaching-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:selectedAthlete.id,date:'2000-01-01',note:coachNote})})
+    ]);
+    const profData=await profRes.json();
+    if(!profRes.ok) throw new Error(profData.error||'Profile save failed');
+    if(!noteRes.ok){const nd=await noteRes.json();throw new Error(nd.error||'Notes save failed');}
+    if(saveMsg){saveMsg.style.display='inline';setTimeout(()=>saveMsg.style.display='none',2500);}
+    coachUpdateWkg();
+  } catch(e){
+    if(errMsg){errMsg.textContent=e.message;errMsg.style.display='inline';}
+  }
 }
 
 function updateARaceBadge(){
