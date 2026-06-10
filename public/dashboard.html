@@ -599,7 +599,7 @@ async function loadDashboard(){
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
     const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
       apiCall(id,key,'profile'),
-      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts'),
+      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts'),
       apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type'),
       apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local')
     ]);
@@ -1744,7 +1744,7 @@ function openAthBlockModal(mode, woId, icuId){
     {label:'TSS',val:act&&act.icu_training_load?Math.round(act.icu_training_load):'—'},
     {label:'Avg HR',val:(act&&(act.average_heartrate||act.avg_heart_rate))?Math.round(act.average_heartrate||act.avg_heart_rate)+' bpm':'—'},
     {label:sport==='running'?'Avg Pace':'Avg Speed',val:paceVal},
-    {label:'Avg Power',val:(act&&(act.average_watts||act.weighted_average_watts))?Math.round(act.average_watts||act.weighted_average_watts)+' w':'—'},
+    {label:'Avg Power',val:(()=>{if(!act)return'—';const pw=act.average_watts||act.weighted_average_watts||act.icu_weighted_avg_watts||act.icu_average_watts;console.log('[power fields]',{average_watts:act.average_watts,weighted_average_watts:act.weighted_average_watts,icu_weighted_avg_watts:act.icu_weighted_avg_watts,icu_average_watts:act.icu_average_watts,max_watts:act.max_watts,device_watts:act.device_watts,used:pw});return pw?Math.round(pw)+' w':'—';})()},
   ];
 
   let html='<button class="modal-close-x" onclick="closeAthModal()">&times;</button>'
