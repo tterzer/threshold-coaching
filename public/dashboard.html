@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#999;--tc3:#555;--border:#2a2a2a;}
+:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#aaa;--tc3:#777;--border:#2a2a2a;}
 body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6}
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
@@ -54,8 +54,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .risk-pill.amber{background:rgba(186,117,23,0.18);color:#e0a23a}
 .risk-pill.red{background:rgba(226,75,74,0.18);color:#f17b7a}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);margin-bottom:1px}
-.chart-box{background:var(--bc2);padding:1.5rem;min-width:0;overflow:hidden}
-.chart-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;text-transform:uppercase;letter-spacing:0.02em;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.chart-box{background:var(--bc2);padding:1.75rem;min-width:0;overflow:hidden;border:1px solid #2a2a2a}
+.chart-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;text-transform:uppercase;letter-spacing:0.02em;color:#ddd;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem}
 .leg-item{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);display:flex;align-items:center;gap:6px;letter-spacing:0.06em;text-transform:uppercase}
 .leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -154,12 +154,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
 .ath-cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
 .ath-cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
-.ath-cal-block.planned.sport-strength{border:1.5px solid #8B5CF6;background:transparent;color:#8B5CF6}
+.ath-cal-block.planned.sport-strength{border:1.5px solid #7F77DD;background:transparent;color:#7F77DD}
 .ath-cal-block.planned.sport-other{border:1.5px solid #c8f036;background:transparent;color:#c8f036}
 .ath-cal-block.completed.sport-cycling{background:#378ADD;color:#fff;border:none}
 .ath-cal-block.completed.sport-running{background:#639922;color:#fff;border:none}
 .ath-cal-block.completed.sport-swimming{background:#1D9E75;color:#fff;border:none}
-.ath-cal-block.completed.sport-strength{background:#8B5CF6;color:#fff;border:none}
+.ath-cal-block.completed.sport-strength{background:#7F77DD;color:#fff;border:none}
 .ath-cal-block.completed.sport-other{background:#c8f036;color:#000;border:none}
 .ath-cal-race{font-family:'DM Mono',monospace;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:24px;line-height:24px;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box}
 .ath-cal-race.priority-A{background:#FFD700;color:#1a1000}
@@ -588,7 +588,7 @@ async function loadDashboard(){
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
     const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
       apiCall(id,key,'profile'),
-      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times'),
+      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts'),
       apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type'),
       apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local')
     ]);
@@ -616,11 +616,14 @@ async function loadDashboard(){
     let ctl=0,atl=0,tsb=0;
     if(todayEntry){
       ctl=Math.round(todayEntry.ctl);atl=Math.round(todayEntry.atl);tsb=ctl-atl;
-      document.getElementById('mCTL').textContent=ctl;
-      document.getElementById('mATL').textContent=atl;
+      const ctlEl=document.getElementById('mCTL');
+      ctlEl.textContent=ctl;ctlEl.style.color='#378ADD';
+      const atlEl=document.getElementById('mATL');
+      atlEl.textContent=atl;atlEl.style.color='#E24B4A';
       const tsbEl=document.getElementById('mTSB');
       tsbEl.textContent=(tsb>=0?'+':'')+tsb;
       tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
+      tsbEl.style.color=tsb>=0?'#639922':'#E24B4A';
     }
     buildRamp();
     // "This week" = Monday of the current calendar week through today (inclusive).
@@ -757,6 +760,7 @@ function fitActSport(type) {
   if (t.includes('ride') || t.includes('cycl') || t.includes('virtual')) return 'cycling';
   if (t.includes('run') || t.includes('jog') || t.includes('trail') || t.includes('treadmill')) return 'running';
   if (t.includes('swim')) return 'swimming';
+  if (t.includes('weight') || t.includes('strength') || t === 'yoga' || t === 'workout' || t === 'crossfit' || t === 'pilates') return 'strength';
   return 'other';
 }
 
@@ -839,9 +843,9 @@ function buildSportCTL() {
 
 function buildSportLoad(acts){
   const weeks=calendarWeeks(8);
-  const sportColors={cycling:'#378ADD',running:'#639922',swimming:'#1D9E75',other:'#7F77DD'};
-  const sportLabels={cycling:'Cycling',running:'Running',swimming:'Swimming',other:'Other'};
-  const sports=['cycling','running','swimming','other'];
+  const sportColors={cycling:'#378ADD',running:'#639922',swimming:'#1D9E75',strength:'#7F77DD',other:'#888'};
+  const sportLabels={cycling:'Cycling',running:'Running',swimming:'Swimming',strength:'Strength',other:'Other'};
+  const sports=['cycling','running','swimming','strength','other'];
   const datasets=sports.map(sp=>({
     label:sportLabels[sp],
     backgroundColor:sportColors[sp],
@@ -1588,7 +1592,7 @@ function athIcuTypeToSport(type){
   if(t.includes('ride')||t.includes('cycl')||t.includes('virtual'))return'cycling';
   if(t.includes('run')||t.includes('jog')||t.includes('trail')||t.includes('treadmill'))return'running';
   if(t.includes('swim'))return'swimming';
-  if(t.includes('weight')||t.includes('strength')||t.includes('gym'))return'strength';
+  if(t.includes('weight')||t.includes('strength')||t.includes('gym')||t==='yoga'||t==='workout'||t==='crossfit'||t==='pilates')return'strength';
   return'other';
 }
 
@@ -1686,21 +1690,31 @@ function openAthBlockModal(mode, woId, icuId){
   const act=icuId?allActivities.find(x=>String(x.id)===String(icuId)):null;
 
   function _fmtDur(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
-  function _fmtDist(m){if(!m)return'—';return m>=1000?(m/1000).toFixed(1)+' km':Math.round(m)+' m';}
-  function _fmtPace(ms){if(!ms||ms<=0)return'—';const spk=1000/ms,mm=Math.floor(spk/60),ss=Math.round(spk%60);return mm+':'+(ss<10?'0':'')+ss+'/km';}
+  function _fmtDist(m){if(!m)return'—';const mi=m/1609.34;return mi.toFixed(1)+' mi';}
 
   const sport=act?athIcuTypeToSport(act.type):(wo?wo.sport:'');
-  const sportColor=sport==='cycling'?'#378ADD':sport==='running'?'#639922':sport==='swimming'?'#1D9E75':'#666';
+  const sportColor=sport==='cycling'?'#378ADD':sport==='running'?'#639922':sport==='swimming'?'#1D9E75':sport==='strength'?'#7F77DD':'#666';
   const actName=act?(act.name||'Activity'):(wo?(wo.title||'Planned Workout'):'Workout');
   const actDate=act?act.start_date_local.split('T')[0]:(wo?wo.date:'');
+
+  let paceVal='—';
+  if(act&&act.average_speed&&act.average_speed>0){
+    if(sport==='running'){
+      const secPerMile=1609.34/act.average_speed;
+      const mm=Math.floor(secPerMile/60),ss=Math.round(secPerMile%60);
+      paceVal=mm+':'+(ss<10?'0':'')+ss+'/mi';
+    }else{
+      paceVal=(act.average_speed*2.23694).toFixed(1)+' mph';
+    }
+  }
 
   const metrics=[
     {label:'Duration',val:act?_fmtDur(act.moving_time||act.elapsed_time):(wo&&wo.duration_minutes?wo.duration_minutes+'min':'—')},
     {label:'Distance',val:act?_fmtDist(act.distance):'—'},
     {label:'TSS',val:act&&act.icu_training_load?Math.round(act.icu_training_load):'—'},
-    {label:'Avg HR',val:act&&act.average_heartrate?Math.round(act.average_heartrate)+' bpm':'—'},
-    {label:'Avg Pace',val:act?_fmtPace(act.average_speed):'—'},
-    {label:'Avg Power',val:act&&act.average_watts?Math.round(act.average_watts)+' w':'—'},
+    {label:'Avg HR',val:(act&&(act.average_heartrate||act.avg_heart_rate))?Math.round(act.average_heartrate||act.avg_heart_rate)+' bpm':'—'},
+    {label:sport==='running'?'Avg Pace':'Avg Speed',val:paceVal},
+    {label:'Avg Power',val:(act&&(act.average_watts||act.weighted_average_watts))?Math.round(act.average_watts||act.weighted_average_watts)+' w':'—'},
   ];
 
   let html='<button class="modal-close-x" onclick="closeAthModal()">&times;</button>'
@@ -1797,12 +1811,15 @@ const _origLoadDashboard=typeof loadDashboard!=='undefined'?loadDashboard:null;
 function _applyFitnessToUI(){
   const todayEntry=fitnessSeries[fitnessSeries.length-1];
   if(todayEntry){
-    document.getElementById('mCTL').textContent=Math.round(todayEntry.ctl);
-    document.getElementById('mATL').textContent=Math.round(todayEntry.atl);
+    const ctlEl2=document.getElementById('mCTL');
+    ctlEl2.textContent=Math.round(todayEntry.ctl);ctlEl2.style.color='#378ADD';
+    const atlEl2=document.getElementById('mATL');
+    atlEl2.textContent=Math.round(todayEntry.atl);atlEl2.style.color='#E24B4A';
     const tsb=Math.round(todayEntry.ctl-todayEntry.atl);
     const tsbEl=document.getElementById('mTSB');
     tsbEl.textContent=(tsb>=0?'+':'')+tsb;
     tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
+    tsbEl.style.color=tsb>=0?'#639922':'#E24B4A';
   }
   buildPMC();
   buildRamp();
