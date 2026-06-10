@@ -54,8 +54,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .risk-pill.amber{background:rgba(186,117,23,0.18);color:#e0a23a}
 .risk-pill.red{background:rgba(226,75,74,0.18);color:#f17b7a}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);margin-bottom:1px}
-.chart-box{background:var(--bc2);padding:1.75rem;min-width:0;overflow:hidden;border:1px solid #2a2a2a}
-.chart-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;text-transform:uppercase;letter-spacing:0.02em;color:#ddd;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.chart-box{background:var(--bc2);padding:1.75rem;min-width:0;overflow:hidden;border:1px solid #333}
+.chart-title{font-family:'DM Mono',monospace;font-size:12px;font-weight:400;text-transform:uppercase;letter-spacing:0.15em;color:#c8f036;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem}
 .leg-item{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);display:flex;align-items:center;gap:6px;letter-spacing:0.06em;text-transform:uppercase}
 .leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -107,7 +107,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .sub-tab:first-child{border-right:none}
 .sub-tab.active{background:var(--bc3);color:var(--acc);border-color:var(--acc)}
 .zone-table{width:100%;border-collapse:collapse}
-.zone-table th{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.zone-table th{font-family:'DM Mono',monospace;font-size:10px;color:#888;letter-spacing:0.08em;text-transform:uppercase;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
 .zone-table th:not(:first-child){text-align:center}
 .zone-tr{border-bottom:1px solid var(--border)}
 .zone-tr:last-child{border-bottom:none}
@@ -128,7 +128,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .curve-table{width:100%;border-collapse:collapse;margin-top:1rem;font-family:'DM Mono',monospace;font-size:11px}
 .curve-table th{color:var(--tc3);text-align:left;padding:6px 10px;letter-spacing:0.06em;text-transform:uppercase;border-bottom:1px solid var(--border)}
 .curve-table td{padding:6px 10px;color:var(--tc);border-bottom:1px solid var(--border)}
-.empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#555}
+.empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#777}
 /* Dashboard tab nav */
 .dash-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:2rem}
 .dash-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 20px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -634,7 +634,7 @@ async function loadDashboard(){
       const tsbEl=document.getElementById('mTSB');
       tsbEl.textContent=(tsb>=0?'+':'')+tsb;
       tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
-      tsbEl.style.color=tsb>=0?'#639922':'#E24B4A';
+      tsbEl.style.color=tsb>0?'#639922':tsb<0?'#E24B4A':'#999';
     }
     buildRamp();
     // "This week" = Monday of the current calendar week through today (inclusive).
@@ -647,8 +647,10 @@ async function loadDashboard(){
     const lastMonday=new Date(monday);lastMonday.setDate(monday.getDate()-7);
     const thisWeekLoad=Math.round(sorted.filter(a=>{const d=new Date(a.start_date_local);return d>=monday&&d<=now;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
     const lastWeekLoad=Math.round(sorted.filter(a=>{const d=new Date(a.start_date_local);return d>=lastMonday&&d<monday;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
-    document.getElementById('mWeek').textContent=thisWeekLoad;
-    document.getElementById('mLastWeek').textContent=lastWeekLoad;
+    const weekEl=document.getElementById('mWeek');
+    weekEl.textContent=thisWeekLoad;weekEl.style.color='#c8f036';
+    const lastWeekEl=document.getElementById('mLastWeek');
+    lastWeekEl.textContent=lastWeekLoad;lastWeekEl.style.color='#c8f036';
     buildPMC();
     buildSportCTL();
     buildSportLoad(sorted);
@@ -757,8 +759,8 @@ function buildPMC(rangeDays){
     {label:'ATL',data:atlData,borderColor:'#E24B4A',backgroundColor:'transparent',tension:0,pointRadius:0,borderWidth:1.5,yAxisID:'y'},
     {label:'TSB',data:tsbData,borderColor:'#c8f036',backgroundColor:'transparent',borderDash:[4,3],tension:0.25,pointRadius:0,borderWidth:1.5,yAxisID:'y'}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-    scales:{x:{ticks:{color:'#555',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
-    y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}},
+    scales:{x:{ticks:{color:'#666',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
+    y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}}},
     plugins:[tsbZonePlugin]});
 }
 
@@ -836,17 +838,17 @@ function buildSportCTL() {
     data: {
       labels: days.map(d => fmtDate(d)),
       datasets: [
-        {label:'Cycling CTL', data:cycData, borderColor:'#378ADD', backgroundColor:'transparent', tension:0.25, pointRadius:0, borderWidth:2},
-        {label:'Running CTL', data:runData, borderColor:'#639922', backgroundColor:'transparent', tension:0.25, pointRadius:0, borderWidth:2},
-        {label:'Swimming CTL', data:swimData, borderColor:'#1D9E75', backgroundColor:'transparent', tension:0.25, pointRadius:0, borderWidth:2}
+        {label:'Cycling CTL', data:cycData, borderColor:'#378ADD', backgroundColor:'#378ADD22', tension:0.25, pointRadius:0, borderWidth:2},
+        {label:'Running CTL', data:runData, borderColor:'#639922', backgroundColor:'#63992222', tension:0.25, pointRadius:0, borderWidth:2},
+        {label:'Swimming CTL', data:swimData, borderColor:'#1D9E75', backgroundColor:'#1D9E7522', tension:0.25, pointRadius:0, borderWidth:2}
       ]
     },
     options: {
       responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}},
       scales:{
-        x:{ticks:{color:'#555',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
-        y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}
+        x:{ticks:{color:'#666',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
+        y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}
       }
     }
   });
@@ -866,8 +868,8 @@ function buildSportLoad(acts){
   if(sportLoadInst)sportLoadInst.destroy();
   sportLoadInst=new Chart(document.getElementById('sportLoadChart'),{type:'bar',data:{labels:weeks.map(w=>w.label),datasets},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
-    scales:{x:{stacked:true,ticks:{color:'#555',font:{size:10},maxRotation:45},grid:{color:'#1a1a1a'}},
-    y:{stacked:true,ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
+    scales:{x:{stacked:true,ticks:{color:'#666',font:{size:10},maxRotation:45},grid:{color:'#1a1a1a'}},
+    y:{stacked:true,ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
   document.getElementById('sportLoadLegend').innerHTML=datasets.map(ds=>`<div class="leg-item"><span class="leg-dot" style="background:${ds.backgroundColor}"></span>${ds.label}</div>`).join('');
 }
 
@@ -875,7 +877,7 @@ function buildLoad(acts){
   const weeks=calendarWeeks(8);
   const loads=weeks.map(w=>Math.round(acts.filter(a=>{const d=new Date(a.start_date_local);return d>=w.start&&d<=w.end;}).reduce((s,a)=>s+(a.icu_training_load||0),0)));
   if(loadInst)loadInst.destroy();
-  loadInst=new Chart(document.getElementById('loadChart'),{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[{data:loads,backgroundColor:'#1a1a1a',borderColor:'#c8f036',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#555',font:{size:10},maxRotation:45},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
+  loadInst=new Chart(document.getElementById('loadChart'),{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[{data:loads,backgroundColor:'#1a1a1a',borderColor:'#c8f036',borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#666',font:{size:10},maxRotation:45},grid:{color:'#1a1a1a'}},y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}}}});
 }
 
 function buildZones(acts){
@@ -1355,10 +1357,10 @@ function drawCurveChart(box, allTimePairs, recentPairs, isRun, note, allTimeLabe
   // reverse:true so faster (smaller secs) appears higher.
   const yOpts=isRun?{
     reverse:true,min:240,max:720,
-    ticks:{color:'#555',font:{size:10},stepSize:60,callback:v=>fmtPace(v)},
+    ticks:{color:'#666',font:{size:10},stepSize:60,callback:v=>fmtPace(v)},
     grid:{color:'#1a1a1a'}
   }:{
-    ticks:{color:'#555',font:{size:10},callback:v=>v+'w'},
+    ticks:{color:'#666',font:{size:10},callback:v=>v+'w'},
     grid:{color:'#1a1a1a'}
   };
 
@@ -1379,7 +1381,7 @@ function drawCurveChart(box, allTimePairs, recentPairs, isRun, note, allTimeLabe
         }}}
       },
       scales:{
-        x:{ticks:{color:'#555',font:{size:10}},grid:{color:'#1a1a1a'}},
+        x:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}},
         y:yOpts
       }
     }
@@ -2088,9 +2090,9 @@ function _renderDetailChart(sport) {
   }
 
   const scales = {
-    x: { type:'category', labels:Array.from({length:maxLen}, (_,i)=> i%300===0 ? (()=>{const h=Math.floor(i/3600),m=Math.floor((i%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';})() : ''), ticks:{color:'#555',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12}, grid:{color:'rgba(42,42,42,0.5)'} },
+    x: { type:'category', labels:Array.from({length:maxLen}, (_,i)=> i%300===0 ? (()=>{const h=Math.floor(i/3600),m=Math.floor((i%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';})() : ''), ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12}, grid:{color:'rgba(42,42,42,0.5)'} },
     yLeft: { type:'linear', position:'left', reverse:sport==='running', ticks:{ color:'#555', font:{family:"'DM Mono'",size:9}, callback: sport==='running' ? (v)=>{const mm=Math.floor(v/60),ss=Math.round(v%60);return mm+':'+(ss<10?'0':'')+ss;} : undefined }, grid:{color:'rgba(42,42,42,0.5)'} },
-    yRight: { type:'linear', position:'right', ticks:{color:'#555',font:{family:"'DM Mono'",size:9}}, grid:{display:false} },
+    yRight: { type:'linear', position:'right', ticks:{color:'#666',font:{family:"'DM Mono'",size:9}}, grid:{display:false} },
     yEle: { type:'linear', position:'right', display:false },
   };
 
@@ -2168,7 +2170,7 @@ function _applyFitnessToUI(){
     const tsbEl=document.getElementById('mTSB');
     tsbEl.textContent=(tsb>=0?'+':'')+tsb;
     tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
-    tsbEl.style.color=tsb>=0?'#639922':'#E24B4A';
+    tsbEl.style.color=tsb>0?'#639922':tsb<0?'#E24B4A':'#999';
   }
   buildPMC();
   buildRamp();

@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#999;--tc3:#555;--border:#2a2a2a;}
+:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#aaa;--tc3:#777;--border:#2a2a2a;}
 html,body{height:100%}
 body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;display:flex;flex-direction:column;min-height:100vh}
 a{color:var(--acc);text-decoration:none}
@@ -20,11 +20,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .content{max-width:600px;width:100%}
 .page-heading{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;margin-bottom:2rem}
 .portal-cards{display:flex;gap:12px;margin-bottom:2rem}
-.portal-card{flex:1;background:var(--bc2);border:1px solid var(--border);padding:1.5rem;cursor:pointer;transition:border-color 0.2s,background 0.2s}
-.portal-card:hover{border-color:var(--acc)}
-.portal-card.selected{border-color:var(--acc);background:var(--bc3)}
+.portal-card{flex:1;background:#141414;border:1px solid #333;padding:1.75rem;cursor:pointer;transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;position:relative}
+.portal-card:hover{border-color:#555;background:#1a1a1a;box-shadow:0 4px 24px rgba(0,0,0,0.4)}
+.portal-card.selected{border-color:var(--acc);background:#1a1a1a;box-shadow:0 0 0 1px var(--acc),0 4px 24px rgba(200,240,54,0.08)}
+.portal-card.selected .card-type{color:var(--acc)}
 .card-type{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem}
-.card-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:0.4rem}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:0.4rem;color:var(--tc)}
 .card-desc{font-size:13px;color:var(--tc2);line-height:1.5}
 .login-form{display:none;opacity:0;transition:opacity 0.25s}
 .login-form.visible{opacity:1}
