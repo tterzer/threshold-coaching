@@ -154,13 +154,24 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase}
 .arace-badge{display:inline-flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;padding:3px 9px;background:rgba(255,215,0,0.12);border:1px solid rgba(255,215,0,0.3);color:#FFD700;margin-left:10px;vertical-align:middle}
 /* Chat */
-.chat-box{display:flex;flex-direction:column;height:560px}
-.chat-msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:6px;margin-bottom:1rem}
+.chat-layout{display:grid;grid-template-columns:200px 1fr;gap:1px;background:var(--border);height:580px}
+.chat-history-sidebar{background:var(--bc2);display:flex;flex-direction:column;overflow:hidden}
+.chat-history-header{padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-history-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase;line-height:1.5}
+.chat-history-list{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.chat-history-item{font-family:'DM Mono',monospace;font-size:10px;padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);color:var(--tc3);letter-spacing:0.04em;transition:all 0.12s;flex-shrink:0}
+.chat-history-item:hover{background:var(--bc3);color:var(--tc2)}
+.chat-history-item.active{background:var(--bc3);color:var(--acc);border-left:2px solid var(--acc)}
+.chat-history-item .chi-date{font-size:10px}
+.chat-history-item .chi-count{font-size:9px;color:var(--tc3);margin-top:2px}
+.chat-main{background:var(--bc2);display:flex;flex-direction:column;overflow:hidden}
+.chat-msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:16px;margin:0}
 .chat-msg{font-size:13px;padding:10px 14px;max-width:85%;line-height:1.6}
 .chat-msg.user{align-self:flex-end;background:var(--bc3);color:var(--tc)}
 .chat-msg.assistant{align-self:flex-start;background:rgba(200,240,54,0.06);border-left:2px solid var(--acc);color:var(--tc);white-space:pre-wrap}
 .chat-msg.assistant.loading{color:var(--tc3);font-family:'DM Mono',monospace;font-size:11px}
-.chat-input-row{display:flex;gap:8px}
+.chat-readonly-banner{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase;padding:8px 16px;border-top:1px solid var(--border);background:var(--bc3);flex-shrink:0;display:none}
+.chat-input-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
 .chat-input-row textarea{flex:1;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:none;height:52px}
 .chat-input-row textarea:focus{border-color:var(--acc)}
 .chat-input-row button{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:0 22px;cursor:pointer;border:none;letter-spacing:0.04em}
@@ -272,13 +283,24 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
           </div>
 
           <div class="tab-panel" id="tab-chat">
-            <div class="chat-box">
-              <div class="chat-msgs" id="chatMsgs">
-                <div class="chat-msg assistant">Hi coach — ask me about this athlete's training. I can see their current CTL/ATL/TSB, recent activities, zone distribution, and upcoming races, and I can help write workout prescriptions.</div>
+            <div class="chat-layout">
+              <!-- History sidebar -->
+              <div class="chat-history-sidebar">
+                <div class="chat-history-header">
+                  <div class="chat-history-meta" id="chatHistoryMeta">No history</div>
+                </div>
+                <div class="chat-history-list" id="chatHistoryList"></div>
               </div>
-              <div class="chat-input-row">
-                <textarea id="chatInput" placeholder="Ask the AI coach about this athlete..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
-                <button onclick="sendChat()" id="chatSendBtn">Send</button>
+              <!-- Chat main -->
+              <div class="chat-main">
+                <div class="chat-msgs" id="chatMsgs">
+                  <div class="chat-msg assistant">Hi coach — ask me about this athlete's training. I can see their current CTL/ATL/TSB, recent activities, zone distribution, and upcoming races, and I can help write workout prescriptions.</div>
+                </div>
+                <div class="chat-readonly-banner" id="chatReadonlyBanner">Past session — read only · <span style="cursor:pointer;color:var(--acc);text-decoration:underline" onclick="viewTodaySession()">Back to today</span></div>
+                <div class="chat-input-row" id="chatInputRow">
+                  <textarea id="chatInput" placeholder="Ask the AI coach about this athlete..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+                  <button onclick="sendChat()" id="chatSendBtn">Send</button>
+                </div>
               </div>
             </div>
           </div>
@@ -590,11 +612,17 @@ async function selectAthlete(id){
   document.getElementById('aRaceBadge').style.display='none';
   athleteIcuActivities=[];
   chatHistory=[];
+  viewingHistoryDate=null;
   document.getElementById('chatMsgs').innerHTML='<div class="chat-msg assistant">Hi coach — ask me about '+(selectedAthlete.name||'this athlete')+'\'s training. I can see their current CTL/ATL/TSB, recent activities, zone distribution, and upcoming races, and I can help write workout prescriptions.</div>';
+  document.getElementById('chatReadonlyBanner').style.display='none';
+  document.getElementById('chatInputRow').style.display='flex';
+  document.getElementById('chatHistoryMeta').textContent='Loading...';
+  document.getElementById('chatHistoryList').innerHTML='';
   switchTab('overview');
   await Promise.all([loadAthleteOverview(), loadWorkouts(), loadRaces()]);
   renderCalendar();
   updateARaceBadge();
+  loadChatHistory();
 }
 
 function switchTab(name){
@@ -1835,6 +1863,132 @@ async function splitIntoBrick(capturedReply){
   window.saveWorkout=runOnce;
 }
 
+// --- AI chat history ---
+let allChatSessions=[];
+let viewingHistoryDate=null;
+
+async function loadChatHistory(){
+  if(!selectedAthlete||!selectedAthlete.id)return;
+  try{
+    const r=await fetch('/api/ai-conversations?athlete_id='+encodeURIComponent(selectedAthlete.id));
+    const d=await r.json();
+    allChatSessions=d.conversations||[];
+    renderChatHistorySidebar();
+  }catch(e){
+    console.error('loadChatHistory error',e);
+    document.getElementById('chatHistoryMeta').textContent='History unavailable';
+  }
+}
+
+function renderChatHistorySidebar(){
+  const today=new Date().toISOString().split('T')[0];
+  const meta=document.getElementById('chatHistoryMeta');
+  const list=document.getElementById('chatHistoryList');
+
+  if(allChatSessions.length===0){
+    meta.textContent='No history yet';
+    list.innerHTML='';
+    return;
+  }
+
+  const pastSessions=allChatSessions.filter(s=>s.session_date!==today);
+  const dates=allChatSessions.map(s=>s.session_date).sort();
+  const first=dates[0];const last=dates[dates.length-1];
+  const fmt=d=>{const[y,m,dy]=d.split('-');return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+' '+dy+' \''+y.slice(2);};
+  const totalCount=allChatSessions.length;
+  meta.textContent=totalCount+' session'+(totalCount===1?'':'s')+' · '+fmt(first)+(first!==last?' – '+fmt(last):'');
+
+  let html='';
+  // Today entry always first
+  const todaySession=allChatSessions.find(s=>s.session_date===today);
+  const todayMsgs=todaySession?todaySession.messages.length:0;
+  const todayActive=viewingHistoryDate===null;
+  html+=`<div class="chat-history-item${todayActive?' active':''}" onclick="viewTodaySession()">
+    <div class="chi-date">Today</div>
+    <div class="chi-count">${todayMsgs>0?Math.floor(todayMsgs/2)+' exchanges':'New session'}</div>
+  </div>`;
+
+  for(const s of pastSessions){
+    const msgs=Array.isArray(s.messages)?s.messages:[];
+    const exchanges=Math.floor(msgs.length/2);
+    const isActive=viewingHistoryDate===s.session_date;
+    html+=`<div class="chat-history-item${isActive?' active':''}" onclick="viewHistorySession('${s.session_date}')">
+      <div class="chi-date">${fmt(s.session_date)}</div>
+      <div class="chi-count">${exchanges} exchange${exchanges===1?'':'s'}</div>
+    </div>`;
+  }
+  list.innerHTML=html;
+}
+
+function viewHistorySession(date){
+  viewingHistoryDate=date;
+  const session=allChatSessions.find(s=>s.session_date===date);
+  const msgs=session&&Array.isArray(session.messages)?session.messages:[];
+  const wrap=document.getElementById('chatMsgs');
+  wrap.innerHTML='';
+  if(msgs.length===0){
+    const d=document.createElement('div');
+    d.className='chat-msg assistant';
+    d.textContent='(No messages recorded for this session)';
+    wrap.appendChild(d);
+  }else{
+    for(const m of msgs){
+      const d=document.createElement('div');
+      d.className='chat-msg '+(m.role==='user'?'user':'assistant');
+      d.textContent=m.content;
+      wrap.appendChild(d);
+    }
+  }
+  wrap.scrollTop=wrap.scrollHeight;
+  document.getElementById('chatReadonlyBanner').style.display='block';
+  document.getElementById('chatInputRow').style.display='none';
+  renderChatHistorySidebar();
+}
+
+function viewTodaySession(){
+  viewingHistoryDate=null;
+  const wrap=document.getElementById('chatMsgs');
+  wrap.innerHTML='';
+  // Replay today's live chatHistory into the DOM
+  if(chatHistory.length===0){
+    const d=document.createElement('div');
+    d.className='chat-msg assistant';
+    d.textContent='Hi coach — ask me about '+(selectedAthlete?selectedAthlete.name||'this athlete':'this athlete')+'\'s training. I can see their current CTL/ATL/TSB, recent activities, zone distribution, and upcoming races, and I can help write workout prescriptions.';
+    wrap.appendChild(d);
+  }else{
+    for(const m of chatHistory){
+      const d=document.createElement('div');
+      d.className='chat-msg '+(m.role==='user'?'user':'assistant');
+      d.textContent=m.content;
+      wrap.appendChild(d);
+    }
+  }
+  wrap.scrollTop=wrap.scrollHeight;
+  document.getElementById('chatReadonlyBanner').style.display='none';
+  document.getElementById('chatInputRow').style.display='flex';
+  renderChatHistorySidebar();
+}
+
+async function saveChatSession(){
+  if(!selectedAthlete||!selectedAthlete.id||chatHistory.length===0)return;
+  const today=new Date().toISOString().split('T')[0];
+  const messages=chatHistory.map(m=>({role:m.role,content:m.content,timestamp:new Date().toISOString()}));
+  try{
+    const r=await fetch('/api/ai-conversations',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({athlete_id:selectedAthlete.id,session_date:today,messages})
+    });
+    if(r.ok){
+      const d=await r.json();
+      // Update local cache
+      const idx=allChatSessions.findIndex(s=>s.session_date===today);
+      if(idx>=0)allChatSessions[idx]=d.conversation;
+      else allChatSessions.unshift(d.conversation);
+      renderChatHistorySidebar();
+    }
+  }catch(e){console.error('saveChatSession error',e);}
+}
+
 // --- AI chat ---
 function appendChatMsg(role,text,loading){
   const wrap=document.getElementById('chatMsgs');
@@ -1914,6 +2068,7 @@ async function sendChat(){
     loadingEl.classList.remove('loading');
     loadingEl.textContent=reply;
     chatHistory.push({role:'assistant',content:reply});
+    saveChatSession();
     if(looksLikeWorkoutPrescription(reply)){
       const capturedReply=reply;
       const today=new Date().toISOString().split('T')[0];

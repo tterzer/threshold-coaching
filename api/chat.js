@@ -145,9 +145,57 @@ export default async function handler(req, res) {
     athleteContext += '\n';
   }
 
-  const fullSystem = athleteContext
-    ? BASE_SYSTEM_PROMPT + '\n' + athleteContext + (system ? '\n\n' + system : '')
-    : (system ? BASE_SYSTEM_PROMPT + '\n\n' + system : BASE_SYSTEM_PROMPT);
+  // Inject conversation history
+  let historyContext = '';
+  if (athlete_id) {
+    try {
+      const { data: convos } = await supabase
+        .from('ai_conversations')
+        .select('session_date, messages')
+        .eq('athlete_id', athlete_id)
+        .order('session_date', { ascending: false })
+        .limit(20);
+
+      if (convos && convos.length > 0) {
+        const today = new Date().toISOString().split('T')[0];
+        // Exclude today's session (that's the live session, not history)
+        const pastSessions = convos.filter(c => c.session_date !== today);
+
+        if (pastSessions.length > 0) {
+          const recent = pastSessions.slice(0, 5);
+          const older = pastSessions.slice(5);
+
+          historyContext += '\n\nPREVIOUS COACHING SESSIONS:\n';
+          for (const session of recent) {
+            const msgs = Array.isArray(session.messages) ? session.messages : [];
+            if (!msgs.length) continue;
+            historyContext += `\n--- Session: ${session.session_date} ---\n`;
+            for (const m of msgs) {
+              const role = m.role === 'user' ? 'Coach' : 'AI';
+              historyContext += `${role}: ${m.content}\n`;
+            }
+          }
+
+          if (older.length > 0) {
+            historyContext += '\nCOACHING HISTORY SUMMARY (older sessions):\n';
+            for (const session of older) {
+              const msgs = Array.isArray(session.messages) ? session.messages : [];
+              const userMsgs = msgs.filter(m => m.role === 'user');
+              const topics = userMsgs.slice(0, 3).map(m => m.content.slice(0, 120)).join(' | ');
+              historyContext += `- ${session.session_date}: ${msgs.length} messages. Topics: ${topics || '(no content)'}\n`;
+            }
+          }
+        }
+      }
+    } catch {
+      // history fetch failed — continue without it
+    }
+  }
+
+  const fullSystem = BASE_SYSTEM_PROMPT
+    + (athleteContext ? '\n' + athleteContext : '')
+    + (historyContext || '')
+    + (system ? '\n\n' + system : '');
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
