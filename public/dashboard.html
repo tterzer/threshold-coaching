@@ -1716,7 +1716,7 @@ function _fmtBlockTime(iso){
   return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
 }
 
-function openAthBlockModal(mode, woId, icuId){
+async function openAthBlockModal(mode, woId, icuId){
   const wo=woId?athWorkoutsCache.find(x=>String(x.id)===String(woId)):null;
   const act=icuId?allActivities.find(x=>String(x.id)===String(icuId)):null;
 
@@ -1802,9 +1802,18 @@ function openAthBlockModal(mode, woId, icuId){
     }
   }
 
-  const existingNote=wo?(wo.compliance_note||''):'';
+  // Fetch existing note: from planned workout cache OR coaching_notes table for ICU-only
+  let existingNote = wo ? (wo.compliance_note||'') : '';
+  if (!wo && act && currentAthlete && currentAthlete.id) {
+    const actDate = (act.start_date_local||'').slice(0,10);
+    try {
+      const nr = await fetch('/api/coaching-notes?athlete_id='+currentAthlete.id+'&date='+actDate);
+      if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) existingNote = nd.notes[0].note || ''; }
+    } catch(e) {}
+  }
+  const _noteActDate = act ? (act.start_date_local||'').slice(0,10) : (wo ? wo.date : '');
   html+='<div class="modal-section-label">How did it go?</div>'
-    +'<textarea class="modal-note-input" id="athCompNote" placeholder="Add a note about this session...">'+athEscHtml(existingNote)+'</textarea>';
+    +'<textarea class="modal-note-input" id="athCompNote" placeholder="Add a note about this session..." data-wo-id="'+(wo?wo.id:'')+'" data-act-date="'+_noteActDate+'">'+athEscHtml(existingNote)+'</textarea>';
 
   // Footer: delete button only for planned-only workouts
   const deleteBtn=(mode==='planned'&&wo)
@@ -1814,7 +1823,7 @@ function openAthBlockModal(mode, woId, icuId){
   html+='<div class="modal-actions">'
     +'<div style="display:flex;gap:8px">'
       +deleteBtn
-      +'<button class="modal-btn-save" onclick="saveAthNote('+(wo?wo.id:'null')+')">Save note</button>'
+      +'<button class="modal-btn-save" onclick="saveAthNote()">Save note</button>'
     +'</div>'
     +'<div style="display:flex;gap:8px">'
       +detailBtn
@@ -1831,21 +1840,35 @@ function closeAthModal(){
   athViewingWo=null;
 }
 
-async function saveAthNote(woId){
-  const note = document.getElementById('athCompNote').value.trim();
-  if (!woId) return; // ICU-only, can't save without planned workout
+async function saveAthNote(){
+  const ta = document.getElementById('athCompNote');
+  if (!ta) return;
+  const note = ta.value.trim();
+  const woId = ta.dataset.woId ? Number(ta.dataset.woId) || ta.dataset.woId : null;
+  const actDate = ta.dataset.actDate || '';
+  const btn = document.querySelector('.modal-btn-save');
   try {
-    const res = await fetch('/api/workouts', {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ id: woId, compliance_note: note })
-    });
-    if (!res.ok) throw new Error('Save failed');
-    // Update local cache
-    const wo = (athWorkoutsCache || []).find(w => w.id === woId);
-    if (wo) wo.compliance_note = note;
-    // Show brief save confirmation
-    const btn = document.querySelector('.modal-btn-save');
+    if (woId) {
+      // Has planned workout — save to compliance_note
+      const res = await fetch('/api/workouts', {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ id: woId, compliance_note: note })
+      });
+      if (!res.ok) throw new Error('Save failed');
+      const wo = (athWorkoutsCache || []).find(w => String(w.id) === String(woId));
+      if (wo) wo.compliance_note = note;
+    } else if (actDate && currentAthlete && currentAthlete.id) {
+      // ICU-only — save to coaching_notes table
+      const res = await fetch('/api/coaching-notes', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ athlete_id: currentAthlete.id, date: actDate, note })
+      });
+      if (!res.ok) throw new Error('Save failed');
+    } else {
+      return; // nothing to save
+    }
     if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save note', 1500); }
   } catch(e) {
     alert('Could not save note: ' + e.message);

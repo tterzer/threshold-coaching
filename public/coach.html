@@ -133,6 +133,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-btn-delete:hover{background:rgba(226,75,74,0.1);border-color:#E24B4A}
 .modal-close-x{position:absolute;top:16px;right:20px;background:none;border:none;color:var(--tc3);font-size:22px;cursor:pointer;line-height:1;padding:4px 8px}
 .modal-close-x:hover{color:var(--tc)}
+.modal-note-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-family:'DM Mono',monospace;font-size:12px;padding:10px 12px;resize:vertical;min-height:64px;margin-bottom:12px;outline:none}
+.modal-note-input:focus{border-color:var(--acc)}
 .cal-race{font-family:'DM Mono',monospace;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:24px;line-height:24px;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box}
 .cal-race.priority-A{background:#FFD700;color:#1a1000}
 .cal-race.priority-B{background:#C0C0C0;color:#111}
@@ -739,7 +741,7 @@ function _fmtBlockTime(iso){
 }
 
 // Open a block detail modal (coach view — read only, shows planned vs actual)
-function openBlockModal(evt, mode, woId, icuId){
+async function openBlockModal(evt, mode, woId, icuId){
   if(evt)evt.stopPropagation();
   const wo=woId?workoutsCache.find(x=>String(x.id)===woId):null;
   const act=icuId?athleteIcuActivities.find(x=>String(x.id)===icuId):null;
@@ -827,6 +829,19 @@ function openBlockModal(evt, mode, woId, icuId){
     }
   }
 
+  // Athlete note section — fetch existing note
+  let athleteNote = wo ? (wo.compliance_note||'') : '';
+  const _noteActDate = act ? (act.start_date_local||'').slice(0,10) : (wo ? wo.date : '');
+  const _noteAthleteId = selectedAthlete ? selectedAthlete.id : null;
+  if (!wo && act && _noteAthleteId && _noteActDate) {
+    try {
+      const nr = await fetch('/api/coaching-notes?athlete_id='+_noteAthleteId+'&date='+_noteActDate);
+      if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) athleteNote = nd.notes[0].note || ''; }
+    } catch(e) {}
+  }
+  html+='<div class="modal-section-label" style="margin-top:1rem">Athlete Note</div>'
+    +'<textarea class="modal-note-input" id="coachCompNote" placeholder="No note yet..." data-wo-id="'+(wo?wo.id:'')+'" data-act-date="'+_noteActDate+'" data-athlete-id="'+(_noteAthleteId||'')+'">'+escHtml(athleteNote)+'</textarea>';
+
   // Footer buttons
   let footerBtns='';
   if(mode==='planned'&&wo){
@@ -840,9 +855,10 @@ function openBlockModal(evt, mode, woId, icuId){
 
   const detailBtn=act?'<button class="modal-btn-close" onclick="document.getElementById(\'blockModal\').style.display=\'none\';openDetailView(\''+String(act.id)+'\',\''+sport+'\')" style="border-color:var(--acc);color:var(--acc)">Detailed view →</button>':'';
 
-  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem">'
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem">'
     +footerBtns
     +'<div style="display:flex;gap:8px">'
+      +'<button class="modal-btn-save" onclick="saveCoachNote()">Save note</button>'
       +detailBtn
       +'<button class="modal-btn-close" onclick="closeBlockModal()">Close</button>'
     +'</div>'
@@ -855,6 +871,34 @@ function openBlockModal(evt, mode, woId, icuId){
 
 function closeBlockModal(){
   document.getElementById('blockModal').classList.remove('show');
+}
+
+async function saveCoachNote(){
+  const ta = document.getElementById('coachCompNote');
+  if (!ta) return;
+  const note = ta.value.trim();
+  const woId = ta.dataset.woId ? Number(ta.dataset.woId)||ta.dataset.woId : null;
+  const actDate = ta.dataset.actDate || '';
+  const athleteId = ta.dataset.athleteId || '';
+  const btn = document.querySelector('#blockModal .modal-btn-save');
+  try {
+    if (woId) {
+      const res = await fetch('/api/workouts', {
+        method: 'PUT', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ id: woId, compliance_note: note })
+      });
+      if (!res.ok) throw new Error('Save failed');
+      const wo = (workoutsCache||[]).find(w => String(w.id)===String(woId));
+      if (wo) wo.compliance_note = note;
+    } else if (actDate && athleteId) {
+      const res = await fetch('/api/coaching-notes', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ athlete_id: athleteId, date: actDate, note })
+      });
+      if (!res.ok) throw new Error('Save failed');
+    } else { return; }
+    if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save note', 1500); }
+  } catch(e) { alert('Could not save note: ' + e.message); }
 }
 
 async function deleteCoachWorkout(id){
