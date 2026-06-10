@@ -164,6 +164,15 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
 .modal-panel{display:none}
 .modal-panel.active{display:block}
+.detail-metric { background:var(--bc3); border:1px solid var(--border); padding:12px 16px; text-align:center; flex:1; min-width:90px; }
+.detail-metric-val { font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:700; color:var(--tc); line-height:1; margin-bottom:3px; }
+.detail-metric-label { font-family:'DM Mono',monospace; font-size:9px; color:var(--tc3); text-transform:uppercase; letter-spacing:0.1em; }
+.stream-toggle { font-family:'DM Mono',monospace; font-size:10px; padding:4px 12px; border:1px solid var(--border); background:none; cursor:pointer; letter-spacing:0.06em; color:var(--tc2); transition:all 0.15s; }
+.stream-toggle.active { background:var(--bc3); color:var(--tc); }
+.laps-table { width:100%; border-collapse:collapse; font-size:12px; }
+.laps-table th { font-family:'DM Mono',monospace; font-size:9px; color:var(--tc3); text-transform:uppercase; letter-spacing:0.08em; padding:8px 10px; text-align:left; border-bottom:1px solid var(--border); }
+.laps-table td { font-family:'DM Mono',monospace; font-size:11px; color:var(--tc2); padding:7px 10px; border-bottom:1px solid rgba(42,42,42,0.5); }
+.laps-table tr:hover td { color:var(--tc); background:var(--bc3); }
 @media(max-width:900px){
   .layout{grid-template-columns:1fr}
   .metrics{grid-template-columns:1fr}
@@ -826,9 +835,14 @@ function openBlockModal(evt, mode, woId, icuId){
     footerBtns='<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete planned</button>';
   }
 
+  const detailBtn=act?'<button class="modal-btn-close" onclick="closeBlockModal();openDetailView(\''+String(act.id)+'\',\''+sport+'\')" style="border-color:var(--acc);color:var(--acc)">Detailed view →</button>':'';
+
   html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem">'
     +footerBtns
-    +'<button class="modal-btn-close" onclick="closeBlockModal()">Close</button>'
+    +'<div style="display:flex;gap:8px">'
+      +detailBtn
+      +'<button class="modal-btn-close" onclick="closeBlockModal()">Close</button>'
+    +'</div>'
   +'</div>';
 
   document.getElementById('blockModalBody').innerHTML=html;
@@ -1168,6 +1182,264 @@ function buildCoachSportCTL(acts) {
   });
 }
 
+// ── Detail view ──────────────────────────────────────────────────────
+function _fmtDur(secs){if(!secs)return'—';const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
+function _fmtDist(m){if(!m)return'—';const mi=m/1609.34;return mi.toFixed(1)+' mi';}
+function _fmtPaceOrSpeed(ms, sport) {
+  if (!ms || ms <= 0) return '—';
+  if (sport === 'running') {
+    const secPerMile = 1609.34 / ms;
+    const mm = Math.floor(secPerMile/60), ss = Math.round(secPerMile%60);
+    return mm+':'+(ss<10?'0':'')+ss+'/mi';
+  }
+  return (ms * 2.23694).toFixed(1)+' mph';
+}
+
+let _detailChart = null;
+let _detailStreams = {};
+let _detailAct = null;
+let _detailSport = null;
+let _detailVisible = {};
+
+function openDetailView(actId, sport) {
+  const overlay = document.getElementById('detailOverlay');
+  overlay.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+
+  const act = (athleteIcuActivities || []).find(a => String(a.id) === String(actId));
+  _detailAct = act;
+  _detailSport = sport || 'cycling';
+
+  if (!act) return;
+
+  document.getElementById('detailActivityName').textContent = act.name || 'Activity';
+  document.getElementById('detailActivityDate').textContent = _fmtModalDate(act.start_date_local);
+
+  const metricsEl = document.getElementById('detailMetricsStrip');
+  const metrics = [
+    { label:'Duration', val: _fmtDur(act.moving_time || act.elapsed_time) },
+    { label:'Distance', val: _fmtDist(act.distance) },
+    { label:'TSS',      val: act.icu_training_load ? Math.round(act.icu_training_load) : '—' },
+    { label:'Avg HR',   val: (act.average_heartrate || act.avg_heart_rate) ? Math.round(act.average_heartrate || act.avg_heart_rate) + ' bpm' : '—' },
+    { label: sport==='running'?'Avg Pace':'Avg Speed', val: _fmtPaceOrSpeed(act.average_speed, sport) },
+    { label:'Avg Power', val: (act.average_watts||act.weighted_average_watts) ? Math.round(act.average_watts||act.weighted_average_watts)+'w' : '—' },
+  ];
+  metricsEl.innerHTML = metrics.map(m => `<div class="detail-metric"><div class="detail-metric-val">${m.val}</div><div class="detail-metric-label">${m.label}</div></div>`).join('');
+
+  if (_detailChart) { _detailChart.destroy(); _detailChart = null; }
+
+  _setupDetailStreams(actId, sport, act);
+}
+
+function closeDetailView() {
+  document.getElementById('detailOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+  if (_detailChart) { _detailChart.destroy(); _detailChart = null; }
+}
+
+async function _setupDetailStreams(actId, sport, act) {
+  const streamDefs = {
+    cycling: ['watts','heartrate','velocity_smooth','cadence','altitude'],
+    running: ['velocity_smooth','heartrate','cadence','altitude'],
+    swimming: ['velocity_smooth','heartrate'],
+    strength: ['heartrate'],
+    other: ['heartrate'],
+  };
+  const streams = streamDefs[sport] || streamDefs.other;
+
+  const streamColors = {
+    watts: '#888', heartrate: '#E24B4A', velocity_smooth: sport==='running'?'#639922':'#378ADD',
+    cadence: '#7F77DD', altitude: sport==='running'?'#555':'#639922',
+  };
+  const streamLabels = {
+    watts: 'Power', heartrate: 'HR', velocity_smooth: sport==='running'?'Pace':'Speed',
+    cadence: 'Cadence', altitude: 'Elevation',
+  };
+
+  _detailVisible = Object.fromEntries(streams.map(s => [s, true]));
+
+  const togglesEl = document.getElementById('detailToggles');
+  togglesEl.innerHTML = streams.map(s =>
+    `<button class="stream-toggle active" id="dtoggle_${s}" onclick="_toggleDetailStream('${s}')" style="border-color:${streamColors[s]};color:${streamColors[s]}">${streamLabels[s]||s}</button>`
+  ).join('');
+
+  const chartContainer = document.getElementById('detailChart').parentElement;
+  chartContainer.style.opacity = '0.4';
+
+  _detailStreams = {};
+  const athleteId = selectedAthlete ? selectedAthlete.intervals_athlete_id : null;
+  const apiKey = selectedAthlete ? selectedAthlete.intervals_api_key : null;
+
+  // Fetch laps first
+  if (!act.laps && athleteId && apiKey) {
+    try {
+      const lapData = await intervalsCall(athleteId, apiKey, actId, null, 'activity');
+      act.laps = (lapData && lapData.laps) || [];
+    } catch(e) {}
+  }
+  _renderLaps(act, sport);
+
+  await Promise.all(streams.map(async (streamType) => {
+    // Check Supabase cache first
+    try {
+      const cacheRes = await fetch(`/api/stream-cache?activity_id=${actId}&stream_type=${streamType}`);
+      if (cacheRes.ok) {
+        const cacheData = await cacheRes.json();
+        if (cacheData && cacheData.cached && Array.isArray(cacheData.data) && cacheData.data.length > 0) {
+          _detailStreams[streamType] = cacheData.data;
+          return;
+        }
+      }
+    } catch(e) {}
+
+    if (!athleteId || !apiKey) return;
+    try {
+      const data = await intervalsCall(athleteId, apiKey, actId+'/streams', 'types='+streamType, 'activity');
+      let arr = null;
+      if (Array.isArray(data)) {
+        const match = data.find(d => d.type === streamType) || data[0];
+        arr = match ? (match.data || match) : null;
+      } else if (data && data[streamType]) {
+        arr = data[streamType].data || data[streamType];
+      } else if (data && data.data) {
+        arr = data.data;
+      }
+      arr = Array.isArray(arr) ? arr : [];
+      if (arr.length) {
+        _detailStreams[streamType] = arr;
+        fetch('/api/stream-cache', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ activity_id: String(actId), stream_type: streamType, data: arr })
+        }).catch(()=>{});
+      }
+    } catch(e) { console.warn('Stream fetch failed', streamType, e); }
+  }));
+
+  chartContainer.style.opacity = '1';
+  _renderDetailChart(sport);
+}
+
+function _renderDetailChart(sport) {
+  if (_detailChart) { _detailChart.destroy(); _detailChart = null; }
+
+  const canvas = document.getElementById('detailChart');
+  const ctx = canvas.getContext('2d');
+
+  const streamArrays = Object.values(_detailStreams).filter(a => a && a.length);
+  if (streamArrays.length === 0) {
+    ctx.fillStyle='#555'; ctx.font='12px monospace';
+    ctx.fillText('No stream data available', 20, 150);
+    return;
+  }
+  const maxLen = Math.max(...streamArrays.map(a => a.length));
+
+  const datasets = [];
+
+  if (sport === 'cycling') {
+    if (_detailStreams.watts && _detailVisible.watts) {
+      datasets.push({ label:'Power (w)', data:_detailStreams.watts.slice(0,maxLen), borderColor:'#666', backgroundColor:'rgba(100,100,100,0.15)', fill:true, tension:0.1, pointRadius:0, borderWidth:1.5, yAxisID:'yLeft', order:3 });
+    }
+    if (_detailStreams.altitude && _detailVisible.altitude) {
+      datasets.push({ label:'Elevation (ft)', data:_detailStreams.altitude.slice(0,maxLen).map(v=>v*3.28084), borderColor:'rgba(100,160,100,0.5)', backgroundColor:'rgba(100,160,100,0.08)', fill:true, tension:0.3, pointRadius:0, borderWidth:1, yAxisID:'yEle', order:4 });
+    }
+    if (_detailStreams.heartrate && _detailVisible.heartrate) {
+      datasets.push({ label:'HR (bpm)', data:_detailStreams.heartrate.slice(0,maxLen), borderColor:'#E24B4A', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:2 });
+    }
+    if (_detailStreams.velocity_smooth && _detailVisible.velocity_smooth) {
+      datasets.push({ label:'Speed (mph)', data:_detailStreams.velocity_smooth.slice(0,maxLen).map(v=>v*2.23694), borderColor:'#378ADD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:1 });
+    }
+    if (_detailStreams.cadence && _detailVisible.cadence) {
+      datasets.push({ label:'Cadence (rpm)', data:_detailStreams.cadence.slice(0,maxLen), borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:0 });
+    }
+  } else if (sport === 'running') {
+    if (_detailStreams.altitude && _detailVisible.altitude) {
+      datasets.push({ label:'Elevation (ft)', data:_detailStreams.altitude.slice(0,maxLen).map(v=>v*3.28084), borderColor:'rgba(100,100,100,0.5)', backgroundColor:'rgba(100,100,100,0.08)', fill:true, tension:0.3, pointRadius:0, borderWidth:1, yAxisID:'yEle', order:4 });
+    }
+    if (_detailStreams.velocity_smooth && _detailVisible.velocity_smooth) {
+      datasets.push({ label:'Pace (min/mi)', data:_detailStreams.velocity_smooth.slice(0,maxLen).map(v=>v>0.1?1609.34/v:null), borderColor:'#639922', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yLeft', order:3 });
+    }
+    if (_detailStreams.heartrate && _detailVisible.heartrate) {
+      datasets.push({ label:'HR (bpm)', data:_detailStreams.heartrate.slice(0,maxLen), borderColor:'#E24B4A', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:2 });
+    }
+    if (_detailStreams.cadence && _detailVisible.cadence) {
+      datasets.push({ label:'Cadence (spm)', data:_detailStreams.cadence.slice(0,maxLen), borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:1 });
+    }
+  } else {
+    if (_detailStreams.velocity_smooth && _detailVisible.velocity_smooth) {
+      datasets.push({ label:'Pace', data:_detailStreams.velocity_smooth.slice(0,maxLen).map(v=>v>0.01?91.44/v:null), borderColor:'#1D9E75', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yLeft', order:2 });
+    }
+    if (_detailStreams.heartrate && _detailVisible.heartrate) {
+      datasets.push({ label:'HR (bpm)', data:_detailStreams.heartrate.slice(0,maxLen), borderColor:'#E24B4A', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:1 });
+    }
+  }
+
+  const scales = {
+    x: { type:'category', labels:Array.from({length:maxLen}, (_,i)=> i%300===0 ? (()=>{const h=Math.floor(i/3600),m=Math.floor((i%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';})() : ''), ticks:{color:'#555',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12}, grid:{color:'rgba(42,42,42,0.5)'} },
+    yLeft: { type:'linear', position:'left', reverse:sport==='running', ticks:{ color:'#555', font:{family:"'DM Mono'",size:9}, callback: sport==='running' ? (v)=>{const mm=Math.floor(v/60),ss=Math.round(v%60);return mm+':'+(ss<10?'0':'')+ss;} : undefined }, grid:{color:'rgba(42,42,42,0.5)'} },
+    yRight: { type:'linear', position:'right', ticks:{color:'#555',font:{family:"'DM Mono'",size:9}}, grid:{display:false} },
+    yEle: { type:'linear', position:'right', display:false },
+  };
+
+  _detailChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: Array.from({length: maxLen}), datasets },
+    options: {
+      animation: false,
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#888',bodyColor:'#ccc',borderColor:'#2a2a2a',borderWidth:1} },
+      scales,
+      elements: { line:{capBezierPoints:false} },
+    }
+  });
+}
+
+function _toggleDetailStream(stream) {
+  _detailVisible[stream] = !_detailVisible[stream];
+  const btn = document.getElementById('dtoggle_' + stream);
+  if (btn) btn.classList.toggle('active', _detailVisible[stream]);
+  _renderDetailChart(_detailSport);
+}
+
+function _renderLaps(act, sport) {
+  const lapsEl = document.getElementById('detailLapsSection');
+  const laps = act.laps;
+  if (!laps || !laps.length) { lapsEl.style.display = 'none'; return; }
+  lapsEl.style.display = 'block';
+
+  let headers, rows;
+  if (sport === 'cycling') {
+    headers = ['Lap','Duration','Distance','Avg Power','NP','Avg HR','Avg Speed','Cadence','TSS'];
+    rows = laps.map((lap,i) => [
+      i+1, _fmtDur(lap.moving_time||lap.elapsed_time),
+      lap.distance?(lap.distance/1609.34).toFixed(2)+' mi':'—',
+      lap.average_watts?Math.round(lap.average_watts)+'w':'—',
+      lap.normalized_power?Math.round(lap.normalized_power)+'w':'—',
+      lap.average_heartrate?Math.round(lap.average_heartrate)+' bpm':'—',
+      lap.average_speed?(lap.average_speed*2.23694).toFixed(1)+' mph':'—',
+      lap.average_cadence?Math.round(lap.average_cadence):'—',
+      lap.training_stress_score?Math.round(lap.training_stress_score):'—',
+    ]);
+  } else if (sport === 'running') {
+    headers = ['Lap','Duration','Distance','Avg Pace','Avg HR','Cadence','Elev Gain'];
+    rows = laps.map((lap,i) => {
+      let pace='—';
+      if(lap.average_speed&&lap.average_speed>0){const spmi=1609.34/lap.average_speed,mm=Math.floor(spmi/60),ss=Math.round(spmi%60);pace=mm+':'+(ss<10?'0':'')+ss+'/mi';}
+      return [i+1,_fmtDur(lap.moving_time||lap.elapsed_time),lap.distance?(lap.distance/1609.34).toFixed(2)+' mi':'—',pace,lap.average_heartrate?Math.round(lap.average_heartrate)+' bpm':'—',lap.average_cadence?Math.round(lap.average_cadence*2):'—',lap.total_elevation_gain?Math.round(lap.total_elevation_gain*3.28084)+"'":"—"];
+    });
+  } else {
+    headers = ['Lap','Duration','Distance','Avg Pace','Avg HR'];
+    rows = laps.map((lap,i) => [
+      i+1, _fmtDur(lap.moving_time||lap.elapsed_time),
+      lap.distance?Math.round(lap.distance*1.09361)+' yd':'—',
+      lap.average_speed&&lap.average_speed>0.01?(()=>{const spyd=91.44/lap.average_speed,mm=Math.floor(spyd/60),ss=Math.round(spyd%60);return mm+':'+(ss<10?'0':'')+ss+'/100yd';})():'—',
+      lap.average_heartrate?Math.round(lap.average_heartrate)+' bpm':'—',
+    ]);
+  }
+
+  document.getElementById('detailLapsTable').innerHTML = `<table class="laps-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
 // --- AI chat helpers ---
 function parseWorkoutFromText(text){
   const lower=text.toLowerCase();
@@ -1381,6 +1653,25 @@ async function sendChat(){
   }
 }
 </script>
+
+<div id="detailOverlay" style="display:none;position:fixed;inset:0;background:var(--bc);z-index:2000;overflow-y:auto;padding:32px 40px">
+  <div style="max-width:1100px;margin:0 auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+      <button onclick="closeDetailView()" style="background:none;border:none;color:var(--tc2);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.06em;padding:0">← Back</button>
+      <div id="detailActivityName" style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase;color:var(--tc)"></div>
+      <div id="detailActivityDate" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc2)"></div>
+    </div>
+    <div id="detailMetricsStrip" style="display:flex;gap:1px;margin-bottom:28px"></div>
+    <div id="detailToggles" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
+    <div style="background:var(--bc2);border:1px solid var(--border);padding:20px;margin-bottom:24px">
+      <div style="position:relative;height:300px"><canvas id="detailChart"></canvas></div>
+    </div>
+    <div id="detailLapsSection">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Lap Splits</div>
+      <div id="detailLapsTable" style="overflow-x:auto"></div>
+    </div>
+  </div>
+</div>
 
 <!-- Block detail modal (coach calendar) -->
 <div class="block-modal-bg" id="blockModal">
