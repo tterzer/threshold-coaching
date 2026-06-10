@@ -168,29 +168,25 @@ async function buildActivityAnalysis(athleteRow, ftp, messages) {
   }
 
   const totalSecs = target.moving_time || target.elapsed_time || 0;
-  const dist = target.distance ? (target.distance / 1000).toFixed(2) + 'km' : '—';
-  const tss = target.icu_training_load ? Math.round(target.icu_training_load) : '—';
-
-  let out = `\nACTIVITY DATA for "${target.name}" on ${(target.start_date_local || '').slice(0, 10)}:\n`;
-  out += `Duration: ${fmtDur(totalSecs)} | Distance: ${dist} | TSS: ${tss}`;
-  if (ftp) out += ` | Athlete FTP: ${ftp}w`;
-  out += '\n\n';
+  const tss = target.icu_training_load ? Math.round(target.icu_training_load) : 'unknown';
 
   const coachPrompt = `You are an experienced triathlon coach. Here is the raw power data (watts) from a training ride recorded every second. Look at it exactly like you would glance at a power file in TrainingPeaks. Tell me what the athlete did in plain English - warmup, main set, cooldown. What were the intervals if any? How long, how hard, how many? Don't analyze the numbers mathematically. Just describe what you see the way a coach would.`;
 
+  let systemStr = `You are an experienced triathlon coach analyzing a training file.\n\n`;
+  systemStr += `FTP: ${ftp ? ftp + 'w' : 'unknown'} | Duration: ${fmtDur(totalSecs)} | TSS: ${tss}\n\n`;
+
   if (sport === 'cycling' && streams.watts) {
-    out += `Watts: ${JSON.stringify(streams.watts)}\n`;
-    if (streams.heartrate) out += `Heart rate: ${JSON.stringify(streams.heartrate)}\n`;
-    out += `\n${coachPrompt}`;
+    systemStr += `Watts: ${JSON.stringify(streams.watts)}\n`;
+    if (streams.heartrate) systemStr += `Heart rate: ${JSON.stringify(streams.heartrate)}\n`;
   } else if (streams.velocity_smooth) {
-    out += `Velocity (m/s): ${JSON.stringify(streams.velocity_smooth)}\n`;
-    if (streams.heartrate) out += `Heart rate: ${JSON.stringify(streams.heartrate)}\n`;
-    out += `\n${coachPrompt}`;
+    systemStr += `Velocity (m/s): ${JSON.stringify(streams.velocity_smooth)}\n`;
+    if (streams.heartrate) systemStr += `Heart rate: ${JSON.stringify(streams.heartrate)}\n`;
   } else {
     return null;
   }
 
-  return out;
+  systemStr += `\n${coachPrompt}`;
+  return systemStr;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -358,11 +354,14 @@ export default async function handler(req, res) {
     }
   }
 
-  const fullSystem = BASE_SYSTEM_PROMPT
-    + (athleteContext ? '\n' + athleteContext : '')
-    + (historyContext || '')
-    + (streamAnalysis ? '\n' + streamAnalysis : '')
-    + (system ? '\n\n' + system : '');
+  // Activity analysis gets a minimal system prompt — just the raw file data.
+  // Everything else gets the full coaching context.
+  const fullSystem = streamAnalysis
+    ? streamAnalysis
+    : BASE_SYSTEM_PROMPT
+      + (athleteContext ? '\n' + athleteContext : '')
+      + (historyContext || '')
+      + (system ? '\n\n' + system : '');
 
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
