@@ -1809,7 +1809,7 @@ function openAthBlockModal(mode, woId, icuId){
   const deleteBtn=(mode==='planned'&&wo)
     ?'<button class="modal-btn-delete" onclick="deleteAthWorkout('+wo.id+')">Delete</button>'
     :'';
-  const detailBtn=act?'<button class="modal-btn-close" onclick="closeAthModal();openDetailView(\''+String(act.id)+'\',\''+sport+'\')" style="border-color:var(--acc);color:var(--acc)">Detailed view →</button>':'';
+  const detailBtn=act?'<button class="modal-btn-close" onclick="document.getElementById(\'athWoModal\').style.display=\'none\';openDetailView(\''+String(act.id)+'\',\''+sport+'\')" style="border-color:var(--acc);color:var(--acc)">Detailed view →</button>':'';
   html+='<div class="modal-actions">'
     +'<div style="display:flex;gap:8px">'
       +deleteBtn
@@ -1945,6 +1945,11 @@ function closeDetailView() {
   document.getElementById('detailOverlay').style.display = 'none';
   document.body.style.overflow = '';
   if (_detailChart) { _detailChart.destroy(); _detailChart = null; }
+  // Restore summary modal if it was hidden (not closed) when opening detail view
+  const modal = document.getElementById('athWoModal');
+  if (modal && modal.style.display === 'none') {
+    modal.style.display = '';
+  }
 }
 
 async function _setupDetailStreams(actId, sport, act) {
