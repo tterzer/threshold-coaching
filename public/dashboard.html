@@ -2516,35 +2516,36 @@ function _applyFitnessToUI(){
 
 <!-- ── Nutrition tab ──────────────────────────────────────────────── -->
 <style>
-.nutr-card{background:var(--bc2);border:1px solid var(--border);padding:20px;margin-bottom:16px}
+.nutr-card{background:var(--bc2);border:1px solid var(--border);padding:1.5rem;margin-bottom:14px}
 .nutr-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
 .nutr-row:last-child{border-bottom:none}
-.nutr-macro{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
-.nutr-macro-box{background:var(--bc3);padding:14px;text-align:center}
-.nutr-macro-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700}
-.nutr-macro-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px}
-.nutr-window{background:var(--bc3);border:1px solid var(--border);padding:14px;margin-bottom:10px}
-.nutr-window-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.nutr-window-lbl{font-weight:600;font-size:13px;color:var(--tc)}
+.nutr-macro{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.nutr-macro-box{background:var(--bc3);border:1px solid var(--border);padding:14px 10px;text-align:center}
+.nutr-macro-val{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;line-height:1}
+.nutr-macro-lbl{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-top:6px}
+.nutr-window{background:var(--bc3);border:1px solid var(--border);padding:14px;margin-bottom:6px}
+.nutr-window-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.nutr-window-lbl{font-family:'DM Mono',monospace;font-size:10px;font-weight:400;text-transform:uppercase;letter-spacing:0.1em;color:var(--tc2)}
 .nutr-window-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)}
-.nutr-progress{height:4px;background:var(--border);margin:6px 0}
-.nutr-progress-fill{height:4px;background:var(--acc);transition:width 0.3s}
-.nutr-food-entry{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bc);margin-top:4px;font-size:12px}
-.nutr-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-size:13px;font-family:'DM Mono',monospace}
-.nutr-input:focus{outline:none;border-color:var(--acc)}
-.nutr-select{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-size:12px;font-family:'DM Mono',monospace}
-.nutr-select:focus{outline:none;border-color:var(--acc)}
-.nutr-btn{background:var(--acc);color:#000;border:none;padding:8px 18px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;cursor:pointer}
-.nutr-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--tc2);padding:8px 18px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer}
-.nutr-intent{font-family:'DM Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.08em;padding:3px 10px;text-transform:uppercase}
-.nutr-intent-yellow{background:#1a1400;color:#FFD166;border:1px solid #3a3000}
-.nutr-intent-green{background:#001a12;color:#06D6A0;border:1px solid #003025}
-.nutr-intent-blue{background:#001020;color:#00B4D8;border:1px solid #002030}
-.nutr-search-result{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px}
+.nutr-progress{height:3px;background:var(--bc4);margin:6px 0}
+.nutr-progress-fill{height:3px;transition:width 0.3s}
+.nutr-food-entry{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bc);border-top:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px}
+.nutr-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-size:13px;font-family:'DM Mono',monospace;outline:none}
+.nutr-input:focus{border-color:var(--acc)}
+.nutr-select{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-size:12px;font-family:'DM Mono',monospace;outline:none}
+.nutr-select:focus{border-color:var(--acc)}
+.nutr-btn{background:var(--acc);color:#000;border:none;padding:8px 18px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer}
+.nutr-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--tc2);padding:8px 18px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
+.nutr-btn-ghost:hover{border-color:var(--acc);color:var(--acc)}
+.nutr-intent{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;padding:2px 8px;text-transform:uppercase;border-radius:2px}
+.nutr-intent-yellow{background:rgba(200,240,54,0.1);color:var(--acc);border:1px solid rgba(200,240,54,0.25)}
+.nutr-intent-green{background:rgba(99,153,34,0.1);color:#639922;border:1px solid rgba(99,153,34,0.25)}
+.nutr-intent-blue{background:rgba(55,138,221,0.1);color:#378ADD;border:1px solid rgba(55,138,221,0.25)}
+.nutr-search-result{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px}
 .nutr-search-result:hover{background:var(--bc3)}
 .nutr-day-hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bc3);border-bottom:1px solid var(--border)}
-.nutr-week-day{border:1px solid var(--border);margin-bottom:8px}
-#nutrBarcodeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:1000;align-items:center;justify-content:center}
+.nutr-week-day{border:1px solid var(--border);margin-bottom:6px}
+#nutrBarcodeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1000;align-items:center;justify-content:center}
 </style>
 
 <script>
@@ -2866,14 +2867,14 @@ function nutrRenderToday(){
   if(windows){
     windowHtml=windows.map(w=>{
       const pct=w.carbTarget>0?Math.min(100,Math.round(w.carbEaten/w.carbTarget*100)):0;
-      const barColor=pct>=100?'#E24B4A':pct>=80?'#c8f036':'#00B4D8';
+      const barColor=pct>=100?'#E24B4A':pct>=80?'#c8f036':'#378ADD';
       const entries=nutr.foodEntries.filter(e=>e.windowId===w.id);
       const entryHtml=entries.map(e=>`
         <div class="nutr-food-entry">
           <span style="color:var(--tc);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.name} (${e.qty}${e.unit})</span>
-          <span style="color:#E94560;margin-left:8px">${e.carbs}g C</span>
-          <span style="color:#06D6A0;margin-left:6px">${e.protein}g P</span>
-          <span style="color:#00B4D8;margin-left:6px">${e.fat}g F</span>
+          <span style="color:#E24B4A;margin-left:8px">${e.carbs}g C</span>
+          <span style="color:#639922;margin-left:6px">${e.protein}g P</span>
+          <span style="color:#378ADD;margin-left:6px">${e.fat}g F</span>
           <button onclick="nutrRemoveFood('${e.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;margin-left:8px;font-size:14px">✕</button>
         </div>`).join('');
 
@@ -2887,7 +2888,7 @@ function nutrRenderToday(){
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
           <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Carbs</span>
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:#E94560;font-weight:700">${w.carbEaten}g / ${w.carbTarget}g</span>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;font-weight:700">${w.carbEaten}g / ${w.carbTarget}g</span>
         </div>
         <div class="nutr-progress"><div class="nutr-progress-fill" style="width:${pct}%;background:${barColor}"></div></div>
         ${w.type!=='intra'?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">P: ${w.proteinEaten}/${w.proteinTarget}g &nbsp; F: ${w.fatEaten}/${w.fatTarget}g</div>`:''}
@@ -2898,12 +2899,12 @@ function nutrRenderToday(){
     windowHtml=`<div class="nutr-card">
       <div class="section-label" style="margin-top:0;margin-bottom:12px">Fuelling breakdown</div>
       <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-bottom:12px">Add session start times to see detailed windows</p>
-      <div class="nutr-row"><span style="color:var(--tc2)">Pre-session</span><span style="color:#FFD166;font-weight:700">${targets.pre}g</span></div>
-      <div class="nutr-row"><span style="color:var(--tc2)">Intra (during)</span><span style="color:#FFD166;font-weight:700">${targets.intra}g</span></div>
-      <div class="nutr-row"><span style="color:var(--tc2)">Post-session</span><span style="color:#FFD166;font-weight:700">${targets.post}g</span></div>
+      <div class="nutr-row"><span style="color:var(--tc2)">Pre-session</span><span style="color:#c8f036;font-weight:700">${targets.pre}g</span></div>
+      <div class="nutr-row"><span style="color:var(--tc2)">Intra (during)</span><span style="color:#c8f036;font-weight:700">${targets.intra}g</span></div>
+      <div class="nutr-row"><span style="color:var(--tc2)">Post-session</span><span style="color:#c8f036;font-weight:700">${targets.post}g</span></div>
       <div class="nutr-row" style="border-top:1px solid var(--border);margin-top:4px">
         <span style="font-weight:600">From meals</span>
-        <span style="color:#E94560;font-size:18px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${targets.foodCarbs}g</span>
+        <span style="color:#E24B4A;font-size:18px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${targets.foodCarbs}g</span>
       </div>
     </div>`;
   }
@@ -2920,9 +2921,9 @@ function nutrRenderToday(){
         ${intentHtml}
       </div>
       <div class="nutr-macro">
-        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#E94560">${rem.carbs}</div><div class="nutr-macro-lbl">Carbs rem.</div></div>
-        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#06D6A0">${rem.protein}</div><div class="nutr-macro-lbl">Protein rem.</div></div>
-        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#00B4D8">${rem.fat}</div><div class="nutr-macro-lbl">Fat rem.</div></div>
+        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#E24B4A">${rem.carbs}</div><div class="nutr-macro-lbl">Carbs rem.</div></div>
+        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#639922">${rem.protein}</div><div class="nutr-macro-lbl">Protein rem.</div></div>
+        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#378ADD">${rem.fat}</div><div class="nutr-macro-lbl">Fat rem.</div></div>
       </div>
       <div style="text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${rem.kcal.toLocaleString()} kcal remaining &nbsp;·&nbsp; Targets: ${targets.carbs}g C / ${targets.protein}g P / ${targets.fat}g F</div>
       ${targets.adjTss>0?`<div style="text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:4px">Adj. TSS: ${targets.adjTss}</div>`:''}
@@ -2941,10 +2942,10 @@ function nutrSearchPanelHtml(windowId){
   const resultsHtml=nutr.searchResults.length&&!nutr.selectedFood ? nutr.searchResults.map(f=>`
     <div class="nutr-search-result" onclick="nutrSelectFood(${JSON.stringify(JSON.stringify(f))})">
       <span style="font-weight:600;color:var(--tc)">${f.name}</span>
-      ${f.fromHistory?'<span style="color:#FFD166;margin-left:4px">★</span>':''}
+      ${f.fromHistory?'<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--acc);letter-spacing:0.06em;margin-left:6px;text-transform:uppercase">HIST</span>':''}
       ${f.brand?`<span style="color:var(--tc3)"> — ${f.brand}</span>`:''}
-      <span style="color:#E94560;margin-left:8px">${f.per100g?.carbs}g C</span>
-      <span style="color:#06D6A0;margin-left:4px">${f.per100g?.protein}g P</span>
+      <span style="color:#E24B4A;margin-left:8px">${f.per100g?.carbs}g C</span>
+      <span style="color:#639922;margin-left:4px">${f.per100g?.protein}g P</span>
       <span style="color:var(--tc3);margin-left:4px">per 100g</span>
       ${f.fromHistory?`<span style="color:var(--tc3);margin-left:4px">${f.use_count}×</span>`:''}
     </div>`).join('') : '';
@@ -2976,7 +2977,7 @@ function nutrSearchPanelHtml(windowId){
     <div style="display:flex;gap:6px">
       <input type="text" class="nutr-input" placeholder="Search food..." value="${nutr.searchQuery}"
         oninput="nutrSearchInput(this.value,'${windowId}')" autofocus>
-      <button onclick="nutrOpenBarcode('${windowId}')" style="background:var(--bc3);border:1px solid var(--border);padding:8px 12px;color:var(--tc);cursor:pointer;font-size:16px">📷</button>
+      <button onclick="nutrOpenBarcode('${windowId}')" style="background:var(--bc3);border:1px solid var(--border);padding:8px 12px;color:var(--tc2);cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase">SCAN</button>
     </div>
     ${resultsHtml?`<div style="background:var(--bc);border:1px solid var(--border);max-height:200px;overflow-y:auto">${resultsHtml}</div>`:''}
     ${selectedHtml}
@@ -3134,9 +3135,9 @@ function nutrRenderWeek(){
       <div class="nutr-day-hdr">
         <span style="font-weight:700;font-family:'DM Mono',monospace;font-size:12px">${d.day}</span>
         ${hasSess?`<div style="display:flex;gap:10px;align-items:center">
-          <span style="color:#E94560;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.carbs+res.intra}g C</span>
-          <span style="color:#06D6A0;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.protein}g P</span>
-          <span style="color:#00B4D8;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.fat}g F</span>
+          <span style="color:#E24B4A;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.carbs+res.intra}g C</span>
+          <span style="color:#639922;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.protein}g P</span>
+          <span style="color:#378ADD;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.fat}g F</span>
           <span class="nutr-intent ${res.intent.cls}">${res.intent.label}</span>
         </div>`:`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">No sessions</span>`}
       </div>
@@ -3146,7 +3147,7 @@ function nutrRenderWeek(){
   el.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div class="section-label" style="margin:0">Weekly planner</div>
-      <button class="nutr-btn" onclick="nutrSaveWeek()">Save Week</button>
+      <button class="nutr-btn" onclick="nutrSaveWeek()">SAVE WEEK</button>
     </div>
     ${daysHtml}`;
   // Restore select values
@@ -3169,7 +3170,7 @@ async function nutrSaveWeek(){
     body:JSON.stringify({athlete_id:currentAthlete.id,sessions:nutr.week,week_date:new Date().toISOString().split('T')[0]})});
   const d=await r.json();
   if(d.error) alert('Error: '+d.error);
-  else { const btn=document.querySelector('[onclick="nutrSaveWeek()"]'); if(btn){btn.textContent='Saved ✓';setTimeout(()=>btn.textContent='Save Week',2000);} }
+  else { const btn=document.querySelector('[onclick="nutrSaveWeek()"]'); if(btn){btn.textContent='SAVED';setTimeout(()=>btn.textContent='SAVE WEEK',2000);} }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3187,7 +3188,7 @@ function nutrRenderLog(){
   const macroInputs=macros.map(m=>`
     <div style="display:grid;grid-template-columns:1fr 80px 100px;gap:8px;align-items:center;margin-bottom:8px">
       <span style="font-size:13px;color:var(--tc)">${m.label}</span>
-      <span style="font-family:'DM Mono',monospace;font-size:13px;color:#06D6A0;text-align:center;font-weight:700">${m.target}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:13px;color:#639922;text-align:center;font-weight:700">${m.target}</span>
       <input type="number" class="nutr-input" placeholder="0" style="text-align:center"
         value="${nutr.logActuals[m.key]||''}" onchange="nutrSetActual('${m.key}',this.value)">
     </div>`).join('');
@@ -3197,7 +3198,7 @@ function nutrRenderLog(){
     ${macros.filter(m=>nutr.logActuals[m.key]).map(m=>{
       const diff=Number(nutr.logActuals[m.key])-m.target;
       const pct=Math.round(diff/m.target*100);
-      const color=Math.abs(pct)<=5?'#06D6A0':diff>0?'#E24B4A':'#FFD166';
+      const color=Math.abs(pct)<=5?'#639922':diff>0?'#E24B4A':'#c8f036';
       return `<div class="nutr-row">
         <span style="color:var(--tc2)">${m.label}</span>
         <span style="font-weight:700;font-family:'DM Mono',monospace;font-size:12px;color:${color}">${diff>0?'+':''}${diff} (${pct>0?'+':''}${pct}%)</span>
@@ -3209,16 +3210,16 @@ function nutrRenderLog(){
     <div class="section-label" style="margin-top:0;margin-bottom:10px">Recent logs</div>
     ${nutr.logHistory.map(log=>{
       const cv=log.actual_carbs&&log.target_carbs?log.actual_carbs-log.target_carbs:null;
-      const c=cv===null?'var(--tc3)':Math.abs(cv)<=15?'#06D6A0':cv>0?'#E24B4A':'#FFD166';
+      const c=cv===null?'var(--tc3)':Math.abs(cv)<=15?'#639922':cv>0?'#E24B4A':'#c8f036';
       return `<div style="background:var(--bc3);border:1px solid var(--border);padding:12px;margin-bottom:6px">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px">
           <span style="font-weight:600;font-size:13px">${log.log_date}</span>
           <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">${log.intent||''}</span>
         </div>
         <div style="display:flex;gap:14px;font-family:'DM Mono',monospace;font-size:11px">
-          <span style="color:#E94560">C: ${log.actual_carbs||'—'}g</span>
-          <span style="color:#06D6A0">P: ${log.actual_protein||'—'}g</span>
-          <span style="color:#00B4D8">F: ${log.actual_fat||'—'}g</span>
+          <span style="color:#E24B4A">C: ${log.actual_carbs||'—'}g</span>
+          <span style="color:#639922">P: ${log.actual_protein||'—'}g</span>
+          <span style="color:#378ADD">F: ${log.actual_fat||'—'}g</span>
           ${cv!==null?`<span style="font-weight:700;color:${c}">${cv>0?'+':''}${cv}g carbs</span>`:''}
         </div>
       </div>`;
@@ -3255,7 +3256,7 @@ function nutrRenderLog(){
       </div>
     </div>
     ${varHtml}
-    <button class="nutr-btn" style="width:100%;padding:14px;font-size:13px;margin-bottom:16px" onclick="nutrSaveLog()">LOG THIS DAY ▶</button>
+    <button class="nutr-btn" style="width:100%;padding:14px;font-size:13px;margin-bottom:16px" onclick="nutrSaveLog()">LOG THIS DAY</button>
     ${histHtml}`;
 }
 
@@ -3296,8 +3297,8 @@ function nutrRenderWeight(){
   const statsHtml=logs.length?`<div class="nutr-card">
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
       <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">LATEST</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${logs[0].weight_lbs} lbs</div></div>
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">7-DAY AVG</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#00B4D8">${(logs.slice(0,7).reduce((s,w)=>s+w.weight_lbs,0)/Math.min(7,logs.length)).toFixed(1)} lbs</div></div>
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">TO GOAL</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#FFD166">${(logs[0].weight_lbs-nutr.profile.goal_weight_lbs).toFixed(1)} lbs</div></div>
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">7-DAY AVG</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#378ADD">${(logs.slice(0,7).reduce((s,w)=>s+w.weight_lbs,0)/Math.min(7,logs.length)).toFixed(1)} lbs</div></div>
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">TO GOAL</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#c8f036">${(logs[0].weight_lbs-nutr.profile.goal_weight_lbs).toFixed(1)} lbs</div></div>
     </div>
   </div>` : '';
 
@@ -3307,7 +3308,7 @@ function nutrRenderWeight(){
       <div><div style="font-weight:600;font-size:14px">${l.weight_lbs} lbs</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${l.log_date}</div></div>
       <div style="text-align:right">
         ${l.body_fat_pct?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${l.body_fat_pct}% BF</div>`:''}
-        ${l.feeling?`<div style="color:#FFD166;font-size:12px">${'★'.repeat(l.feeling)}</div>`:''}
+        ${l.feeling?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:0.06em">${l.feeling}/5</div>`:''}
       </div>
     </div>`).join('')}
   </div>` : '';
@@ -3340,7 +3341,7 @@ function nutrRenderWeight(){
         <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Notes</label>
         <input type="text" class="nutr-input" placeholder="e.g. post-race, travel day..." value="${nutr.newWeightNotes}" onchange="nutr.newWeightNotes=this.value">
       </div>
-      <button class="nutr-btn" style="width:100%;padding:12px" onclick="nutrSaveWeight()">Log Weight ▶</button>
+      <button class="nutr-btn" style="width:100%;padding:12px" onclick="nutrSaveWeight()">LOG WEIGHT</button>
     </div>
     ${statsHtml}${histHtml}`;
 }
@@ -3383,9 +3384,9 @@ function nutrRenderSettings(){
         <div>
           <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Mode</label>
           <select class="nutr-select" style="width:100%" onchange="nutr.profile.mode=Number(this.value)">
-            <option value="1"${p.mode===1?' selected':''}>⬇ Cut — deficit on easy days</option>
-            <option value="2"${p.mode===2?' selected':''}>✅ Maintain — match TDEE</option>
-            <option value="3"${p.mode===3?' selected':''}>⬆ Build — surplus on hard days</option>
+            <option value="1"${p.mode===1?' selected':''}>CUT — deficit on easy days</option>
+            <option value="2"${p.mode===2?' selected':''}>MAINTAIN — match TDEE</option>
+            <option value="3"${p.mode===3?' selected':''}>BUILD — surplus on hard days</option>
           </select>
         </div>
         <div>
@@ -3393,12 +3394,12 @@ function nutrRenderSettings(){
           <input type="number" step="0.1" class="nutr-input" value="${p.weekly_loss_target||0.5}" onchange="nutr.profile.weekly_loss_target=Number(this.value)">
         </div>
       </div>
-      <button class="nutr-btn" style="width:100%;padding:12px" onclick="nutrSaveProfile()">Save Profile ▶</button>
+      <button class="nutr-btn" style="width:100%;padding:12px" onclick="nutrSaveProfile()">SAVE PROFILE</button>
     </div>
     <div class="nutr-card" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">TO LOSE</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#FFD166">${toLose} lbs</div></div>
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">TO LOSE</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#c8f036">${toLose} lbs</div></div>
       <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">AT RATE</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${p.weekly_loss_target} lbs/wk</div></div>
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">EST. WEEKS</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#06D6A0">${weeks}</div></div>
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">EST. WEEKS</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#639922">${weeks}</div></div>
     </div>`;
 }
 
@@ -3411,7 +3412,7 @@ async function nutrSaveProfile(){
   else{
     nutr.profile=d;
     const btn=document.querySelector('[onclick="nutrSaveProfile()"]');
-    if(btn){btn.textContent='Saved ✓';setTimeout(()=>{btn.textContent='Save Profile ▶';nutrRenderSettings();},2000);}
+    if(btn){btn.textContent='SAVED';setTimeout(()=>{btn.textContent='SAVE PROFILE';nutrRenderSettings();},2000);}
   }
 }
 
