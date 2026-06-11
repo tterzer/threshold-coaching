@@ -281,6 +281,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="mLastWeek">—</div><div class="metric-sub">Training load</div></div>
     </div>
 
+    <!-- Row 1: PMC | Sport CTL -->
     <div class="grid-2" id="pmcGrid">
       <div class="chart-box">
         <div class="chart-title">Performance management chart
@@ -305,31 +306,31 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         <div style="position:relative;height:240px"><canvas id="pmcChart"></canvas></div>
       </div>
       <div class="chart-box">
+        <div class="chart-title">Sport-specific fitness (CTL)
+          <div style="display:flex;gap:4px">
+            <button class="sub-tab" id="sctl-6W" onclick="setSportCtlRange('6W',this)">6W</button>
+            <button class="sub-tab" id="sctl-3M" onclick="setSportCtlRange('3M',this)">3M</button>
+            <button class="sub-tab active" id="sctl-6M" onclick="setSportCtlRange('6M',this)">6M</button>
+            <button class="sub-tab" id="sctl-1Y" onclick="setSportCtlRange('1Y',this)">1Y</button>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="leg-item"><span class="leg-line" style="background:#378ADD"></span>Cycling CTL</span>
+          <span class="leg-item"><span class="leg-line" style="background:#639922"></span>Running CTL</span>
+          <span class="leg-item"><span class="leg-line" style="background:#1D9E75"></span>Swimming CTL</span>
+        </div>
+        <div style="position:relative;height:240px"><canvas id="sportCtlChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Load by Sport | Weekly Load Trend -->
+    <div class="grid-2" style="margin-top:1px">
+      <div class="chart-box">
         <div class="chart-title">Load by sport
           <div class="legend" style="margin:0" id="sportLoadLegend"></div>
         </div>
         <div style="position:relative;height:240px;margin-top:0.5rem"><canvas id="sportLoadChart"></canvas></div>
       </div>
-    </div>
-
-    <div class="chart-box" style="margin-top:1px">
-      <div class="chart-title">Sport-specific fitness (CTL)
-        <div style="display:flex;gap:4px">
-          <button class="sub-tab" id="sctl-6W" onclick="setSportCtlRange('6W',this)">6W</button>
-          <button class="sub-tab" id="sctl-3M" onclick="setSportCtlRange('3M',this)">3M</button>
-          <button class="sub-tab active" id="sctl-6M" onclick="setSportCtlRange('6M',this)">6M</button>
-          <button class="sub-tab" id="sctl-1Y" onclick="setSportCtlRange('1Y',this)">1Y</button>
-        </div>
-      </div>
-      <div class="legend">
-        <span class="leg-item"><span class="leg-line" style="background:#378ADD"></span>Cycling CTL</span>
-        <span class="leg-item"><span class="leg-line" style="background:#639922"></span>Running CTL</span>
-        <span class="leg-item"><span class="leg-line" style="background:#1D9E75"></span>Swimming CTL</span>
-      </div>
-      <div style="position:relative;height:180px"><canvas id="sportCtlChart"></canvas></div>
-    </div>
-
-    <div class="grid-2" style="margin-top:1px">
       <div class="chart-box">
         <div class="chart-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
           <span>Load</span>
@@ -352,6 +353,10 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         </div>
         <div style="position:relative;height:240px;margin-top:0.5rem"><canvas id="loadChart"></canvas></div>
       </div>
+    </div>
+
+    <!-- Row 3: Zone Distribution | Peak Power/Pace -->
+    <div class="grid-2" style="margin-top:1px">
       <div class="chart-box">
         <div class="chart-title">Zone distribution
           <div class="zd-controls">
@@ -373,16 +378,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         </div>
         <div class="zone-rows" id="zoneRows"><div class="empty-note">Loading zones...</div></div>
       </div>
-    </div>
-
-    <div class="grid-2" style="margin-top:1px">
-      <div class="activities-box">
-        <div class="act-header">
-          <div class="act-title">Recent activities</div>
-          <button class="unit-toggle" id="unitToggle" onclick="toggleUnits()">km / m</button>
-        </div>
-        <div id="actList"><div class="empty-note">Loading activities...</div></div>
-      </div>
       <div class="chart-box">
         <div class="chart-title">Peak power / pace
           <div class="zd-controls">
@@ -394,6 +389,17 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
           </div>
         </div>
         <div id="curveBox" style="width:100%;max-width:100%;overflow:hidden"><div class="empty-note">Loading durations curve...</div></div>
+      </div>
+    </div>
+
+    <!-- Row 4: Recent Activities (full width) -->
+    <div style="margin-top:1px">
+      <div class="activities-box">
+        <div class="act-header">
+          <div class="act-title">Recent activities</div>
+          <button class="unit-toggle" id="unitToggle" onclick="toggleUnits()">km / m</button>
+        </div>
+        <div id="actList"><div class="empty-note">Loading activities...</div></div>
       </div>
     </div>
 
