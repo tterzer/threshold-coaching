@@ -37,8 +37,14 @@ export default async function handler(req, res) {
     // ── LOG ───────────────────────────────────────────────────────
     if (type === 'log') {
       if (req.method === 'GET') {
-        const { athlete_id } = req.query;
+        const { athlete_id, date } = req.query;
         if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
+        if (date) {
+          const { data, error } = await supabase
+            .from('daily_logs').select('*').eq('athlete_id', athlete_id).eq('log_date', date).maybeSingle();
+          if (error) return res.status(500).json({ error: error.message });
+          return res.status(200).json(data || {});
+        }
         const { data, error } = await supabase
           .from('daily_logs').select('*').eq('athlete_id', athlete_id)
           .order('log_date', { ascending: false }).limit(30);
@@ -48,9 +54,17 @@ export default async function handler(req, res) {
       if (req.method === 'POST') {
         const body = parseBody(req);
         if (!body.athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
-        const { data, error } = await supabase.from('daily_logs').insert(body).select().single();
-        if (error) return res.status(500).json({ error: error.message });
-        return res.status(200).json(data);
+        // Upsert by athlete_id + log_date
+        const { data: existing } = await supabase
+          .from('daily_logs').select('id').eq('athlete_id', body.athlete_id).eq('log_date', body.log_date).maybeSingle();
+        let result;
+        if (existing) {
+          result = await supabase.from('daily_logs').update(body).eq('id', existing.id).select().single();
+        } else {
+          result = await supabase.from('daily_logs').insert(body).select().single();
+        }
+        if (result.error) return res.status(500).json({ error: result.error.message });
+        return res.status(200).json(result.data);
       }
     }
 
