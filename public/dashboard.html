@@ -262,7 +262,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <button class="dash-tab active" data-dtab="data" onclick="switchDashTab('data')">Dashboard</button>
       <button class="dash-tab" data-dtab="calendar" onclick="switchDashTab('calendar')">Calendar</button>
       <button class="dash-tab" data-dtab="profile" onclick="switchDashTab('profile')">Profile</button>
-      <button class="dash-tab" data-dtab="nutrition" onclick="switchDashTab('nutrition')">Nutrition</button>
+      <button class="dash-tab" data-dtab="nutrition" onclick="switchDashTab('nutrition')">FuelPro</button>
     </div>
 
     <div class="dash-panel active" id="dtp-data">
@@ -1711,6 +1711,7 @@ function switchDashTab(name){
   document.querySelectorAll('.dash-panel').forEach(p=>p.classList.toggle('active',p.id==='dtp-'+name));
   if(name==='calendar'&&currentAthlete&&currentAthlete.id) loadAthCal();
   if(name==='profile'&&currentAthlete&&currentAthlete.id) loadAthProfile();
+  if(name==='nutrition') loadNutritionTab();
 }
 
 // ========== ATHLETE PROFILE TAB ==========
@@ -3416,14 +3417,6 @@ async function nutrSaveProfile(){
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// NUTRITION — HOOK INTO switchDashTab
-// ═══════════════════════════════════════════════════════════════════
-const _origSwitchDashTab=switchDashTab;
-function switchDashTab(name){
-  _origSwitchDashTab(name);
-  if(name==='nutrition') loadNutritionTab();
-}
 </script>
 
 <!-- Barcode scanner modal -->
