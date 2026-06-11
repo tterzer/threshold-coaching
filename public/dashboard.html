@@ -2971,6 +2971,18 @@ async function loadNutritionTab(){
   const wb=nutrGetWeekBounds();
   const iId=currentAthlete.intervals_athlete_id;
   const iKey=currentAthlete.intervals_api_key;
+
+  // Schema probe — check if food_entries column exists
+  fetch('/api/nutrition-data?type=schema').then(r=>r.json()).then(s=>{
+    if(s.food_entries_exists){
+      console.log('[FuelPro] ✅ food_entries column EXISTS in daily_logs');
+    }else{
+      console.warn('[FuelPro] ⚠️ food_entries column MISSING. Run in Supabase SQL Editor:\n  ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS food_entries jsonb DEFAULT \'[]\';');
+      console.warn('[FuelPro] Schema probe error:',s.probe_error);
+    }
+  }).catch(e=>console.error('[FuelPro] Schema probe failed:',e));
+
+  console.log('[FuelPro] Loading food entries for today ('+today+') athlete='+aid);
   try{
     const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
     const tomStr=tomorrow.toISOString().split('T')[0];
@@ -3005,7 +3017,9 @@ async function loadNutritionTab(){
     const rawEntries=Array.isArray(rawFE)?rawFE:(Array.isArray(rawSess)?rawSess:[]);
     nutr.foodEntries=rawEntries;
     nutr.todayLogId=todayLog?.id||null;
-    console.log('[FuelPro] Loaded food entries:',rawEntries.length,'items from',rawFE?'food_entries':rawSess?'sessions':'empty',todayLog);
+    const src=Array.isArray(rawFE)&&rawFE.length?'food_entries':Array.isArray(rawSess)&&rawSess.length?'sessions (fallback)':'none';
+    console.log('[FuelPro] ✅ Loaded',rawEntries.length,'food entries from column:',src);
+    console.log('[FuelPro] Raw today log record:',JSON.stringify(todayLog,null,2));
     // History — exclude today, last 30 days only
     nutr.logHistory=(Array.isArray(allLogs)?allLogs:[]).filter(l=>l.log_date!==today);
     // Weight
@@ -3498,9 +3512,31 @@ async function nutrSaveTodayLog(){
     actual_carbs:eaten.carbs||null,actual_protein:eaten.protein||null,actual_fat:eaten.fat||null,actual_kcal:eaten.kcal||null,
     intent:targets.intent.label,
   };
-  console.log('[FuelPro] Saving food log:',nutr.foodEntries.length,'items',payload);
+  console.log('[FuelPro] 💾 Saving',nutr.foodEntries.length,'food entries to daily_logs | athlete='+currentAthlete.id+' date='+today);
+  console.log('[FuelPro] food_entries payload:',JSON.stringify(nutr.foodEntries));
   fetch('/api/nutrition-data?type=log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-    .then(r=>r.json()).then(d=>console.log('[FuelPro] Save response:',d)).catch(e=>console.error('[FuelPro] Save error:',e));
+    .then(async r=>{const d=await r.json();
+      if(r.ok&&!d.error){
+        console.log('[FuelPro] ✅ Save OK | saved keys:',d._saved_keys,'| id:',d.id);
+        nutrShowSavedFlash();
+      }else{
+        console.error('[FuelPro] ❌ Save FAILED | status:'+r.status,'| error:',d.error,'| body_keys:',d.body_keys);
+      }
+    }).catch(e=>console.error('[FuelPro] ❌ Save fetch error:',e));
+}
+
+function nutrShowSavedFlash(){
+  let el=document.getElementById('nutrSavedFlash');
+  if(!el){
+    el=document.createElement('div');
+    el.id='nutrSavedFlash';
+    el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#639922;color:#fff;font-family:\'DM Mono\',monospace;font-size:11px;padding:6px 16px;border-radius:4px;z-index:9999;pointer-events:none;opacity:0;transition:opacity 0.2s';
+    document.body.appendChild(el);
+  }
+  el.textContent='Saved';
+  el.style.opacity='1';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{el.style.opacity='0';},1500);
 }
 
 // ═══════════════════════════════════════════════════════════════════

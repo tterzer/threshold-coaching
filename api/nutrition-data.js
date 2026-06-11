@@ -57,14 +57,42 @@ export default async function handler(req, res) {
         // Upsert by athlete_id + log_date
         const { data: existing } = await supabase
           .from('daily_logs').select('id').eq('athlete_id', body.athlete_id).eq('log_date', body.log_date).maybeSingle();
-        let result;
-        if (existing) {
-          result = await supabase.from('daily_logs').update(body).eq('id', existing.id).select().single();
-        } else {
-          result = await supabase.from('daily_logs').insert(body).select().single();
+
+        // Helper: try save, retry without food_entries if that column doesn't exist yet
+        async function trySave(payload, existingId) {
+          let r;
+          if (existingId) {
+            r = await supabase.from('daily_logs').update(payload).eq('id', existingId).select().single();
+          } else {
+            r = await supabase.from('daily_logs').insert(payload).select().single();
+          }
+          if (r.error && r.error.message && r.error.message.toLowerCase().includes('food_entries')) {
+            const { food_entries, ...fallback } = payload;
+            console.warn('[nutrition-data] food_entries column missing, retrying without it');
+            if (existingId) {
+              r = await supabase.from('daily_logs').update(fallback).eq('id', existingId).select().single();
+            } else {
+              r = await supabase.from('daily_logs').insert(fallback).select().single();
+            }
+          }
+          return r;
         }
-        if (result.error) return res.status(500).json({ error: result.error.message });
-        return res.status(200).json(result.data);
+
+        const result = await trySave(body, existing?.id || null);
+        if (result.error) return res.status(500).json({ error: result.error.message, body_keys: Object.keys(body) });
+        return res.status(200).json({ ...result.data, _saved_keys: Object.keys(body) });
+      }
+    }
+
+    // ── SCHEMA CHECK ──────────────────────────────────────────────
+    if (type === 'schema') {
+      if (req.method === 'GET') {
+        // Probe whether food_entries column exists by selecting it
+        const { error } = await supabase.from('daily_logs').select('food_entries').limit(1);
+        if (error) {
+          return res.status(200).json({ food_entries_exists: false, probe_error: error.message });
+        }
+        return res.status(200).json({ food_entries_exists: true });
       }
     }
 
