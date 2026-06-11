@@ -315,9 +315,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     <div class="chart-box" style="margin-top:1px">
       <div class="chart-title">Sport-specific fitness (CTL)
         <div style="display:flex;gap:4px">
-          <button class="sub-tab active" id="sctl-6W" onclick="setSportCtlRange('6W',this)">6W</button>
+          <button class="sub-tab" id="sctl-6W" onclick="setSportCtlRange('6W',this)">6W</button>
           <button class="sub-tab" id="sctl-3M" onclick="setSportCtlRange('3M',this)">3M</button>
-          <button class="sub-tab" id="sctl-6M" onclick="setSportCtlRange('6M',this)">6M</button>
+          <button class="sub-tab active" id="sctl-6M" onclick="setSportCtlRange('6M',this)">6M</button>
           <button class="sub-tab" id="sctl-1Y" onclick="setSportCtlRange('1Y',this)">1Y</button>
         </div>
       </div>
@@ -930,7 +930,7 @@ function buildPMC(rangeDays){
 
 // ── Per-sport CTL chart ─────────────────────────────────────────────
 let sportCtlInst = null;
-let sportCtlRangeDays = 42;
+let sportCtlRangeDays = 180;
 
 function fitActSport(type) {
   const t = (type||'').toLowerCase();
