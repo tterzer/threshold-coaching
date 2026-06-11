@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       if (req.method === 'POST') {
         let body = req.body;
         if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
-        const { food, athlete_id } = body || {};
+        const { food, athlete_id, set_favorite } = body || {};
         if (!food?.name || !food?.per100g) return res.status(400).json({ ok: false });
 
         let query = supabase
@@ -44,10 +44,10 @@ export default async function handler(req, res) {
         const { data: existing } = await query;
 
         if (existing && existing.length > 0) {
-          await supabase
-            .from('food_history')
-            .update({ use_count: existing[0].use_count + 1, last_used: new Date().toISOString() })
-            .eq('id', existing[0].id);
+          const upd = set_favorite !== undefined
+            ? { is_favorite: food.is_favorite, last_used: new Date().toISOString() }
+            : { use_count: existing[0].use_count + 1, last_used: new Date().toISOString() };
+          await supabase.from('food_history').update(upd).eq('id', existing[0].id);
         } else {
           await supabase.from('food_history').insert({
             athlete_id: athlete_id || null,
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
             serving_size: food.serving_size || 100,
             serving_unit: food.serving_unit || 'g',
             use_count: 1,
+            is_favorite: food.is_favorite || false,
             last_used: new Date().toISOString(),
           });
         }
