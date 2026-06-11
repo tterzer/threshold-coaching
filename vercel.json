@@ -4,11 +4,7 @@
     { "source": "/api/athlete-profile", "destination": "/api/athlete-profile" },
     { "source": "/api/ai-conversations", "destination": "/api/ai-conversations" },
     { "source": "/api/nutrition-food", "destination": "/api/nutrition-food" },
-    { "source": "/api/nutrition-food-history", "destination": "/api/nutrition-food-history" },
-    { "source": "/api/nutrition-log", "destination": "/api/nutrition-log" },
-    { "source": "/api/nutrition-weight", "destination": "/api/nutrition-weight" },
-    { "source": "/api/nutrition-week", "destination": "/api/nutrition-week" },
-    { "source": "/api/nutrition-profile", "destination": "/api/nutrition-profile" },
+    { "source": "/api/nutrition-data", "destination": "/api/nutrition-data" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/public/$1" }
   ]
