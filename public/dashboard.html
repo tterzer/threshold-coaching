@@ -3035,9 +3035,10 @@ function nutrSwitchSub(name){
 async function nutrLoadWeek(){
   const wb=nutrGetWeekBounds();
   const aid=currentAthlete?.id;
-  // Bypass all caches: cache-bust param + no-store header
-  const resp=await fetch('/api/workouts?athlete_id='+encodeURIComponent(aid)+'&start='+wb.start+'&end='+wb.end+'&_='+Date.now(),{cache:'no-store'}).then(r=>r.json()).catch(()=>({}));
-  // Filter out any items missing required fields (safety against stale/deleted)
+  const resp=await fetch('/api/workouts?athlete_id='+encodeURIComponent(aid)+'&start='+wb.start+'&end='+wb.end+'&_='+Date.now(),{
+    cache:'no-store',
+    headers:{'Cache-Control':'no-cache','Pragma':'no-cache'},
+  }).then(r=>r.json()).catch(()=>({}));
   nutr.weekWorkouts=(resp?.workouts||[]).filter(w=>w&&w.id&&w.date);
   nutrRenderWeek();
 }
@@ -3507,14 +3508,18 @@ function nutrRenderWeek(){
   function sportColor(s){return /cycl|bike|ride|virtual/i.test(s)?'#378ADD':/run|jog/i.test(s)?'#639922':/swim/i.test(s)?'#1D9E75':'var(--acc)';}
   let sessRows='';
   if(wos.length||selActs.length){
-    const rows=[];
+    // Build sortable items with a sort key (ISO time string or high sentinel for unknown)
+    const LATE='9999';
     const usedActIds=new Set();
+    const items=[];
     wos.forEach(w=>{
       const c=sportColor(w.sport||'');
       const matched=selActs.find(a=>!usedActIds.has(a.id)&&sameWeekSport(w.sport||'',a.sport_type||a.type||''));
       if(matched)usedActIds.add(matched.id);
       const actualMins=matched?Math.round((matched.moving_time||0)/60):null;
-      rows.push(`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      // Sort key: use completed activity's start time if known, else planned start time, else sentinel
+      const sortKey=matched?(matched.start_date_local||LATE):(w.start_time?selDate+'T'+w.start_time:LATE);
+      const html=`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
         <div style="display:inline-flex;align-items:center;gap:5px;border:1px solid ${c};padding:3px 8px;border-radius:2px">
           <span style="width:6px;height:6px;border-radius:50%;border:1px solid ${c};display:inline-block"></span>
           <span style="font-family:'DM Mono',monospace;font-size:11px;color:${c}">${w.title||w.sport||'Workout'} · ${w.duration_minutes||'?'}min</span>
@@ -3523,19 +3528,22 @@ function nutrRenderWeek(){
           <span style="width:6px;height:6px;border-radius:50%;background:${c};display:inline-block"></span>
           <span style="font-family:'DM Mono',monospace;font-size:11px;color:${c};font-weight:600">${matched.name||w.sport} · ${actualMins}min ✓</span>
         </div>`:''}
-      </div>`);
+      </div>`;
+      items.push({sortKey,html});
     });
     selActs.filter(a=>!usedActIds.has(a.id)).forEach(a=>{
       const c=sportColor(a.sport_type||a.type||'');
       const mins=Math.round((a.moving_time||0)/60);
-      rows.push(`<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+      const html=`<div style="padding:5px 0;border-bottom:1px solid var(--border)">
         <div style="display:inline-flex;align-items:center;gap:5px;background:${c}22;border:1px solid ${c};padding:3px 8px;border-radius:2px">
           <span style="width:6px;height:6px;border-radius:50%;background:${c};display:inline-block"></span>
           <span style="font-family:'DM Mono',monospace;font-size:11px;color:${c};font-weight:600">${a.name||a.sport_type} · ${mins}min ✓</span>
         </div>
-      </div>`);
+      </div>`;
+      items.push({sortKey:a.start_date_local||LATE,html});
     });
-    sessRows=rows.join('');
+    items.sort((a,b)=>a.sortKey<b.sortKey?-1:a.sortKey>b.sortKey?1:0);
+    sessRows=items.map(i=>i.html).join('');
   }else{
     sessRows=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Rest day</div>`;
   }
