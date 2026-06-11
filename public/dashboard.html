@@ -797,8 +797,8 @@ async function loadDashboard(){
       atlEl.textContent=atl;atlEl.style.color='#E24B4A';
       const tsbEl=document.getElementById('mTSB');
       tsbEl.textContent=(tsb>=0?'+':'')+tsb;
-      tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
-      tsbEl.style.color=tsb>0?'#639922':tsb<0?'#E24B4A':'#999';
+      tsbEl.className='metric-val';
+      tsbEl.style.color='#c8f036';
     }
     buildRamp();
     // "This week" = Monday of the current calendar week through today (inclusive).
@@ -848,12 +848,16 @@ function buildRamp(){
   if(!now||!then){rampEl.textContent='—';pillEl.textContent='—';pillEl.className='risk-pill';return;}
   const ramp=Math.round(now.ctl-then.ctl);
   rampEl.textContent=(ramp>=0?'+':'')+ramp;
-  rampEl.className='metric-val '+(ramp>8?'negative':ramp>5?'warn':'positive');
-  let level='green',label='Low risk';
-  if(ramp>8){level='red';label='High risk';}
-  else if(ramp>5){level='amber';label='Moderate';}
+  rampEl.className='metric-val';
+  rampEl.style.color='#7F77DD';
+  let label='Low risk';
+  if(ramp>8)label='High risk';
+  else if(ramp>5)label='Moderate';
   pillEl.textContent=label;
-  pillEl.className='risk-pill '+level;
+  pillEl.className='risk-pill';
+  pillEl.style.color='#7F77DD';
+  pillEl.style.background='#7F77DD22';
+  pillEl.style.border='1px solid #7F77DD44';
 }
 
 // Monday 00:00 of the calendar week containing `d`.
@@ -2504,8 +2508,8 @@ function _applyFitnessToUI(){
     const tsb=Math.round(todayEntry.ctl-todayEntry.atl);
     const tsbEl=document.getElementById('mTSB');
     tsbEl.textContent=(tsb>=0?'+':'')+tsb;
-    tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
-    tsbEl.style.color=tsb>0?'#639922':tsb<0?'#E24B4A':'#999';
+    tsbEl.className='metric-val';
+    tsbEl.style.color='#c8f036';
   }
   buildPMC();
   buildRamp();
