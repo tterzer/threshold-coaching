@@ -2808,12 +2808,16 @@ function nutrGetWeekBounds(){
 
 function nutrMapWorkoutToTypeNum(sport,durationMins){
   const s=(sport||'').toLowerCase(),d=Number(durationMins)||60;
-  if(s.includes('swim'))return d>=60?5:4;
-  if(s.includes('run')||s.includes('jog')){if(d>=100)return 14;if(d>=70)return 10;if(d>=50)return 11;return 8;}
-  if(s.includes('cycl')||s.includes('bike')||s.includes('ride')||s.includes('virtual')){if(d>=150)return 13;if(d>=70)return 7;return 12;}
-  if(s.includes('strength')||s.includes('gym')||s.includes('lift')||s.includes('weight'))return 2;
-  if(s.includes('yoga')||s.includes('mobil')||s.includes('flex')||s.includes('stretch'))return 2;
-  if(s.includes('brick')||s.includes('tri'))return d>=180?13:7;
+  if(/swim/i.test(s))return d>=40?5:4;
+  if(/^run$|running|jog/i.test(s))return d>=70?14:9;
+  if(/ride$|virtualride|cycling|bike/i.test(s))return d>=90?13:7;
+  if(/strength|gym|lift|weight/i.test(s))return 2;
+  if(/yoga|mobil|flex|stretch/i.test(s))return 2;
+  if(/brick|tri/i.test(s))return d>=180?13:7;
+  // intervals.icu sport_type passthrough
+  if(/^ride$|^virtualride$/i.test(sport))return d>=90?13:7;
+  if(/^run$/i.test(sport))return d>=70?14:9;
+  if(/^swim$/i.test(sport))return d>=40?5:4;
   return 3;
 }
 
@@ -2969,16 +2973,10 @@ function nutrSwitchSub(name){
 async function nutrLoadWeek(){
   const wb=nutrGetWeekBounds();
   const aid=currentAthlete?.id;
-  const iId=currentAthlete?.intervals_athlete_id;
-  const iKey=currentAthlete?.intervals_api_key;
-  const ts='&_='+Date.now();
-  const fetches=[
-    fetch('/api/workouts?athlete_id='+encodeURIComponent(aid)+'&start='+wb.start+'&end='+wb.end+ts).then(r=>r.json()).catch(()=>({})),
-    iId&&iKey?fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=activities&qs=oldest='+wb.start+'%26newest='+wb.end).then(r=>r.json()).catch(()=>[]):Promise.resolve([]),
-  ];
-  const[weekWoResp,weekActs]=await Promise.all(fetches);
-  nutr.weekWorkouts=weekWoResp?.workouts||[];
-  nutr.weekActivities=Array.isArray(weekActs)?weekActs:[];
+  // Fresh Supabase fetch only — no cache, cache-bust timestamp
+  const resp=await fetch('/api/workouts?athlete_id='+encodeURIComponent(aid)+'&start='+wb.start+'&end='+wb.end+'&_='+Date.now()).then(r=>r.json()).catch(()=>({}));
+  nutr.weekWorkouts=resp?.workouts||[];
+  // allActivities is already loaded by the main dashboard — no extra fetch needed
   nutrRenderWeek();
 }
 
@@ -3390,13 +3388,12 @@ function nutrRenderWeek(){
   const el=document.getElementById('nutr-week');
   const wb=nutrGetWeekBounds();
   const tsb=nutr.wellness?.form??null;
-  // Build per-day session arrays — planned first, fall back to completed activities
+  // Build per-day session arrays — planned workouts first, fall back to allActivities
   const daySessions=wb.dates.map(date=>{
     const wos=(nutr.weekWorkouts||[]).filter(w=>w.date===date);
     if(wos.length) return wos.map(w=>({typeNum:nutrMapWorkoutToTypeNum(w.sport,w.duration_minutes),durationMins:w.duration_minutes||60,startTime:w.start_time||'',title:w.title||w.sport||'Workout',sport:w.sport||'',planned:true}));
-    // Fall back to completed activities from intervals.icu
-    const acts=(nutr.weekActivities||[]).filter(a=>(a.start_date_local||'').startsWith(date));
-    if(acts.length) return acts.map(a=>({typeNum:nutrMapWorkoutToTypeNum(a.sport_type,Math.round((a.moving_time||0)/60)),durationMins:Math.round((a.moving_time||0)/60)||30,startTime:'',title:a.name||a.sport_type||'Activity',sport:a.sport_type||'',planned:false}));
+    const acts=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(date));
+    if(acts.length) return acts.map(a=>{const mins=Math.round((a.moving_time||0)/60)||30;return{typeNum:nutrMapWorkoutToTypeNum(a.sport_type||a.type,mins),durationMins:mins,startTime:'',title:a.name||a.sport_type||'Activity',sport:a.sport_type||a.type||'',planned:false};});
     return [{typeNum:null,durationMins:null,planned:false}];
   });
   const weekDayData=wb.dates.map((date,i)=>({day:NUTR_DAYS[i],date,sessions:daySessions[i]}));
@@ -3404,6 +3401,7 @@ function nutrRenderWeek(){
   const maxCarbs=Math.max(1,...weekResults.map(r=>r.carbs+r.intra));
   const sel=nutr.weekSelectedDay;
 
+  function sportDot(s){return /ride|cycl|virtual|bike/i.test(s)?'#378ADD':/run|jog/i.test(s)?'#639922':/swim/i.test(s)?'#1D9E75':'var(--acc)';}
   // Bar chart
   const barsHtml=wb.dates.map((date,i)=>{
     const r=weekResults[i];
@@ -3411,11 +3409,18 @@ function nutrRenderWeek(){
     const pct=Math.round(total/maxCarbs*100);
     const isToday=date===nutrTodayStr();
     const barColor=r.intent.cls==='nutr-intent-yellow'?'#c8f036':r.intent.cls==='nutr-intent-green'?'#639922':'#378ADD';
+    const dayWos=(nutr.weekWorkouts||[]).filter(w=>w.date===date);
+    const dayActs=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(date));
+    // dot indicators: filled=completed, outlined=planned only
+    const dots=dayWos.length
+      ?dayWos.map(w=>`<span style="width:5px;height:5px;border-radius:50%;border:1px solid ${sportDot(w.sport||'')};display:inline-block;margin:0 1px"></span>`).join('')
+      :dayActs.map(a=>`<span style="width:5px;height:5px;border-radius:50%;background:${sportDot(a.sport_type||a.type||'')};display:inline-block;margin:0 1px"></span>`).join('');
     return `<div class="nutr-week-bar-col${i===sel?' selected':''}" onclick="nutrSelectWeekDay(${i})">
       <div class="nutr-week-bar-track">
         <div class="nutr-week-bar-fill" style="height:${pct}%;background:${barColor};opacity:${i===sel?1:0.55}"></div>
       </div>
       <div class="nutr-week-bar-label" style="${isToday?'color:var(--acc)':''}">${NUTR_DAYS[i]}</div>
+      <div style="display:flex;justify-content:center;align-items:center;min-height:9px;margin-top:2px">${dots}</div>
       <div class="nutr-week-bar-val" style="color:${barColor}">${total}g</div>
     </div>`;
   }).join('');
@@ -3425,7 +3430,7 @@ function nutrRenderWeek(){
   const sd=weekDayData[sel];
   const selDate=wb.dates[sel];
   const wos=(nutr.weekWorkouts||[]).filter(w=>w.date===selDate);
-  const selActs=(nutr.weekActivities||[]).filter(a=>(a.start_date_local||'').startsWith(selDate));
+  const selActs=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(selDate));
   function sportColor(s){return /cycl|bike|ride/i.test(s)?'#378ADD':/run/i.test(s)?'#639922':/swim/i.test(s)?'#1D9E75':'var(--acc)';}
   const sessRows=wos.length?wos.map(w=>{
     const c=sportColor(w.sport||'');
