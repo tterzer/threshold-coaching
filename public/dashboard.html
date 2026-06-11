@@ -262,6 +262,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <button class="dash-tab active" data-dtab="data" onclick="switchDashTab('data')">Dashboard</button>
       <button class="dash-tab" data-dtab="calendar" onclick="switchDashTab('calendar')">Calendar</button>
       <button class="dash-tab" data-dtab="profile" onclick="switchDashTab('profile')">Profile</button>
+      <button class="dash-tab" data-dtab="nutrition" onclick="switchDashTab('nutrition')">Nutrition</button>
     </div>
 
     <div class="dash-panel active" id="dtp-data">
@@ -517,6 +518,27 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         </div>
       </div>
     </div>
+
+    <!-- NUTRITION TAB -->
+    <div class="dash-panel" id="dtp-nutrition">
+      <div style="max-width:700px">
+
+        <!-- Nutrition sub-tabs -->
+        <div class="sub-tabs" id="nutrSubTabs" style="margin-bottom:1.5rem">
+          <button class="sub-tab active" data-nsub="today"   onclick="nutrSwitchSub('today')">Today</button>
+          <button class="sub-tab"        data-nsub="week"    onclick="nutrSwitchSub('week')">Week</button>
+          <button class="sub-tab"        data-nsub="log"     onclick="nutrSwitchSub('log')">Log</button>
+          <button class="sub-tab"        data-nsub="weight"  onclick="nutrSwitchSub('weight')">Weight</button>
+          <button class="sub-tab"        data-nsub="settings" onclick="nutrSwitchSub('settings')">Settings</button>
+        </div>
+
+        <div id="nutr-today"    class="nutr-sub"></div>
+        <div id="nutr-week"     class="nutr-sub" style="display:none"></div>
+        <div id="nutr-log"      class="nutr-sub" style="display:none"></div>
+        <div id="nutr-weight"   class="nutr-sub" style="display:none"></div>
+        <div id="nutr-settings" class="nutr-sub" style="display:none"></div>
+      </div>
+    </div><!-- /dtp-nutrition -->
 
   </div><!-- /dash -->
 </div>
@@ -2489,6 +2511,930 @@ function _applyFitnessToUI(){
       <button class="btn" style="width:auto" onclick="saveCtlSeed()">Save &amp; recalculate</button>
       <button class="btn" style="width:auto;background:transparent;border:1px solid var(--border);color:var(--tc2)" onclick="closeCtlSeedModal()">Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- ── Nutrition tab ──────────────────────────────────────────────── -->
+<style>
+.nutr-card{background:var(--bc2);border:1px solid var(--border);padding:20px;margin-bottom:16px}
+.nutr-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.nutr-row:last-child{border-bottom:none}
+.nutr-macro{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.nutr-macro-box{background:var(--bc3);padding:14px;text-align:center}
+.nutr-macro-val{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700}
+.nutr-macro-lbl{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;margin-top:4px}
+.nutr-window{background:var(--bc3);border:1px solid var(--border);padding:14px;margin-bottom:10px}
+.nutr-window-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.nutr-window-lbl{font-weight:600;font-size:13px;color:var(--tc)}
+.nutr-window-time{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)}
+.nutr-progress{height:4px;background:var(--border);margin:6px 0}
+.nutr-progress-fill{height:4px;background:var(--acc);transition:width 0.3s}
+.nutr-food-entry{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bc);margin-top:4px;font-size:12px}
+.nutr-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-size:13px;font-family:'DM Mono',monospace}
+.nutr-input:focus{outline:none;border-color:var(--acc)}
+.nutr-select{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-size:12px;font-family:'DM Mono',monospace}
+.nutr-select:focus{outline:none;border-color:var(--acc)}
+.nutr-btn{background:var(--acc);color:#000;border:none;padding:8px 18px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;cursor:pointer}
+.nutr-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--tc2);padding:8px 18px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer}
+.nutr-intent{font-family:'DM Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.08em;padding:3px 10px;text-transform:uppercase}
+.nutr-intent-yellow{background:#1a1400;color:#FFD166;border:1px solid #3a3000}
+.nutr-intent-green{background:#001a12;color:#06D6A0;border:1px solid #003025}
+.nutr-intent-blue{background:#001020;color:#00B4D8;border:1px solid #002030}
+.nutr-search-result{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:12px}
+.nutr-search-result:hover{background:var(--bc3)}
+.nutr-day-hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bc3);border-bottom:1px solid var(--border)}
+.nutr-week-day{border:1px solid var(--border);margin-bottom:8px}
+#nutrBarcodeModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:1000;align-items:center;justify-content:center}
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — CARB CYCLING ALGORITHM (ported from fuelpro-wcq)
+// ═══════════════════════════════════════════════════════════════════
+const NUTR_SESSION_TYPES = {
+  1:  { name:"REST / Off",                   carbMult:1.36, tssPerHour:0,   glycogenCoeff:0.50, qualitySession:false },
+  2:  { name:"Mobility / Yoga / Walking",    carbMult:1.36, tssPerHour:38,  glycogenCoeff:0.50, qualitySession:false },
+  3:  { name:"Easy Aerobic — Generic",       carbMult:1.59, tssPerHour:40,  glycogenCoeff:0.80, qualitySession:false },
+  4:  { name:"Easy Swim — Short",            carbMult:1.59, tssPerHour:75,  glycogenCoeff:0.55, qualitySession:false },
+  5:  { name:"Endurance Swim — Long",        carbMult:1.82, tssPerHour:90,  glycogenCoeff:0.55, qualitySession:false },
+  6:  { name:"Hockey — Repeated Sprint",     carbMult:2.05, tssPerHour:109, glycogenCoeff:0.65, qualitySession:true  },
+  7:  { name:"Threshold Bike Intervals",     carbMult:2.73, tssPerHour:70,  glycogenCoeff:0.85, qualitySession:true  },
+  8:  { name:"Brick Run — Short",            carbMult:1.59, tssPerHour:75,  glycogenCoeff:1.00, qualitySession:false },
+  9:  { name:"Mixed Intervals — Running",    carbMult:2.50, tssPerHour:82,  glycogenCoeff:1.00, qualitySession:true  },
+  10: { name:"Long Tempo Run",               carbMult:2.27, tssPerHour:75,  glycogenCoeff:1.00, qualitySession:true  },
+  11: { name:"Easy Base Run",                carbMult:1.59, tssPerHour:55,  glycogenCoeff:1.00, qualitySession:false },
+  12: { name:"Neuromuscular / Cadence Bike", carbMult:1.59, tssPerHour:38,  glycogenCoeff:0.85, qualitySession:false },
+  13: { name:"Long Brick — Bike Polarised",  carbMult:3.10, tssPerHour:57,  glycogenCoeff:1.05, qualitySession:true  },
+  14: { name:"Long Easy Run",                carbMult:2.05, tssPerHour:70,  glycogenCoeff:1.00, qualitySession:false },
+  15: { name:"A-Race — 70.3",               carbMult:3.40, tssPerHour:250, glycogenCoeff:1.00, qualitySession:true  },
+  16: { name:"A-Race — Olympic Distance",   carbMult:3.18, tssPerHour:200, glycogenCoeff:1.00, qualitySession:true  },
+};
+
+function nutrCalcAdjTss(sessions){
+  return (sessions||[]).filter(s=>s.typeNum&&s.durationMins).reduce((sum,s)=>{
+    const t=NUTR_SESSION_TYPES[s.typeNum]||{tssPerHour:40,glycogenCoeff:0.85};
+    return sum+t.tssPerHour*(s.durationMins/60)*t.glycogenCoeff;
+  },0);
+}
+function nutrCalcRawTss(sessions){
+  return (sessions||[]).filter(s=>s.typeNum&&s.durationMins).reduce((sum,s)=>{
+    const t=NUTR_SESSION_TYPES[s.typeNum]||{tssPerHour:40};
+    return sum+t.tssPerHour*(s.durationMins/60);
+  },0);
+}
+function nutrTssToGPerLb(adj){
+  return Math.min(3.40,Math.max(1.36, 1.36+(adj/300)*2.04));
+}
+function nutrCalcIntra(typeNum,durationMins){
+  if(!typeNum||!durationMins) return 0;
+  const d=durationMins;
+  switch(Number(typeNum)){
+    case 6:  return d<60?0:Math.round(45*d/60);
+    case 7:  return Math.round(90*d/60);
+    case 9:  return d<60?0:Math.round(50*d/60);
+    case 10: return d<60?0:Math.round(50*d/60);
+    case 12: return Math.round(60*d/60);
+    case 13: return Math.round(110*d/60);
+    case 14: return d<60?0:Math.round(40*d/60);
+    case 15: case 16: return Math.round(110*d/60);
+    default: return 0;
+  }
+}
+function nutrCalcPre(typeNum,dailyCarbs){
+  return [7,9,10,13,14,15,16].includes(Number(typeNum)) ? Math.round(dailyCarbs*0.20) : 0;
+}
+function nutrTsbScale(tsb){
+  if(tsb==null) return 1.00;
+  if(tsb>15)  return 0.92;
+  if(tsb>5)   return 0.96;
+  if(tsb>=-5) return 1.00;
+  if(tsb>=-15)return 1.06;
+  if(tsb>=-30)return 1.12;
+  return 1.15;
+}
+function nutrPreFactor(nextAdj,twoAdj){
+  if(nextAdj==null) return 1.0;
+  const one=Math.min(1.20,1+(nextAdj/1500));
+  const two=twoAdj!=null?Math.min(1.10,1+(twoAdj/3000)):1.0;
+  return Math.min(1.28,one*two);
+}
+function nutrPostFactor(prevAdj){
+  if(prevAdj==null) return 1.0;
+  return Math.min(1.15,1+(prevAdj/1500));
+}
+function nutrEnergyIntent(mode,adjTss,isCut){
+  if(mode===2) return {label:'MAINTAIN',cls:'nutr-intent-green'};
+  if(mode===3) return adjTss<60?{label:'MAINTAIN',cls:'nutr-intent-green'}:{label:'FUEL UP',cls:'nutr-intent-yellow'};
+  if(isCut)    return {label:'CUT DAY', cls:'nutr-intent-blue'};
+  if(adjTss<110) return {label:'MAINTAIN',cls:'nutr-intent-green'};
+  return {label:'FUEL UP',cls:'nutr-intent-yellow'};
+}
+function nutrIdentifyCutDays(weekRawTss,weekSessions){
+  if(!weekRawTss||!weekRawTss.length) return [];
+  const avg=weekRawTss.reduce((s,t)=>s+t,0)/weekRawTss.length;
+  const max=Math.max(...weekRawTss);
+  const maxIdx=weekRawTss.indexOf(max);
+  return weekRawTss
+    .map((tss,i)=>({i,tss}))
+    .sort((a,b)=>a.tss-b.tss)
+    .filter(d=>{
+      const belowAvg=d.tss<avg*0.75;
+      const adjToMax=Math.abs(d.i-maxIdx)<=1;
+      const types=(weekSessions[d.i]?.sessions||[]).map(s=>s.typeNum).filter(Boolean);
+      const hasQual=types.some(t=>NUTR_SESSION_TYPES[t]?.qualitySession);
+      return belowAvg&&!adjToMax&&!hasQual;
+    })
+    .slice(0,2).map(d=>d.i);
+}
+function nutrCalcDay(profile,sessions,tsb,prevAdj,nextAdj,twoAdj,isCut){
+  const wt=profile.weight_lbs||168;
+  const pf=profile.protein_factor||1.09;
+  const ff=profile.fat_floor||85;
+  const fc=profile.fat_ceiling||110;
+  const mode=profile.mode||1;
+  const active=(sessions||[]).filter(s=>s.typeNum&&s.durationMins);
+  if(!active.length){
+    const rc=Math.round(wt*1.36);
+    const rp=Math.round(wt*pf);
+    return{carbs:rc,protein:rp,fat:fc,kcal:rc*4+rp*4+fc*9,pre:0,intra:0,
+      post:Math.round(wt/2.20462*1.2),foodCarbs:rc,rawTss:0,adjTss:0,
+      intent:nutrEnergyIntent(mode,0,false),sessions:[]};
+  }
+  const rawTss=nutrCalcRawTss(active);
+  const adjTss=nutrCalcAdjTss(active);
+  const scale=nutrTsbScale(tsb);
+  const base=nutrTssToGPerLb(adjTss);
+  const cLoad=Math.min(1.30,nutrPreFactor(nextAdj,twoAdj)*nutrPostFactor(prevAdj));
+  let carbs=Math.round(wt*base*scale*cLoad);
+  if(mode===1&&isCut&&adjTss<130) carbs=Math.round(carbs*0.85);
+  carbs=Math.max(Math.round(wt*1.36),carbs);
+  const pfAdj=(prevAdj!=null&&prevAdj>120)?Math.max(pf,1.14):pf;
+  const protein=Math.round(wt*pfAdj);
+  let fat;
+  if(adjTss<50) fat=fc;
+  else if(adjTss<100) fat=Math.round(ff+(fc-ff)*0.65);
+  else if(adjTss<160) fat=Math.round(ff+(fc-ff)*0.30);
+  else fat=ff;
+  const intra=active.reduce((s,x)=>s+nutrCalcIntra(x.typeNum,x.durationMins),0);
+  const top=active.reduce((a,b)=>(NUTR_SESSION_TYPES[a.typeNum]?.tssPerHour||0)>(NUTR_SESSION_TYPES[b.typeNum]?.tssPerHour||0)?a:b);
+  const pre=nutrCalcPre(top.typeNum,carbs);
+  const post=Math.round(wt/2.20462*1.2);
+  return{carbs,protein,fat,kcal:carbs*4+protein*4+fat*9,pre,intra,post,
+    foodCarbs:Math.max(0,carbs-intra),rawTss:Math.round(rawTss),adjTss:Math.round(adjTss),
+    intent:nutrEnergyIntent(mode,adjTss,isCut&&mode===1&&adjTss<130),
+    sessions:active.map(s=>({...s,name:NUTR_SESSION_TYPES[s.typeNum]?.name||'Unknown',
+      intra:nutrCalcIntra(s.typeNum,s.durationMins),
+      estTss:Math.round((NUTR_SESSION_TYPES[s.typeNum]?.tssPerHour||40)*s.durationMins/60)}))};
+}
+function nutrCalcWeek(profile,weekSessions,tsb){
+  const rawTss=weekSessions.map(d=>nutrCalcRawTss(d.sessions||[]));
+  const adjTss=weekSessions.map(d=>nutrCalcAdjTss(d.sessions||[]));
+  const cuts=profile.mode===1?nutrIdentifyCutDays(rawTss,weekSessions):[];
+  return weekSessions.map((d,i)=>nutrCalcDay(
+    profile,d.sessions||[],tsb,
+    i>0?adjTss[i-1]:null,
+    i<6?adjTss[i+1]:null,
+    i<5?adjTss[i+2]:null,
+    cuts.includes(i)
+  ));
+}
+function nutrCalcWindows(sessions,targets,foodEntries){
+  const active=(sessions||[]).filter(s=>s.typeNum&&s.startTime);
+  if(!active.length) return null;
+  const WAKE=6,SLEEP=22,TOTAL=16;
+  const toHr=t=>{const[h,m]=t.split(':').map(Number);return h+m/60;};
+  active.forEach(s=>{
+    if(s.startTime&&s.durationMins&&!s.endTime){
+      const[h,m]=s.startTime.split(':').map(Number);
+      const tot=h*60+m+Number(s.durationMins);
+      s.endTime=String(Math.floor(tot/60)%24).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');
+    }
+  });
+  const sorted=[...active].sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const totalIntra=sorted.reduce((s,x)=>s+nutrCalcIntra(x.typeNum,x.durationMins),0);
+  const avail=Math.max(0,targets.carbs-totalIntra);
+  const windows=[];
+  const firstStart=toHr(sorted[0].startTime);
+  const preHrs=Math.max(0,firstStart-WAKE);
+  const preFrac=preHrs/TOTAL;
+  const preCarbs=Math.max(targets.pre,Math.round(avail*preFrac));
+  windows.push({id:'pre_0',label:'Before '+( NUTR_SESSION_TYPES[sorted[0].typeNum]?.name||'Session'),
+    type:'before',timeLabel:'Wake → '+sorted[0].startTime,
+    carbTarget:preCarbs,proteinTarget:Math.round(targets.protein*preFrac),fatTarget:Math.round(targets.fat*preFrac),
+    carbEaten:0,proteinEaten:0,fatEaten:0});
+  let allocC=preCarbs,allocP=Math.round(targets.protein*preFrac),allocF=Math.round(targets.fat*preFrac);
+  sorted.forEach((s,i)=>{
+    windows.push({id:'intra_'+i,label:'During: '+(NUTR_SESSION_TYPES[s.typeNum]?.name||'Session'),
+      type:'intra',timeLabel:s.startTime+' → '+s.endTime,
+      carbTarget:nutrCalcIntra(s.typeNum,s.durationMins),proteinTarget:0,fatTarget:0,
+      carbEaten:0,proteinEaten:0,fatEaten:0});
+    if(i<sorted.length-1){
+      const gapHrs=Math.max(0,toHr(sorted[i+1].startTime)-toHr(s.endTime));
+      const gf=gapHrs/TOTAL;
+      const gc=Math.round(avail*gf);
+      allocC+=gc;allocP+=Math.round(targets.protein*gf);allocF+=Math.round(targets.fat*gf);
+      windows.push({id:'between_'+i,label:'Between Sessions',type:'between',
+        timeLabel:s.endTime+' → '+sorted[i+1].startTime,
+        carbTarget:gc,proteinTarget:Math.round(targets.protein*gf),fatTarget:Math.round(targets.fat*gf),
+        carbEaten:0,proteinEaten:0,fatEaten:0});
+    }
+  });
+  windows.push({id:'post_final',label:'After Training',type:'after',
+    timeLabel:sorted[sorted.length-1].endTime+' → Sleep',
+    carbTarget:Math.max(0,avail-allocC),proteinTarget:Math.max(0,targets.protein-allocP),
+    fatTarget:Math.max(0,targets.fat-allocF),carbEaten:0,proteinEaten:0,fatEaten:0});
+  windows.forEach(w=>{
+    const ents=(foodEntries||[]).filter(e=>e.windowId===w.id);
+    w.carbEaten=ents.reduce((s,e)=>s+(e.carbs||0),0);
+    w.proteinEaten=ents.reduce((s,e)=>s+(e.protein||0),0);
+    w.fatEaten=ents.reduce((s,e)=>s+(e.fat||0),0);
+    w.kcalEaten=ents.reduce((s,e)=>s+(e.calories||0),0);
+  });
+  return windows;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — STATE
+// ═══════════════════════════════════════════════════════════════════
+const NUTR_DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const nutr={
+  loaded:false,
+  profile:{weight_lbs:168,goal_weight_lbs:159,mode:1,weekly_loss_target:0.5,protein_factor:1.09,fat_floor:85,fat_ceiling:110},
+  todaySessions:[
+    {typeNum:null,durationMins:null,startTime:''},
+    {typeNum:null,durationMins:null,startTime:''},
+    {typeNum:null,durationMins:null,startTime:''},
+  ],
+  week:NUTR_DAYS.map(day=>({day,sessions:[{typeNum:null,durationMins:null},{typeNum:null,durationMins:null},{typeNum:null,durationMins:null}]})),
+  foodEntries:[],
+  logHistory:[],
+  weightLogs:[],
+  logActuals:{},
+  logDate:new Date().toISOString().split('T')[0],
+  logWeight:'',logGarmin:'',logNotes:'',
+  newWeight:'',newBodyFat:'',newFeeling:'',newWeightNotes:'',
+  searchingWindow:null,
+  selectedFood:null,
+  searchResults:[],
+  searchQuery:'',
+  foodQty:'',foodUnit:'g',foodOverrides:{},
+  sub:'today',
+  searchTimer:null,
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — LOAD
+// ═══════════════════════════════════════════════════════════════════
+async function loadNutritionTab(){
+  if(!currentAthlete||!currentAthlete.id) return;
+  if(nutr.loaded) { nutrRender(); return; }
+  const aid=currentAthlete.id;
+  try{
+    const [prof,week,logs,weights]=await Promise.all([
+      fetch('/api/nutrition-profile?athlete_id='+aid).then(r=>r.json()),
+      fetch('/api/nutrition-week?athlete_id='+aid).then(r=>r.json()),
+      fetch('/api/nutrition-log?athlete_id='+aid).then(r=>r.json()),
+      fetch('/api/nutrition-weight?athlete_id='+aid).then(r=>r.json()),
+    ]);
+    nutr.profile=prof;
+    if(week&&week.sessions) nutr.week=week.sessions;
+    nutr.logHistory=Array.isArray(logs)?logs:[];
+    nutr.weightLogs=Array.isArray(weights)?weights:[];
+    nutr.loaded=true;
+  }catch(e){console.error('loadNutritionTab',e);}
+  nutrRender();
+}
+
+function nutrSwitchSub(name){
+  nutr.sub=name;
+  document.querySelectorAll('#nutrSubTabs .sub-tab').forEach(t=>t.classList.toggle('active',t.dataset.nsub===name));
+  document.querySelectorAll('.nutr-sub').forEach(d=>d.style.display='none');
+  document.getElementById('nutr-'+name).style.display='block';
+  nutrRender();
+}
+function nutrRender(){
+  if(nutr.sub==='today')    nutrRenderToday();
+  else if(nutr.sub==='week')     nutrRenderWeek();
+  else if(nutr.sub==='log')      nutrRenderLog();
+  else if(nutr.sub==='weight')   nutrRenderWeight();
+  else if(nutr.sub==='settings') nutrRenderSettings();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — TODAY TAB
+// ═══════════════════════════════════════════════════════════════════
+function nutrRenderToday(){
+  const el=document.getElementById('nutr-today');
+  const targets=nutrCalcDay(nutr.profile,nutr.todaySessions);
+  const windows=nutrCalcWindows(nutr.todaySessions,targets,nutr.foodEntries);
+  const totalEaten={
+    carbs:nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0),
+    protein:nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0),
+    fat:nutr.foodEntries.reduce((s,e)=>s+(e.fat||0),0),
+    kcal:nutr.foodEntries.reduce((s,e)=>s+(e.calories||0),0),
+  };
+  const rem={
+    carbs:Math.max(0,targets.carbs-totalEaten.carbs),
+    protein:Math.max(0,targets.protein-totalEaten.protein),
+    fat:Math.max(0,targets.fat-totalEaten.fat),
+    kcal:Math.max(0,targets.kcal-totalEaten.kcal),
+  };
+
+  const sessionTypeOpts=Object.entries(NUTR_SESSION_TYPES).map(([n,s])=>`<option value="${n}">${n}. ${s.name}</option>`).join('');
+
+  // Sessions
+  let sessHtml=nutr.todaySessions.map((s,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <select class="nutr-select" style="flex:1" onchange="nutrSetSession(${i},'typeNum',this.value)">
+        <option value="">— Session ${i+1} —</option>${sessionTypeOpts}
+      </select>
+      <input type="number" class="nutr-input" style="width:70px" placeholder="min"
+        value="${s.durationMins||''}" onchange="nutrSetSession(${i},'durationMins',this.value)">
+    </div>
+    ${s.typeNum?`<div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);width:40px">Start</span>
+      <input type="time" class="nutr-input" style="width:130px" value="${s.startTime||''}"
+        onchange="nutrSetSession(${i},'startTime',this.value)">
+    </div>`:''}
+  `).join('');
+
+  // Targets bar
+  const intentHtml=`<span class="nutr-intent ${targets.intent.cls}">${targets.intent.label}</span>`;
+
+  // Windows or simple breakdown
+  let windowHtml='';
+  if(windows){
+    windowHtml=windows.map(w=>{
+      const pct=w.carbTarget>0?Math.min(100,Math.round(w.carbEaten/w.carbTarget*100)):0;
+      const barColor=pct>=100?'#E24B4A':pct>=80?'#c8f036':'#00B4D8';
+      const entries=nutr.foodEntries.filter(e=>e.windowId===w.id);
+      const entryHtml=entries.map(e=>`
+        <div class="nutr-food-entry">
+          <span style="color:var(--tc);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.name} (${e.qty}${e.unit})</span>
+          <span style="color:#E94560;margin-left:8px">${e.carbs}g C</span>
+          <span style="color:#06D6A0;margin-left:6px">${e.protein}g P</span>
+          <span style="color:#00B4D8;margin-left:6px">${e.fat}g F</span>
+          <button onclick="nutrRemoveFood('${e.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;margin-left:8px;font-size:14px">✕</button>
+        </div>`).join('');
+
+      const searchHtml=nutr.searchingWindow===w.id ? nutrSearchPanelHtml(w.id) :
+        `<button onclick="nutrOpenSearch('${w.id}')" style="margin-top:8px;width:100%;background:var(--bc);border:1px dashed var(--border);color:var(--acc);padding:6px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;text-transform:uppercase;letter-spacing:0.08em">+ Add Food</button>`;
+
+      return `<div class="nutr-window">
+        <div class="nutr-window-hdr">
+          <span class="nutr-window-lbl">${w.label}</span>
+          <span class="nutr-window-time">${w.timeLabel}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Carbs</span>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:#E94560;font-weight:700">${w.carbEaten}g / ${w.carbTarget}g</span>
+        </div>
+        <div class="nutr-progress"><div class="nutr-progress-fill" style="width:${pct}%;background:${barColor}"></div></div>
+        ${w.type!=='intra'?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">P: ${w.proteinEaten}/${w.proteinTarget}g &nbsp; F: ${w.fatEaten}/${w.fatTarget}g</div>`:''}
+        ${entryHtml}${searchHtml}
+      </div>`;
+    }).join('');
+  } else {
+    windowHtml=`<div class="nutr-card">
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">Fuelling breakdown</div>
+      <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-bottom:12px">Add session start times to see detailed windows</p>
+      <div class="nutr-row"><span style="color:var(--tc2)">Pre-session</span><span style="color:#FFD166;font-weight:700">${targets.pre}g</span></div>
+      <div class="nutr-row"><span style="color:var(--tc2)">Intra (during)</span><span style="color:#FFD166;font-weight:700">${targets.intra}g</span></div>
+      <div class="nutr-row"><span style="color:var(--tc2)">Post-session</span><span style="color:#FFD166;font-weight:700">${targets.post}g</span></div>
+      <div class="nutr-row" style="border-top:1px solid var(--border);margin-top:4px">
+        <span style="font-weight:600">From meals</span>
+        <span style="color:#E94560;font-size:18px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${targets.foodCarbs}g</span>
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML=`
+    <div class="nutr-card">
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">Today's sessions</div>
+      ${sessHtml}
+    </div>
+
+    <div class="nutr-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="section-label" style="margin:0">Targets</div>
+        ${intentHtml}
+      </div>
+      <div class="nutr-macro">
+        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#E94560">${rem.carbs}</div><div class="nutr-macro-lbl">Carbs rem.</div></div>
+        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#06D6A0">${rem.protein}</div><div class="nutr-macro-lbl">Protein rem.</div></div>
+        <div class="nutr-macro-box"><div class="nutr-macro-val" style="color:#00B4D8">${rem.fat}</div><div class="nutr-macro-lbl">Fat rem.</div></div>
+      </div>
+      <div style="text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${rem.kcal.toLocaleString()} kcal remaining &nbsp;·&nbsp; Targets: ${targets.carbs}g C / ${targets.protein}g P / ${targets.fat}g F</div>
+      ${targets.adjTss>0?`<div style="text-align:center;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:4px">Adj. TSS: ${targets.adjTss}</div>`:''}
+    </div>
+
+    ${windowHtml}`;
+
+  // Re-apply select values after render (innerHTML clears them)
+  nutr.todaySessions.forEach((s,i)=>{
+    const sel=el.querySelectorAll('select')[i];
+    if(sel&&s.typeNum) sel.value=String(s.typeNum);
+  });
+}
+
+function nutrSearchPanelHtml(windowId){
+  const resultsHtml=nutr.searchResults.length&&!nutr.selectedFood ? nutr.searchResults.map(f=>`
+    <div class="nutr-search-result" onclick="nutrSelectFood(${JSON.stringify(JSON.stringify(f))})">
+      <span style="font-weight:600;color:var(--tc)">${f.name}</span>
+      ${f.fromHistory?'<span style="color:#FFD166;margin-left:4px">★</span>':''}
+      ${f.brand?`<span style="color:var(--tc3)"> — ${f.brand}</span>`:''}
+      <span style="color:#E94560;margin-left:8px">${f.per100g?.carbs}g C</span>
+      <span style="color:#06D6A0;margin-left:4px">${f.per100g?.protein}g P</span>
+      <span style="color:var(--tc3);margin-left:4px">per 100g</span>
+      ${f.fromHistory?`<span style="color:var(--tc3);margin-left:4px">${f.use_count}×</span>`:''}
+    </div>`).join('') : '';
+
+  const selectedHtml=nutr.selectedFood ? `
+    <div style="background:var(--bc);border:1px solid var(--border);padding:12px;margin-top:8px">
+      <div style="font-weight:600;font-size:13px;color:var(--tc);margin-bottom:8px">${nutr.selectedFood.name}</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="number" class="nutr-input" style="flex:1" placeholder="Amount"
+          value="${nutr.foodQty}" onchange="nutrSetFoodQty(this.value)">
+        <select class="nutr-select" onchange="nutrSetFoodUnit(this.value)">
+          <option value="g"${nutr.foodUnit==='g'?' selected':''}>g</option>
+          <option value="ml"${nutr.foodUnit==='ml'?' selected':''}>ml</option>
+          <option value="oz"${nutr.foodUnit==='oz'?' selected':''}>oz</option>
+          <option value="serving"${nutr.foodUnit==='serving'?' selected':''}>serving</option>
+          <option value="cup"${nutr.foodUnit==='cup'?' selected':''}>cup</option>
+          <option value="tbsp"${nutr.foodUnit==='tbsp'?' selected':''}>tbsp</option>
+          <option value="tsp"${nutr.foodUnit==='tsp'?' selected':''}>tsp</option>
+        </select>
+      </div>
+      ${nutr.foodQty ? nutrMacroOverrideHtml() : ''}
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="nutr-btn" onclick="nutrAddFood('${windowId}')">Add</button>
+        <button class="nutr-btn-ghost" onclick="nutrClearFood()">Back</button>
+      </div>
+    </div>` : '';
+
+  return `<div style="margin-top:8px">
+    <div style="display:flex;gap:6px">
+      <input type="text" class="nutr-input" placeholder="Search food..." value="${nutr.searchQuery}"
+        oninput="nutrSearchInput(this.value,'${windowId}')" autofocus>
+      <button onclick="nutrOpenBarcode('${windowId}')" style="background:var(--bc3);border:1px solid var(--border);padding:8px 12px;color:var(--tc);cursor:pointer;font-size:16px">📷</button>
+    </div>
+    ${resultsHtml?`<div style="background:var(--bc);border:1px solid var(--border);max-height:200px;overflow-y:auto">${resultsHtml}</div>`:''}
+    ${selectedHtml}
+    <button onclick="nutrCloseSearch()" style="background:none;border:none;color:var(--tc3);font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;margin-top:6px;text-decoration:underline">Cancel</button>
+  </div>`;
+}
+
+function nutrMacroOverrideHtml(){
+  const f=nutr.selectedFood;
+  const mult=nutrCalcMult(nutr.foodQty,nutr.foodUnit,f.serving_size);
+  return `<div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.08em">Edit if label differs:</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+      ${['calories','carbs','protein','fat'].map(m=>`
+        <div style="text-align:center">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:4px">${m==='calories'?'kcal':m}</div>
+          <input type="number" class="nutr-input" style="text-align:center;padding:6px 4px"
+            value="${nutr.foodOverrides[m]??Math.round(f.per100g[m]*mult)}"
+            onchange="nutrSetOverride('${m}',this.value)">
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function nutrCalcMult(qty,unit,servingSize){
+  const q=Number(qty);
+  if(unit==='serving') return q*servingSize/100;
+  if(unit==='oz')      return q*28.35/100;
+  if(unit==='cup')     return q*240/100;
+  if(unit==='tbsp')    return q*15/100;
+  if(unit==='tsp')     return q*5/100;
+  return q/100;
+}
+
+function nutrSetSession(i,field,val){
+  const isStr=field==='startTime';
+  nutr.todaySessions[i][field]=isStr?val:(val?Number(val):null);
+  nutrRenderToday();
+}
+function nutrOpenSearch(windowId){
+  nutr.searchingWindow=windowId;nutr.selectedFood=null;
+  nutr.searchQuery='';nutr.searchResults=[];nutr.foodQty='';nutr.foodUnit='g';nutr.foodOverrides={};
+  nutrRenderToday();
+}
+function nutrCloseSearch(){
+  nutr.searchingWindow=null;nutr.selectedFood=null;nutr.searchQuery='';nutr.searchResults=[];
+  nutrRenderToday();
+}
+function nutrClearFood(){
+  nutr.selectedFood=null;nutr.foodQty='';nutr.foodUnit='g';nutr.foodOverrides={};nutr.searchResults=[];nutr.searchQuery='';
+  nutrRenderToday();
+}
+function nutrSelectFood(jsonStr){
+  nutr.selectedFood=JSON.parse(jsonStr);
+  nutr.foodUnit=nutr.selectedFood.serving_unit||'g';
+  nutr.foodOverrides={};nutr.foodQty='';
+  nutrRenderToday();
+}
+function nutrSetFoodQty(v){ nutr.foodQty=v; nutrRenderToday(); }
+function nutrSetFoodUnit(v){ nutr.foodUnit=v; nutr.foodOverrides={}; nutrRenderToday(); }
+function nutrSetOverride(macro,val){ nutr.foodOverrides[macro]=Number(val); }
+function nutrRemoveFood(id){ nutr.foodEntries=nutr.foodEntries.filter(e=>e.id!==id); nutrRenderToday(); }
+
+async function nutrSearchInput(val,windowId){
+  nutr.searchQuery=val;
+  if(nutr.searchTimer) clearTimeout(nutr.searchTimer);
+  if(!val||val.length<2){ nutr.searchResults=[]; nutrRenderToday(); return; }
+  nutr.searchTimer=setTimeout(async()=>{
+    const aid=currentAthlete?.id||'';
+    const [usda,hist]=await Promise.all([
+      fetch('/api/nutrition-food?q='+encodeURIComponent(val)).then(r=>r.json()).catch(()=>[]),
+      fetch('/api/nutrition-food-history?q='+encodeURIComponent(val)+'&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
+    ]);
+    const hf=(hist||[]).map(h=>({id:h.id,name:h.name,brand:null,serving_size:h.serving_size||100,
+      serving_unit:h.serving_unit||'g',per100g:h.per100g,fromHistory:true,use_count:h.use_count}));
+    const uf=(usda||[]).filter(u=>!hf.some(h=>h.name.toLowerCase()===u.name.toLowerCase()));
+    nutr.searchResults=[...hf,...uf];
+    nutrRenderToday();
+  },300);
+}
+
+function nutrAddFood(windowId){
+  if(!nutr.selectedFood||!nutr.foodQty) return;
+  const f=nutr.selectedFood,qty=nutr.foodQty,unit=nutr.foodUnit,ov={...nutr.foodOverrides};
+  const mult=nutrCalcMult(qty,unit,f.serving_size);
+  const entry={id:crypto.randomUUID(),windowId,name:f.name,qty,unit,
+    calories:ov.calories??Math.round(f.per100g.calories*mult),
+    carbs:ov.carbs??Math.round(f.per100g.carbs*mult),
+    protein:ov.protein??Math.round(f.per100g.protein*mult),
+    fat:ov.fat??Math.round(f.per100g.fat*mult)};
+  nutr.foodEntries=[...nutr.foodEntries,entry];
+  // Save to food history
+  const aid=currentAthlete?.id||'';
+  fetch('/api/nutrition-food-history',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({food:f,athlete_id:aid})}).catch(()=>{});
+  nutrCloseSearch();
+}
+
+function nutrOpenBarcode(windowId){
+  nutr.searchingWindow=windowId;
+  document.getElementById('nutrBarcodeModal').style.display='flex';
+  nutrStartBarcodeScanner();
+}
+let _nutrScanner=null;
+function nutrStartBarcodeScanner(){
+  if(typeof Html5Qrcode==='undefined'){
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+    s.onload=()=>nutrInitScanner();
+    document.head.appendChild(s);
+  } else { nutrInitScanner(); }
+}
+function nutrInitScanner(){
+  const divId='nutrScannerDiv';
+  _nutrScanner=new Html5Qrcode(divId);
+  Html5Qrcode.getCameras().then(cameras=>{
+    if(!cameras?.length){document.getElementById('nutrScanError').textContent='No camera found';return;}
+    const back=cameras.find(c=>/(back|rear|environment)/i.test(c.label));
+    const camId=back?back.id:cameras[cameras.length-1].id;
+    _nutrScanner.start(camId,{fps:10,qrbox:{width:300,height:200}},async barcode=>{
+      await _nutrScanner.stop().catch(()=>{});
+      document.getElementById('nutrBarcodeModal').style.display='none';
+      const r=await fetch('/api/nutrition-food',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({barcode})});
+      const food=await r.json();
+      if(food.error){alert('Product not found — try searching manually');return;}
+      nutr.selectedFood=food;nutr.foodUnit=food.serving_unit||'g';nutr.foodQty='';nutr.foodOverrides={};
+      nutrRenderToday();
+    },()=>{});
+  }).catch(()=>{document.getElementById('nutrScanError').textContent='Camera access denied';});
+}
+function nutrCloseBarcode(){
+  if(_nutrScanner?.isScanning) _nutrScanner.stop().catch(()=>{});
+  document.getElementById('nutrBarcodeModal').style.display='none';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — WEEK TAB
+// ═══════════════════════════════════════════════════════════════════
+function nutrRenderWeek(){
+  const el=document.getElementById('nutr-week');
+  const weekResults=nutrCalcWeek(nutr.profile,nutr.week);
+  const typeOpts=Object.entries(NUTR_SESSION_TYPES).map(([n,s])=>`<option value="${n}">${n}. ${s.name}</option>`).join('');
+  const daysHtml=nutr.week.map((d,di)=>{
+    const res=weekResults[di];
+    const hasSess=d.sessions.some(s=>s.typeNum);
+    const sessHtml=d.sessions.map((s,si)=>`
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select class="nutr-select" style="flex:1;font-size:11px" onchange="nutrSetWeekSession(${di},${si},'typeNum',this.value)">
+          <option value="">— session —</option>${typeOpts}
+        </select>
+        <input type="number" class="nutr-input" style="width:60px;font-size:11px" placeholder="min"
+          value="${s.durationMins||''}" onchange="nutrSetWeekSession(${di},${si},'durationMins',this.value)">
+      </div>`).join('');
+    return `<div class="nutr-week-day">
+      <div class="nutr-day-hdr">
+        <span style="font-weight:700;font-family:'DM Mono',monospace;font-size:12px">${d.day}</span>
+        ${hasSess?`<div style="display:flex;gap:10px;align-items:center">
+          <span style="color:#E94560;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.carbs+res.intra}g C</span>
+          <span style="color:#06D6A0;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.protein}g P</span>
+          <span style="color:#00B4D8;font-family:'DM Mono',monospace;font-size:11px;font-weight:700">${res.fat}g F</span>
+          <span class="nutr-intent ${res.intent.cls}">${res.intent.label}</span>
+        </div>`:`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">No sessions</span>`}
+      </div>
+      <div style="padding:12px">${sessHtml}</div>
+    </div>`;
+  }).join('');
+  el.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="section-label" style="margin:0">Weekly planner</div>
+      <button class="nutr-btn" onclick="nutrSaveWeek()">Save Week</button>
+    </div>
+    ${daysHtml}`;
+  // Restore select values
+  nutr.week.forEach((d,di)=>{
+    d.sessions.forEach((s,si)=>{
+      if(!s.typeNum) return;
+      const sels=el.querySelectorAll('.nutr-week-day')[di]?.querySelectorAll('select');
+      if(sels&&sels[si]) sels[si].value=String(s.typeNum);
+    });
+  });
+}
+
+function nutrSetWeekSession(di,si,field,val){
+  nutr.week[di].sessions[si][field]=val?Number(val):null;
+  nutrRenderWeek();
+}
+async function nutrSaveWeek(){
+  if(!currentAthlete?.id) return;
+  const r=await fetch('/api/nutrition-week',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({athlete_id:currentAthlete.id,sessions:nutr.week,week_date:new Date().toISOString().split('T')[0]})});
+  const d=await r.json();
+  if(d.error) alert('Error: '+d.error);
+  else { const btn=document.querySelector('[onclick="nutrSaveWeek()"]'); if(btn){btn.textContent='Saved ✓';setTimeout(()=>btn.textContent='Save Week',2000);} }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — LOG TAB
+// ═══════════════════════════════════════════════════════════════════
+function nutrRenderLog(){
+  const el=document.getElementById('nutr-log');
+  const targets=nutrCalcDay(nutr.profile,nutr.todaySessions);
+  const macros=[
+    {label:'Carbs (g)',  target:targets.carbs,   key:'carbs'},
+    {label:'Protein (g)',target:targets.protein, key:'protein'},
+    {label:'Fat (g)',    target:targets.fat,      key:'fat'},
+    {label:'kcal',       target:targets.kcal,     key:'kcal'},
+  ];
+  const macroInputs=macros.map(m=>`
+    <div style="display:grid;grid-template-columns:1fr 80px 100px;gap:8px;align-items:center;margin-bottom:8px">
+      <span style="font-size:13px;color:var(--tc)">${m.label}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:13px;color:#06D6A0;text-align:center;font-weight:700">${m.target}</span>
+      <input type="number" class="nutr-input" placeholder="0" style="text-align:center"
+        value="${nutr.logActuals[m.key]||''}" onchange="nutrSetActual('${m.key}',this.value)">
+    </div>`).join('');
+
+  const varHtml=Object.keys(nutr.logActuals).length ? `<div class="nutr-card">
+    <div class="section-label" style="margin-top:0;margin-bottom:10px">Variance</div>
+    ${macros.filter(m=>nutr.logActuals[m.key]).map(m=>{
+      const diff=Number(nutr.logActuals[m.key])-m.target;
+      const pct=Math.round(diff/m.target*100);
+      const color=Math.abs(pct)<=5?'#06D6A0':diff>0?'#E24B4A':'#FFD166';
+      return `<div class="nutr-row">
+        <span style="color:var(--tc2)">${m.label}</span>
+        <span style="font-weight:700;font-family:'DM Mono',monospace;font-size:12px;color:${color}">${diff>0?'+':''}${diff} (${pct>0?'+':''}${pct}%)</span>
+      </div>`;
+    }).join('')}
+  </div>` : '';
+
+  const histHtml=nutr.logHistory.length?`<div class="nutr-card">
+    <div class="section-label" style="margin-top:0;margin-bottom:10px">Recent logs</div>
+    ${nutr.logHistory.map(log=>{
+      const cv=log.actual_carbs&&log.target_carbs?log.actual_carbs-log.target_carbs:null;
+      const c=cv===null?'var(--tc3)':Math.abs(cv)<=15?'#06D6A0':cv>0?'#E24B4A':'#FFD166';
+      return `<div style="background:var(--bc3);border:1px solid var(--border);padding:12px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-weight:600;font-size:13px">${log.log_date}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">${log.intent||''}</span>
+        </div>
+        <div style="display:flex;gap:14px;font-family:'DM Mono',monospace;font-size:11px">
+          <span style="color:#E94560">C: ${log.actual_carbs||'—'}g</span>
+          <span style="color:#06D6A0">P: ${log.actual_protein||'—'}g</span>
+          <span style="color:#00B4D8">F: ${log.actual_fat||'—'}g</span>
+          ${cv!==null?`<span style="font-weight:700;color:${c}">${cv>0?'+':''}${cv}g carbs</span>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>` : '';
+
+  el.innerHTML=`
+    <div class="nutr-card">
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">Log this day</div>
+      <div style="margin-bottom:10px">
+        <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Date</label>
+        <input type="date" class="nutr-input" value="${nutr.logDate}" onchange="nutr.logDate=this.value">
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <div style="flex:1">
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Body weight (lbs)</label>
+          <input type="number" class="nutr-input" placeholder="168.0" value="${nutr.logWeight}" onchange="nutr.logWeight=this.value">
+        </div>
+        <div style="flex:1">
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Garmin active kcal</label>
+          <input type="number" class="nutr-input" placeholder="0" value="${nutr.logGarmin}" onchange="nutr.logGarmin=this.value">
+        </div>
+      </div>
+      <div class="section-label" style="margin-bottom:8px">Targets vs Actuals (Cronometer)</div>
+      <div style="display:grid;grid-template-columns:1fr 80px 100px;gap:8px;margin-bottom:6px">
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">Macro</span>
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:center">Target</span>
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:center">Actual</span>
+      </div>
+      ${macroInputs}
+      <div style="margin-top:10px">
+        <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Notes</label>
+        <textarea class="nutr-input" rows="3" style="resize:none" placeholder="How did the day go?" onchange="nutr.logNotes=this.value">${nutr.logNotes}</textarea>
+      </div>
+    </div>
+    ${varHtml}
+    <button class="nutr-btn" style="width:100%;padding:14px;font-size:13px;margin-bottom:16px" onclick="nutrSaveLog()">LOG THIS DAY ▶</button>
+    ${histHtml}`;
+}
+
+function nutrSetActual(key,val){ nutr.logActuals[key]=val; }
+async function nutrSaveLog(){
+  if(!currentAthlete?.id) return;
+  const targets=nutrCalcDay(nutr.profile,nutr.todaySessions);
+  const body={
+    athlete_id:currentAthlete.id,
+    log_date:nutr.logDate,
+    sessions:nutr.todaySessions,
+    target_carbs:targets.carbs,target_protein:targets.protein,target_fat:targets.fat,target_kcal:targets.kcal,
+    actual_carbs:nutr.logActuals.carbs?Number(nutr.logActuals.carbs):null,
+    actual_protein:nutr.logActuals.protein?Number(nutr.logActuals.protein):null,
+    actual_fat:nutr.logActuals.fat?Number(nutr.logActuals.fat):null,
+    actual_kcal:nutr.logActuals.kcal?Number(nutr.logActuals.kcal):null,
+    body_weight_lbs:nutr.logWeight?Number(nutr.logWeight):null,
+    garmin_kcal:nutr.logGarmin?Number(nutr.logGarmin):null,
+    notes:nutr.logNotes,
+    intent:targets.intent.label,
+  };
+  const r=await fetch('/api/nutrition-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.error) alert('Error: '+d.error);
+  else{
+    nutr.logActuals={};nutr.logNotes='';nutr.logWeight='';nutr.logGarmin='';
+    nutr.logHistory=await fetch('/api/nutrition-log?athlete_id='+currentAthlete.id).then(r=>r.json()).catch(()=>[]);
+    nutrRenderLog();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — WEIGHT TAB
+// ═══════════════════════════════════════════════════════════════════
+function nutrRenderWeight(){
+  const el=document.getElementById('nutr-weight');
+  const logs=nutr.weightLogs;
+  const statsHtml=logs.length?`<div class="nutr-card">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">LATEST</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${logs[0].weight_lbs} lbs</div></div>
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">7-DAY AVG</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#00B4D8">${(logs.slice(0,7).reduce((s,w)=>s+w.weight_lbs,0)/Math.min(7,logs.length)).toFixed(1)} lbs</div></div>
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">TO GOAL</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#FFD166">${(logs[0].weight_lbs-nutr.profile.goal_weight_lbs).toFixed(1)} lbs</div></div>
+    </div>
+  </div>` : '';
+
+  const histHtml=logs.length?`<div class="nutr-card">
+    <div class="section-label" style="margin-top:0;margin-bottom:10px">History</div>
+    ${logs.map(l=>`<div class="nutr-row">
+      <div><div style="font-weight:600;font-size:14px">${l.weight_lbs} lbs</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${l.log_date}</div></div>
+      <div style="text-align:right">
+        ${l.body_fat_pct?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${l.body_fat_pct}% BF</div>`:''}
+        ${l.feeling?`<div style="color:#FFD166;font-size:12px">${'★'.repeat(l.feeling)}</div>`:''}
+      </div>
+    </div>`).join('')}
+  </div>` : '';
+
+  el.innerHTML=`
+    <div class="nutr-card">
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">Log weight</div>
+      <div style="margin-bottom:10px">
+        <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Weight (lbs)</label>
+        <input type="number" class="nutr-input" placeholder="168.0" value="${nutr.newWeight}" onchange="nutr.newWeight=this.value">
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <div style="flex:1">
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Body fat % (optional)</label>
+          <input type="number" class="nutr-input" placeholder="12.0" value="${nutr.newBodyFat}" onchange="nutr.newBodyFat=this.value">
+        </div>
+        <div style="flex:1">
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Feeling (1-5)</label>
+          <select class="nutr-select" style="width:100%" onchange="nutr.newFeeling=this.value">
+            <option value="">—</option>
+            <option value="1"${nutr.newFeeling==='1'?' selected':''}>1 — Terrible</option>
+            <option value="2"${nutr.newFeeling==='2'?' selected':''}>2 — Poor</option>
+            <option value="3"${nutr.newFeeling==='3'?' selected':''}>3 — OK</option>
+            <option value="4"${nutr.newFeeling==='4'?' selected':''}>4 — Good</option>
+            <option value="5"${nutr.newFeeling==='5'?' selected':''}>5 — Great</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Notes</label>
+        <input type="text" class="nutr-input" placeholder="e.g. post-race, travel day..." value="${nutr.newWeightNotes}" onchange="nutr.newWeightNotes=this.value">
+      </div>
+      <button class="nutr-btn" style="width:100%;padding:12px" onclick="nutrSaveWeight()">Log Weight ▶</button>
+    </div>
+    ${statsHtml}${histHtml}`;
+}
+
+async function nutrSaveWeight(){
+  if(!currentAthlete?.id||!nutr.newWeight) return;
+  const body={athlete_id:currentAthlete.id,log_date:new Date().toISOString().split('T')[0],
+    weight_lbs:Number(nutr.newWeight),body_fat_pct:nutr.newBodyFat?Number(nutr.newBodyFat):null,
+    feeling:nutr.newFeeling?Number(nutr.newFeeling):null,notes:nutr.newWeightNotes||null};
+  const r=await fetch('/api/nutrition-weight',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.error) alert('Error: '+d.error);
+  else{
+    nutr.newWeight='';nutr.newBodyFat='';nutr.newFeeling='';nutr.newWeightNotes='';
+    nutr.weightLogs=await fetch('/api/nutrition-weight?athlete_id='+currentAthlete.id).then(r=>r.json()).catch(()=>[]);
+    nutrRenderWeight();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — SETTINGS TAB
+// ═══════════════════════════════════════════════════════════════════
+function nutrRenderSettings(){
+  const el=document.getElementById('nutr-settings');
+  const p=nutr.profile;
+  const toLose=((p.weight_lbs||168)-(p.goal_weight_lbs||159)).toFixed(1);
+  const weeks=p.weekly_loss_target>0?Math.ceil(toLose/p.weekly_loss_target):'—';
+  el.innerHTML=`
+    <div class="nutr-card">
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">Nutrition profile</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Current weight (lbs)</label>
+          <input type="number" class="nutr-input" value="${p.weight_lbs||168}" onchange="nutr.profile.weight_lbs=Number(this.value)">
+        </div>
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Goal weight (lbs)</label>
+          <input type="number" class="nutr-input" value="${p.goal_weight_lbs||159}" onchange="nutr.profile.goal_weight_lbs=Number(this.value)">
+        </div>
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Mode</label>
+          <select class="nutr-select" style="width:100%" onchange="nutr.profile.mode=Number(this.value)">
+            <option value="1"${p.mode===1?' selected':''}>⬇ Cut — deficit on easy days</option>
+            <option value="2"${p.mode===2?' selected':''}>✅ Maintain — match TDEE</option>
+            <option value="3"${p.mode===3?' selected':''}>⬆ Build — surplus on hard days</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Weekly loss target (lbs)</label>
+          <input type="number" step="0.1" class="nutr-input" value="${p.weekly_loss_target||0.5}" onchange="nutr.profile.weekly_loss_target=Number(this.value)">
+        </div>
+      </div>
+      <button class="nutr-btn" style="width:100%;padding:12px" onclick="nutrSaveProfile()">Save Profile ▶</button>
+    </div>
+    <div class="nutr-card" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">TO LOSE</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#FFD166">${toLose} lbs</div></div>
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">AT RATE</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${p.weekly_loss_target} lbs/wk</div></div>
+      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">EST. WEEKS</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#06D6A0">${weeks}</div></div>
+    </div>`;
+}
+
+async function nutrSaveProfile(){
+  if(!currentAthlete?.id) return;
+  const body={...nutr.profile,athlete_id:currentAthlete.id};
+  const r=await fetch('/api/nutrition-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.error) alert('Error: '+d.error);
+  else{
+    nutr.profile=d;
+    const btn=document.querySelector('[onclick="nutrSaveProfile()"]');
+    if(btn){btn.textContent='Saved ✓';setTimeout(()=>{btn.textContent='Save Profile ▶';nutrRenderSettings();},2000);}
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// NUTRITION — HOOK INTO switchDashTab
+// ═══════════════════════════════════════════════════════════════════
+const _origSwitchDashTab=switchDashTab;
+function switchDashTab(name){
+  _origSwitchDashTab(name);
+  if(name==='nutrition') loadNutritionTab();
+}
+</script>
+
+<!-- Barcode scanner modal -->
+<div id="nutrBarcodeModal">
+  <div style="background:var(--bc2);border:1px solid var(--border);padding:24px;max-width:360px;width:100%">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="font-weight:700;font-size:16px">Scan Barcode</span>
+      <button onclick="nutrCloseBarcode()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:16px">✕</button>
+    </div>
+    <div id="nutrScannerDiv" style="width:100%;border-radius:4px;overflow:hidden"></div>
+    <div id="nutrScanError" style="color:#E24B4A;font-family:'DM Mono',monospace;font-size:11px;margin-top:8px"></div>
+    <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-top:8px">Point camera at product barcode</p>
   </div>
 </div>
 
