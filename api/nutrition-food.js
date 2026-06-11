@@ -75,7 +75,7 @@ export default async function handler(req, res) {
       if (!usdaKey) return res.status(500).json({ error: 'USDA_API_KEY not configured' });
 
       const r = await fetch(
-        `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&pageSize=5&api_key=${usdaKey}`
+        `https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(q)}&pageSize=10&api_key=${usdaKey}`
       );
       const data = await r.json();
 

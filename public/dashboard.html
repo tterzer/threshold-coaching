@@ -2630,13 +2630,18 @@ function _applyFitnessToUI(){
 .nutr-food-macros{display:flex;align-items:center;gap:6px;flex-shrink:0}
 /* Floating add button */
 .nutr-fab{position:sticky;bottom:20px;display:block;margin:16px 0 0 auto;background:var(--acc);color:#000;border:none;padding:12px 24px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
-/* Food entry modal (bottom sheet) */
-#nutrFoodModal{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0);align-items:flex-end;justify-content:center;transition:background 0.25s}
-#nutrFoodModal.show{display:flex;background:rgba(0,0,0,0.72)}
-.nutr-modal-sheet{background:var(--bc2);border-top:1px solid var(--border);width:100%;max-width:700px;max-height:85vh;overflow-y:auto;padding:0 0 32px;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.32,0.72,0,1)}
-#nutrFoodModal.show .nutr-modal-sheet{transform:translateY(0)}
-.nutr-modal-drag{width:36px;height:4px;background:var(--border);border-radius:2px;margin:10px auto 0;cursor:grab}
-.nutr-modal-inner{padding:0 20px 4px}
+/* Food entry modal */
+#nutrFoodModalOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000}
+#nutrFoodModalOverlay.show{display:block}
+#nutrFoodModal{display:none;position:fixed;bottom:0;left:0;right:0;max-height:85vh;background:var(--bc2);border-top:1px solid var(--border);border-radius:12px 12px 0 0;overflow-y:auto;z-index:1001;padding:0 1.5rem 2rem;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.32,0.72,0,1)}
+#nutrFoodModal.show{display:block;transform:translateY(0)}
+@media(min-width:768px){
+  #nutrFoodModal{top:50%;bottom:auto;left:50%;right:auto;transform:translate(-50%,-40%);width:520px;max-height:80vh;border-radius:8px;border:1px solid var(--border);border-top:1px solid var(--border)}
+  #nutrFoodModal.show{transform:translate(-50%,-50%)}
+}
+.nutr-modal-drag{width:40px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 1rem;cursor:grab}
+@media(min-width:768px){.nutr-modal-drag{display:none}}
+.nutr-modal-inner{padding:0}
 .nutr-scan-btn{width:100%;background:var(--bc3);border:2px dashed var(--border);color:var(--tc2);padding:18px;font-family:'DM Mono',monospace;font-size:13px;letter-spacing:0.12em;text-transform:uppercase;cursor:pointer;margin-bottom:2px}
 .nutr-scan-btn:hover{border-color:var(--acc);color:var(--acc)}
 .nutr-hist-item{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px}
@@ -2943,7 +2948,7 @@ const nutr={
   newWeight:'',newBodyFat:'',newFeeling:'',newWeightNotes:'',
   // food modal
   foodModalOpen:false,foodModalWindow:'unassigned',
-  selectedFood:null,searchResults:[],searchQuery:'',
+  selectedFood:null,searchResults:[],searchQuery:'',searchError:'',
   foodQty:'',foodUnit:'g',foodOverrides:{},
   saveAsCombo:false,comboName:'',
   searchTimer:null,
@@ -3054,9 +3059,6 @@ async function nutrLoadWeek(){
   nutrRenderWeek();
 }
 
-function nutrModalOverlayClick(e){
-  if(e.target===document.getElementById('nutrFoodModal')) nutrCloseFoodModal();
-}
 function nutrRender(){
   if(!nutr.loaded){loadNutritionTab();return;}
   if(nutr.sub==='today')         nutrRenderToday();
@@ -3209,18 +3211,21 @@ function nutrCalcMult(qty,unit,servingSize){
 function nutrOpenFoodModal(windowId){
   nutr.foodModalOpen=true;
   nutr.foodModalWindow=windowId||'unassigned';
-  nutr.selectedFood=null;nutr.searchQuery='';nutr.searchResults=[];
+  nutr.selectedFood=null;nutr.searchQuery='';nutr.searchResults=[];nutr.searchError='';
   nutr.foodQty='';nutr.foodUnit='g';nutr.foodOverrides={};
   nutr.saveAsCombo=false;nutr.comboName='';
-  const modal=document.getElementById('nutrFoodModal');
-  modal.classList.add('show');
+  document.getElementById('nutrFoodModal').classList.add('show');
+  document.getElementById('nutrFoodModalOverlay').classList.add('show');
+  document.body.style.overflow='hidden';
   nutrRenderFoodModal();
-  setTimeout(()=>{const inp=modal.querySelector('.nutr-modal-search');if(inp)inp.focus();},120);
+  setTimeout(()=>{const inp=document.querySelector('#nutrFoodModal .nutr-modal-search');if(inp)inp.focus();},120);
 }
 
 function nutrCloseFoodModal(){
   nutr.foodModalOpen=false;
   document.getElementById('nutrFoodModal').classList.remove('show');
+  document.getElementById('nutrFoodModalOverlay').classList.remove('show');
+  document.body.style.overflow='';
   nutrRenderToday();
 }
 
@@ -3248,6 +3253,9 @@ function nutrRenderFoodModal(){
       </div>`;
     }
   }
+
+  // Search error
+  const searchErrorHtml=nutr.searchError&&!f?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;background:#E24B4A18;border:1px solid #E24B4A44;padding:8px 12px;margin-top:8px">${nutr.searchError}</div>`:'';
 
   // Search results
   const resultsHtml=nutr.searchResults.length&&!f?`<div style="border:1px solid var(--border);max-height:240px;overflow-y:auto;margin-top:6px">
@@ -3308,33 +3316,35 @@ function nutrRenderFoodModal(){
     </div>
     ${!f?`<button onclick="nutrOpenBarcode(nutr.foodModalWindow)" class="nutr-scan-btn">SCAN BARCODE</button>`:''}
     ${!f?`<input type="text" class="nutr-input nutr-modal-search" placeholder="Search food..." value="${nutr.searchQuery.replace(/"/g,'&quot;')}" oninput="nutrModalSearchInput(this.value)" style="margin-top:8px">`:''}
-    ${resultsHtml}${histHtml}${selectedHtml}`;
+    ${searchErrorHtml}${resultsHtml}${histHtml}${selectedHtml}`;
 }
 
 function nutrModalSearchInput(val){
   nutr.searchQuery=val;
   if(nutr.searchTimer)clearTimeout(nutr.searchTimer);
   if(!val||val.length<2){nutr.searchResults=[];nutrRenderFoodModal();return;}
+  nutr.searchError='';
   nutr.searchTimer=setTimeout(async()=>{
     const aid=currentAthlete?.id||'';
-    console.log('[FuelPro] searching food:',val);
     const[usdaRaw,histRaw]=await Promise.all([
       fetch('/api/nutrition-food?q='+encodeURIComponent(val)).then(async r=>{
         const d=await r.json();
-        if(!r.ok||d.error){console.error('[FuelPro] USDA error',r.status,d);return [];}
-        console.log('[FuelPro] USDA results:',d.length);
+        if(!r.ok||d.error){
+          nutr.searchError=d.error||('Search failed (HTTP '+r.status+')');
+          console.error('[FuelPro] USDA error',r.status,d);
+          return [];
+        }
         return d;
-      }).catch(e=>{console.error('[FuelPro] USDA fetch threw',e);return [];}),
+      }).catch(e=>{nutr.searchError='Search unavailable: '+e.message;console.error('[FuelPro] USDA fetch threw',e);return [];}),
       fetch('/api/nutrition-food?type=history&q='+encodeURIComponent(val)+'&athlete_id='+aid).then(async r=>{
         const d=await r.json();
-        if(!r.ok){console.error('[FuelPro] history error',r.status,d);return [];}
+        if(!r.ok)return [];
         return d;
-      }).catch(e=>{console.error('[FuelPro] history fetch threw',e);return [];}),
+      }).catch(()=>[]),
     ]);
     const hf=(histRaw||[]).map(h=>({...h,fromHistory:true}));
     const uf=(usdaRaw||[]).filter(u=>!hf.some(h=>h.name.toLowerCase()===u.name.toLowerCase()));
     nutr.searchResults=[...hf,...uf];
-    console.log('[FuelPro] total results:',nutr.searchResults.length);
     nutrRenderFoodModal();
   },300);
 }
@@ -3789,12 +3799,11 @@ async function nutrSaveSettings(){
 
 </script>
 
-<!-- Food entry modal (bottom sheet) -->
-<div id="nutrFoodModal" onclick="nutrModalOverlayClick(event)">
-  <div class="nutr-modal-sheet">
-    <div class="nutr-modal-drag"></div>
-    <div class="nutr-modal-inner" id="nutrFoodModalContent"></div>
-  </div>
+<!-- Food entry modal -->
+<div id="nutrFoodModalOverlay" onclick="nutrCloseFoodModal()"></div>
+<div id="nutrFoodModal">
+  <div class="nutr-modal-drag"></div>
+  <div class="nutr-modal-inner" id="nutrFoodModalContent"></div>
 </div>
 
 <!-- Barcode scanner modal -->
