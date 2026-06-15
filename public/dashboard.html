@@ -3634,14 +3634,25 @@ function nutrRenderFoodModal(){
       <button onclick="nutrCloseFoodModal()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:24px;line-height:1;padding:4px 8px">✕</button>
     </div>
     <button onclick="nutrOpenBarcode(nutr.foodModalWindow)" class="nutr-scan-btn">SCAN BARCODE</button>
+    <div id="nutr-recents-panel" style="margin-top:1rem"></div>
     <input id="nutrFoodSearchInput" type="text" class="nutr-input nutr-modal-search"
       placeholder="Search food… or try '100g oats', '2 eggs'" value="${nutr.searchQuery.replace(/"/g,'&quot;')}"
-      oninput="nutrModalSearchInput(this.value)" autocomplete="off" style="margin-top:8px">
+      oninput="nutrModalSearchInput(this.value);document.getElementById('nutr-recents-panel').style.display=this.value?'none':'block'" autocomplete="off" style="margin-top:8px">
     <div id="nutrFoodSearchResultsEl">${nutrSearchResultsHtml()}</div>`;
 
   const inp=document.getElementById('nutrFoodSearchInput');
   if(inp&&nutr.searchQuery){const l=nutr.searchQuery.length;inp.setSelectionRange(l,l);}
   else if(inp)setTimeout(()=>inp.focus(),50);
+  // Populate recents panel
+  const aid=currentAthlete?.id||'';
+  fetch('/api/nutrition-food-history?limit=8&athlete_id='+aid).then(r=>r.json()).then(function(items){
+    var el=document.getElementById('nutr-recents-panel');
+    if(!el||!items||!items.length)return;
+    el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+items.map(function(f){
+      var js=JSON.stringify(JSON.stringify(f));
+      return'<div onclick="nutrSelectFoodObj('+js.replace(/"/g,'&quot;')+')" style="padding:10px 0;border-bottom:1px solid #2a2a2a;cursor:pointer"><span style="color:#f0f0f0;font-size:13px">'+f.name+'</span><span style="font-family:\'DM Mono\',monospace;font-size:10px;color:#555;margin-left:8px">'+((f.per100g||{}).carbs||0)+'g C · '+((f.per100g||{}).protein||0)+'g P</span></div>';
+    }).join('');
+  }).catch(function(){});
 }
 
 function nutrModalSearchInput(val){
