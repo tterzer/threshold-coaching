@@ -3702,7 +3702,10 @@ function nutrRenderFoodModal(){
     fetch('/api/nutrition-food?type=history&limit=8&athlete_id='+(currentAthlete&&currentAthlete.id||''))
     .then(function(r){return r.json()})
     .then(function(items){
-      if(!items||!items.length){box.style.display='none';return;}
+      if(!items||!items.length){
+        box.innerHTML='<div style="font-family:DM Mono,monospace;font-size:10px;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div><div style="font-size:12px;color:#555;padding:8px 0">No recent foods yet — foods you log will appear here</div>';
+        return;
+      }
       box.innerHTML='<div style="font-family:DM Mono,monospace;font-size:10px;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+
       items.map(function(f){
         return '<div onclick="nutr.selectedFood='+JSON.stringify(f).replace(/</g,'&lt;')+';nutrRenderFoodModal()" style="padding:8px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'+
