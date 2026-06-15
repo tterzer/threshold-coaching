@@ -39,17 +39,22 @@ export default async function handler(req, res) {
       if (req.method === 'GET') {
         const { athlete_id, date } = req.query;
         if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
-        const cols = 'id,athlete_id,log_date,food_entries,sessions,target_carbs,target_protein,target_fat,target_kcal,actual_carbs,actual_protein,actual_fat,actual_kcal,intent';
         if (date) {
           const { data, error } = await supabase
-            .from('daily_logs').select(cols).eq('athlete_id', athlete_id).eq('log_date', date).maybeSingle();
-          if (error) return res.status(500).json({ error: error.message });
+            .from('daily_logs').select('*').eq('athlete_id', athlete_id).eq('log_date', date).maybeSingle();
+          if (error) {
+            console.error('[nutrition-data GET log single]', error.message, error.details, error.hint);
+            return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
+          }
           return res.status(200).json(data || {});
         }
         const { data, error } = await supabase
-          .from('daily_logs').select(cols).eq('athlete_id', athlete_id)
+          .from('daily_logs').select('*').eq('athlete_id', athlete_id)
           .order('log_date', { ascending: false }).limit(30);
-        if (error) return res.status(500).json({ error: error.message });
+        if (error) {
+          console.error('[nutrition-data GET log list]', error.message, error.details, error.hint);
+          return res.status(500).json({ error: error.message, details: error.details, hint: error.hint });
+        }
         return res.status(200).json(data || []);
       }
       if (req.method === 'POST') {
@@ -59,11 +64,14 @@ export default async function handler(req, res) {
           .from('daily_logs').select('id').eq('athlete_id', body.athlete_id).eq('log_date', body.log_date).maybeSingle();
         let result;
         if (existing) {
-          result = await supabase.from('daily_logs').update(body).eq('id', existing.id).select().single();
+          result = await supabase.from('daily_logs').update(body).eq('id', existing.id).select('*').single();
         } else {
-          result = await supabase.from('daily_logs').insert(body).select().single();
+          result = await supabase.from('daily_logs').insert(body).select('*').single();
         }
-        if (result.error) return res.status(500).json({ error: result.error.message });
+        if (result.error) {
+          console.error('[nutrition-data POST log]', result.error.message, result.error.details, result.error.hint, '| keys sent:', Object.keys(body));
+          return res.status(500).json({ error: result.error.message, details: result.error.details, hint: result.error.hint, keys_sent: Object.keys(body) });
+        }
         return res.status(200).json(result.data);
       }
     }

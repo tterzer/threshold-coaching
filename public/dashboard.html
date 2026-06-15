@@ -2962,7 +2962,7 @@ const nutr={
 // ═══════════════════════════════════════════════════════════════════
 async function loadNutritionTab(){
   if(!currentAthlete?.id)return;
-  if(nutr.loading)return;
+  if(nutr.loading||nutr.loaded)return;
   nutr.loading=true;
   const todayEl=document.getElementById('nutr-today');
   if(todayEl&&nutr.sub==='today')todayEl.innerHTML='<div style="padding:2rem;font-family:\'DM Mono\',monospace;font-size:12px;color:var(--tc3)">Loading...</div>';
