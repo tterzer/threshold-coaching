@@ -2010,7 +2010,7 @@ function renderAthCal(){
       return '<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>';
     }).join('');
 
-    html+='<div class="ath-cal-cell'+(otherMonth?' other-month':'')+'">'
+    html+='<div class="ath-cal-cell'+(otherMonth?' other-month':'')+'" onclick="openAthDayModal(\''+key+'\')">'
       +'<div class="ath-cal-date">'+d.getDate()+'</div>'
       +racesHtml+blocksHtml+unmatchedHtml
       +'</div>';
@@ -2162,6 +2162,20 @@ async function openAthBlockModal(mode, woId, icuId){
 function closeAthModal(){
   document.getElementById('athWoModal').classList.remove('show');
   athViewingWo=null;
+}
+
+function openAthDayModal(dateStr){
+  // Find first workout or ICU activity for this date and open its modal
+  const wo=(athWorkoutsCache||[]).find(w=>w.date===dateStr);
+  const act=(allActivities||[]).find(a=>(a.start_date_local||'').slice(0,10)===dateStr);
+  if(wo&&act){
+    openAthBlockModal('completed',String(wo.id),String(act.id));
+  } else if(wo){
+    openAthBlockModal('planned',String(wo.id),null);
+  } else if(act){
+    openAthBlockModal('icu_only',null,String(act.id));
+  }
+  // empty day — no-op
 }
 
 async function saveAthNote(){
