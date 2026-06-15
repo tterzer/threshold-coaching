@@ -3453,6 +3453,12 @@ function nutrRenderToday(){
 // ═══════════════════════════════════════════════════════════════════
 // FUELPRO — FOOD MODAL
 // ═══════════════════════════════════════════════════════════════════
+function nutrEffectiveServingSize(f){
+  // If serving_size is missing/100 and name contains 'egg', default to 50g
+  const ss=f?.serving_size;
+  if((!ss||ss===100)&&(f?.name||'').toLowerCase().includes('egg'))return 50;
+  return ss||100;
+}
 function nutrCalcMult(qty,unit,servingSize){
   const q=Number(qty);
   if(unit==='serving')return q*(servingSize||100)/100;
@@ -3618,7 +3624,8 @@ function nutrRenderConfirm(){
   // Hide recents panel while confirming a food
   const rp=document.getElementById('nutr-recents-panel');
   if(rp)rp.style.display='none';
-  const mult=nutr.foodQty?nutrCalcMult(nutr.foodQty,nutr.foodUnit,f.serving_size):0;
+  const effServing=nutrEffectiveServingSize(f);
+  const mult=nutr.foodQty?nutrCalcMult(nutr.foodQty,nutr.foodUnit,effServing):0;
   const calc={
     calories:Math.round((f.per100g?.calories||0)*mult),
     protein:Math.round((f.per100g?.protein||0)*mult),
@@ -3651,6 +3658,18 @@ function nutrRenderConfirm(){
         ${['g','oz','fl oz','ml','serving','piece','cup','tbsp','tsp'].map(u=>`<option value="${u}"${nutr.foodUnit===u?' selected':''}>${u}</option>`).join('')}
       </select>
     </div>
+    ${(()=>{
+      const u=nutr.foodUnit;
+      let hint='';
+      if(u==='serving')hint=`1 serving = ${effServing}g`;
+      else if(u==='oz')hint='1 oz = 28.35g';
+      else if(u==='fl oz')hint='1 fl oz = 29.57g';
+      else if(u==='ml')hint='1 ml = 1g';
+      else if(u==='cup')hint='1 cup = 240g';
+      else if(u==='tbsp')hint='1 tbsp = 15g';
+      else if(u==='tsp')hint='1 tsp = 5g';
+      return hint?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:#555;margin-top:-8px;margin-bottom:10px;text-align:right">${hint}</div>`:'';
+    })()}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:14px">
       ${macros.map(({k,label,unit,color})=>{
         const displayed=nutr.foodOverrides[k]??calc[k];
@@ -3771,7 +3790,7 @@ function nutrSetOverride(macro,val){nutr.foodOverrides[macro]=Number(val);}
 async function nutrAddFoodFromModal(){
   if(!nutr.selectedFood||!nutr.foodQty)return;
   const f=nutr.selectedFood,qty=nutr.foodQty,unit=nutr.foodUnit,ov={...nutr.foodOverrides};
-  const mult=nutrCalcMult(qty,unit,f.serving_size);
+  const mult=nutrCalcMult(qty,unit,nutrEffectiveServingSize(f));
   const entry={id:crypto.randomUUID(),windowId:nutr.foodModalWindow||'unassigned',name:f.name,qty,unit,
     calories:ov.calories??Math.round((f.per100g?.calories||0)*mult),
     carbs:ov.carbs??Math.round((f.per100g?.carbs||0)*mult),
