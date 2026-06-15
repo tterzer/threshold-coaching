@@ -3686,14 +3686,31 @@ function nutrRenderFoodModal(){
       <button onclick="nutrCloseFoodModal()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:24px;line-height:1;padding:4px 8px">✕</button>
     </div>
     <button onclick="nutrOpenBarcode(nutr.foodModalWindow)" class="nutr-scan-btn">SCAN BARCODE</button>
+    <div id="nutrRecentsBox" style="margin:12px 0"></div>
     <input id="nutrFoodSearchInput" type="text" class="nutr-input nutr-modal-search"
       placeholder="Search food… or try '100g oats', '2 eggs'" value="${nutr.searchQuery.replace(/"/g,'&quot;')}"
-      oninput="nutrModalSearchInput(this.value);var rp=document.getElementById('nutr-recents-panel');if(rp)rp.style.display=this.value?'none':'block'" autocomplete="off" style="margin-top:8px">
+      oninput="nutrModalSearchInput(this.value);var rp=document.getElementById('nutr-recents-panel');if(rp)rp.style.display=this.value?'none':'block';var rb=document.getElementById('nutrRecentsBox');if(rb)rb.style.display=this.value?'none':'block'" autocomplete="off" style="margin-top:8px">
     <div id="nutrFoodSearchResultsEl">${nutrSearchResultsHtml()}</div>`;
 
   const inp=document.getElementById('nutrFoodSearchInput');
   if(inp&&nutr.searchQuery){const l=nutr.searchQuery.length;inp.setSelectionRange(l,l);}
   else if(inp)setTimeout(()=>inp.focus(),50);
+  setTimeout(function(){
+    var box=document.getElementById('nutrRecentsBox');
+    if(!box)return;
+    fetch('/api/nutrition-food?type=history&limit=8&athlete_id='+(currentAthlete&&currentAthlete.id||''))
+    .then(function(r){return r.json()})
+    .then(function(items){
+      if(!items||!items.length){box.innerHTML='';return;}
+      box.innerHTML='<div style="font-family:DM Mono,monospace;font-size:10px;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+
+      items.map(function(f){
+        return '<div onclick="nutr.selectedFood='+JSON.stringify(f).replace(/</g,'&lt;')+';nutrRenderFoodModal()" style="padding:8px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'+
+        '<div><div style="color:#f0f0f0;font-size:13px">'+f.name+'</div>'+
+        '<div style="font-family:DM Mono,monospace;font-size:10px;color:#555">'+((f.per100g||{}).carbs||0)+'g C · '+((f.per100g||{}).protein||0)+'g P · '+((f.per100g||{}).fat||0)+'g F</div></div>'+
+        '<span style="color:#c8f036;font-size:16px">›</span></div>';
+      }).join('');
+    }).catch(function(){box.innerHTML='';});
+  },100);
 }
 
 function nutrModalSearchInput(val){
