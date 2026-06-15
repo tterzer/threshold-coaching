@@ -3677,14 +3677,16 @@ function nutrRenderFoodModal(){
   else if(inp)setTimeout(()=>inp.focus(),50);
   // Populate recents panel
   const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food?type=history?limit=8&athlete_id='+aid).then(r=>r.json()).then(function(items){
+  fetch('/api/nutrition-food?type=history&limit=8&athlete_id='+aid).then(r=>r.json()).then(function(items){
+    console.log('[nutrRenderFoodModal] recents items:', items);
     var el=document.getElementById('nutr-recents-panel');
-    if(!el||!items||!items.length)return;
+    if(!el){console.log('[nutrRenderFoodModal] nutr-recents-panel not found in DOM');return;}
+    if(!items||!items.length){console.log('[nutrRenderFoodModal] no items to render');return;}
     el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+items.map(function(f){
       var js=JSON.stringify(JSON.stringify(f));
       return'<div onclick="nutrSelectFoodObj('+js.replace(/"/g,'&quot;')+')" style="padding:10px 0;border-bottom:1px solid #2a2a2a;cursor:pointer"><span style="color:#f0f0f0;font-size:13px">'+f.name+'</span><span style="font-family:\'DM Mono\',monospace;font-size:10px;color:#555;margin-left:8px">'+((f.per100g||{}).carbs||0)+'g C · '+((f.per100g||{}).protein||0)+'g P</span></div>';
     }).join('');
-  }).catch(function(){});
+  }).catch(function(e){console.log('[nutrRenderFoodModal] recents fetch error:',e);});
 }
 
 function nutrModalSearchInput(val){
@@ -4098,10 +4100,21 @@ async function nutrSaveWeight(){
 
 async function nutrSaveProfile(){
   if(!currentAthlete?.id)return;
-  const r=await fetch('/api/nutrition-data?type=profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...nutr.profile,athlete_id:currentAthlete.id})});
+  // Only send columns that exist in the profiles table
+  const payload={
+    athlete_id:currentAthlete.id,
+    mode:nutr.profile.mode||1,
+    goal_weight_lbs:nutr.profile.goal_weight_lbs||null,
+    protein_factor:nutr.profile.protein_factor||1.09,
+    fat_floor:nutr.profile.fat_floor||85,
+    fat_ceiling:nutr.profile.fat_ceiling||110,
+    weekly_loss_target:nutr.profile.weekly_loss_target||0.5,
+  };
+  const r=await fetch('/api/nutrition-data?type=profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const d=await r.json();
   if(d.error){alert('Error: '+d.error);return;}
-  nutr.profile=d;
+  // Merge response back but preserve local-only fields (goal_date)
+  nutr.profile={...nutr.profile,...d};
   const msg=document.getElementById('nutrProfileSaveMsg');
   if(msg){msg.style.display='block';setTimeout(()=>{msg.style.display='none';nutrRenderProfile();},2000);}
 }
