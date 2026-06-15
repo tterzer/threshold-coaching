@@ -25,8 +25,10 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const { athlete_id, date, sport, title, description, tss_target, duration_minutes, coach_notes } = body;
       if (!athlete_id || !date) return res.status(400).json({ error: 'Missing athlete_id or date' });
+      const { fuelpro_type } = body;
       const { data, error } = await supabase.from('planned_workouts').insert({
-        athlete_id, date, sport, title, description, tss_target, duration_minutes, coach_notes, completed: false
+        athlete_id, date, sport, title, description, tss_target, duration_minutes, coach_notes, completed: false,
+        ...(fuelpro_type != null ? { fuelpro_type } : {})
       }).select().single();
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ workout: data });
@@ -36,7 +38,7 @@ export default async function handler(req, res) {
       const { id } = body;
       if (!id) return res.status(400).json({ error: 'Missing workout id' });
       // Only update columns that exist in planned_workouts
-      const allowed = ['date','sport','title','description','tss_target','duration_minutes','coach_notes','completed','compliance_note'];
+      const allowed = ['date','sport','title','description','tss_target','duration_minutes','coach_notes','completed','compliance_note','fuelpro_type'];
       const updates = Object.fromEntries(allowed.filter(k => k in body).map(k => [k, body[k]]));
       const { data, error } = await supabase.from('planned_workouts').update(updates).eq('id', id).select().single();
       if (error) return res.status(500).json({ error: error.message });

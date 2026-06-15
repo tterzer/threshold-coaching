@@ -2938,7 +2938,7 @@ function nutrComputeAdjustments(activities,planned){
     if(!plannedMins)return;
     const diff=actualMins-plannedMins;
     if(Math.abs(diff)/plannedMins<0.10)return;
-    const typeNum=nutrMapWorkoutToTypeNum(match.sport,plannedMins);
+    const typeNum=match.fuelpro_type||nutrMapWorkoutToTypeNum(match.sport,plannedMins);
     const carbAdj=Math.round(nutrCalcIntra(typeNum,60)/60*diff);
     out.push({name:act.name||match.title||'Workout',actualMins,plannedMins,diffMins:Math.round(diff),carbAdjust:carbAdj});
   });
@@ -3017,7 +3017,7 @@ async function loadNutritionTab(){
     const todayPlanned=(todayWoResp?.workouts||[]).filter(w=>w.date===today);
     nutr.plannedWorkouts=todayPlanned;
     nutr.todaySessions=todayPlanned.length?todayPlanned.map(w=>({
-      typeNum:nutrMapWorkoutToTypeNum(w.sport,w.duration_minutes),
+      typeNum:w.fuelpro_type||nutrMapWorkoutToTypeNum(w.sport,w.duration_minutes),
       durationMins:w.duration_minutes||60,
       startTime:w.start_time||'',
       title:w.title||w.sport||'Workout',
@@ -3666,7 +3666,7 @@ function nutrRenderWeek(){
       return wos.map(w=>{
         const matched=acts.find(a=>sameWeekSport(w.sport||'',a.sport_type||a.type||''));
         const actualMins=matched?Math.round((matched.moving_time||0)/60)||null:null;
-        return{typeNum:nutrMapWorkoutToTypeNum(w.sport,w.duration_minutes),durationMins:w.duration_minutes||60,startTime:w.start_time||'',title:w.title||w.sport||'Workout',sport:w.sport||'',planned:true,matchedAct:matched||null,actualMins};
+        return{typeNum:w.fuelpro_type||nutrMapWorkoutToTypeNum(w.sport,w.duration_minutes),durationMins:w.duration_minutes||60,startTime:w.start_time||'',title:w.title||w.sport||'Workout',sport:w.sport||'',planned:true,matchedAct:matched||null,actualMins};
       });
     }
     if(acts.length) return acts.map(a=>{const mins=Math.round((a.moving_time||0)/60)||30;return{typeNum:nutrMapWorkoutToTypeNum(a.sport_type||a.type,mins),durationMins:mins,startTime:'',title:a.name||a.sport_type||'Activity',sport:a.sport_type||a.type||'',planned:false,matchedAct:a,actualMins:mins};});
