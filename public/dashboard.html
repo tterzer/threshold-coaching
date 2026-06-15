@@ -3778,7 +3778,10 @@ async function nutrAddFoodFromModal(){
     fat:ov.fat??Math.round((f.per100g?.fat||0)*mult)};
   nutr.foodEntries=[...nutr.foodEntries,entry];
   const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({food:f,athlete_id:aid})}).catch(()=>{});
+  const histPayload={food:f,athlete_id:aid};
+  console.log('[nutrAddFood] saving to food_history:', histPayload);
+  const histResp=await fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(histPayload)}).then(r=>r.json()).catch(e=>({error:e.message}));
+  console.log('[nutrAddFood] food_history response:', histResp);
   if(nutr.saveAsCombo&&nutr.comboName){
     fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({food:{...f,is_combo:true,combo_name:nutr.comboName},athlete_id:aid})}).catch(()=>{});
