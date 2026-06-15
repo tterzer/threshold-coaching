@@ -3556,25 +3556,7 @@ function nutrSearchResultsHtml(){
         <span style="color:var(--tc3);margin-left:4px">per 100g</span>
       </div>`).join('')}
     </div>`;
-  // Idle: Favorites pills above Recents list
-  const favs=nutr.foodFavorites;
-  const recents=nutr.foodHistory;
-  const combos=nutr.combos;
-  const favHtml=favs.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;margin-top:12px;margin-bottom:6px">Saved</div>
-    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none" onmousedown="event.preventDefault()">
-      ${favs.map(h=>{const js=JSON.stringify(JSON.stringify(h));return`<button onmousedown="event.preventDefault()" onclick='nutrSelectFoodObj(${js})' style="flex-shrink:0;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-family:'DM Mono',monospace;font-size:11px;padding:5px 12px;cursor:pointer;white-space:nowrap;border-radius:20px">★ ${h.name}</button>`;}).join('')}
-    </div>`:'';
-  const recentHtml=recents.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;margin-top:10px;margin-bottom:6px">Recent</div>
-    <div style="border:1px solid var(--border)" onmousedown="event.preventDefault()">${recents.map(h=>nutrFoodItemHtml(h,{showCount:true})).join('')}</div>`:'';
-  const comboHtml=combos.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;margin-top:10px;margin-bottom:6px">Combos</div>
-    <div style="border:1px solid var(--border)" onmousedown="event.preventDefault()">${combos.map(c=>`<div class="nutr-hist-item" onmousedown="event.preventDefault()" onclick="nutrAddCombo('${c.id}')">
-      <span class="nutr-hist-name" style="color:var(--acc)">${c.combo_name||c.name}</span>
-      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">combo · tap to add</span>
-    </div>`).join('')}</div>`:'';
-  return favHtml+recentHtml+comboHtml;
+  return '';
 }
 
 async function nutrToggleFavorite(foodJson){
