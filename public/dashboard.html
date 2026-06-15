@@ -3241,17 +3241,32 @@ function nutrCalcMult(qty,unit,servingSize){
   return q/100;
 }
 
+// ── NLP parser: "100g chicken breast" → {qty:100, unit:'g', foodName:'chicken breast'}
+function nutrParseSearchInput(raw){
+  const s=raw.trim();
+  // number + unit + food
+  const m=s.match(/^(\d+(?:\.\d+)?)\s*(g|oz|ml|cup|tbsp|tsp|serving|piece|large|medium|small)s?\s+(.+)$/i);
+  if(m)return{qty:parseFloat(m[1]),unit:m[2].toLowerCase().replace(/s$/,''),foodName:m[3].trim()};
+  // word-unit + food (e.g. "large chocolate cookie")
+  const m2=s.match(/^(large|medium|small|piece)\s+(.+)$/i);
+  if(m2)return{qty:1,unit:'serving',foodName:m2[2].trim()};
+  // number + food (e.g. "2 eggs")
+  const m3=s.match(/^(\d+(?:\.\d+)?)\s+(.+)$/);
+  if(m3)return{qty:parseFloat(m3[1]),unit:'serving',foodName:m3[2].trim()};
+  return{qty:null,unit:null,foodName:s};
+}
+
 function nutrOpenFoodModal(windowId){
   nutr.foodModalOpen=true;
   nutr.foodModalWindow=windowId||'unassigned';
   nutr.selectedFood=null;nutr.searchQuery='';nutr.searchResults=[];nutr.searchError='';
-  nutr.foodQty='';nutr.foodUnit='g';nutr.foodOverrides={};
-  nutr.saveAsCombo=false;nutr.comboName='';
+  nutr.foodQty='';nutr.foodUnit='g';nutr.foodOverrides={};nutr.parsedQty=null;nutr.parsedUnit=null;
+  nutr.saveAsCombo=false;nutr.comboName='';nutr.barcodeWarning='';
   document.getElementById('nutrFoodModal').classList.add('show');
   document.getElementById('nutrFoodModalOverlay').classList.add('show');
   document.body.style.overflow='hidden';
   nutrRenderFoodModal();
-  setTimeout(()=>{const inp=document.querySelector('#nutrFoodModal .nutr-modal-search');if(inp)inp.focus();},120);
+  setTimeout(()=>{const inp=document.getElementById('nutrFoodSearchInput');if(inp)inp.focus();},120);
   // Fetch fresh recents + favorites on every open
   const aid=currentAthlete?.id||'';
   fetch('/api/nutrition-food?type=history&q=&athlete_id='+aid+'&limit=8')
@@ -3286,19 +3301,18 @@ function nutrFoodItemHtml(item,opts={}){
         ${opts.showCount&&item.use_count?`<span style="color:var(--tc3);margin-left:4px">${item.use_count}×</span>`:''}
       </div>
     </div>
-    <button onclick='nutrToggleFavorite(${js})' style="background:none;border:none;cursor:pointer;font-size:16px;color:${starColor};padding:4px;flex-shrink:0" title="Toggle favorite">${starLabel}</button>
+    <button onmousedown="event.preventDefault()" onclick='nutrToggleFavorite(${js})' style="background:none;border:none;cursor:pointer;font-size:16px;color:${starColor};padding:4px;flex-shrink:0" title="Toggle favorite">${starLabel}</button>
   </div>`;
 }
 
-// Build just the search-results/error/history HTML (no input element)
+// Build just the search-results/error/recents HTML — never touches the input
 function nutrSearchResultsHtml(){
-  const f=nutr.selectedFood;
-  if(f)return'';
   if(nutr.searchError)
     return`<div style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;background:#E24B4A18;border:1px solid #E24B4A44;padding:8px 12px;margin-top:8px">${nutr.searchError}</div>`;
   if(nutr.searchResults.length)
-    return`<div style="border:1px solid var(--border);max-height:260px;overflow-y:auto;margin-top:6px">
-      ${nutr.searchResults.map(r=>`<div class="nutr-search-result" onclick='nutrSelectFoodObj(${JSON.stringify(JSON.stringify(r))})'>
+    return`<div style="border:1px solid var(--border);max-height:260px;overflow-y:auto;margin-top:6px"
+        onmousedown="event.preventDefault()">
+      ${nutr.searchResults.map(r=>`<div class="nutr-search-result" onmousedown="event.preventDefault()" onclick='nutrSelectFoodObj(${JSON.stringify(JSON.stringify(r))})'>
         <span style="font-weight:600;color:var(--tc)">${r.name}</span>
         ${r.fromHistory?'<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--acc);margin-left:6px">HIST</span>':''}
         ${r.brand?`<span style="color:var(--tc3)"> — ${r.brand}</span>`:''}
@@ -3308,112 +3322,123 @@ function nutrSearchResultsHtml(){
         <span style="color:var(--tc3);margin-left:4px">per 100g</span>
       </div>`).join('')}
     </div>`;
-  // Recents + favorites when idle
-  const recents=nutr.foodHistory;
+  // Idle: Saved above Recents
   const favs=nutr.foodFavorites;
+  const recents=nutr.foodHistory;
   const combos=nutr.combos;
-  const recentHtml=recents.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:12px">Recent</div>
-    <div style="border:1px solid var(--border)">${recents.map(h=>nutrFoodItemHtml(h,{showCount:true})).join('')}</div>`:'';
   const favHtml=favs.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:12px">Saved / Favorites</div>
-    <div style="border:1px solid var(--border)">${favs.map(h=>nutrFoodItemHtml(h)).join('')}</div>`:'';
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:12px">Saved</div>
+    <div style="border:1px solid var(--border)" onmousedown="event.preventDefault()">${favs.map(h=>nutrFoodItemHtml(h)).join('')}</div>`:'';
+  const recentHtml=recents.length?`
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:10px">Recent</div>
+    <div style="border:1px solid var(--border)" onmousedown="event.preventDefault()">${recents.map(h=>nutrFoodItemHtml(h,{showCount:true})).join('')}</div>`:'';
   const comboHtml=combos.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:12px">Saved combos</div>
-    <div style="border:1px solid var(--border)">${combos.map(c=>`<div class="nutr-hist-item" onclick="nutrAddCombo('${c.id}')">
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:10px">Combos</div>
+    <div style="border:1px solid var(--border)" onmousedown="event.preventDefault()">${combos.map(c=>`<div class="nutr-hist-item" onmousedown="event.preventDefault()" onclick="nutrAddCombo('${c.id}')">
       <span class="nutr-hist-name" style="color:var(--acc)">${c.combo_name||c.name}</span>
       <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">combo · tap to add</span>
     </div>`).join('')}</div>`:'';
-  if(!recentHtml&&!favHtml&&!comboHtml)return'';
-  return recentHtml+favHtml+comboHtml;
+  return favHtml+recentHtml+comboHtml;
 }
 
 async function nutrToggleFavorite(foodJson){
   const food=typeof foodJson==='string'?JSON.parse(foodJson):foodJson;
   const aid=currentAthlete?.id||'';
   const newFav=!food.is_favorite;
-  // Optimistically update local state
-  const update=arr=>arr.map(h=>h.name===food.name?{...h,is_favorite:newFav}:h);
-  nutr.foodHistory=update(nutr.foodHistory);
+  const upd=arr=>arr.map(h=>h.name===food.name?{...h,is_favorite:newFav}:h);
+  nutr.foodHistory=upd(nutr.foodHistory);
   nutr.foodFavorites=newFav
     ?[...nutr.foodFavorites,{...food,is_favorite:true}].filter((v,i,a)=>a.findIndex(x=>x.name===v.name)===i)
     :nutr.foodFavorites.filter(h=>h.name!==food.name);
   nutrUpdateSearchResults();
-  // Persist to food_history table
   await fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({food:{...food,is_favorite:newFav},athlete_id:aid,set_favorite:true})}).catch(()=>{});
 }
 
-// Partial update — only refreshes results list, never touches the input element
+// Partial update — only the results div, never the search input
 function nutrUpdateSearchResults(){
   const el=document.getElementById('nutrFoodSearchResultsEl');
   if(el)el.innerHTML=nutrSearchResultsHtml();
 }
 
-function nutrRenderFoodModal(){
+// ── Unified confirmation screen (quantity + editable macros)
+function nutrRenderConfirm(){
   const content=document.getElementById('nutrFoodModalContent');
   if(!content)return;
   const f=nutr.selectedFood;
-
-  // Selected food entry
-  let selectedHtml='';
-  if(f){
-    const mult=nutr.foodQty?nutrCalcMult(nutr.foodQty,nutr.foodUnit,f.serving_size):0;
-    const macroPreview=nutr.foodQty?`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:12px 0">
-      ${['calories','protein','fat','carbs'].map(m=>{
-        const calc=Math.round((f.per100g?.[m]||0)*mult);
-        const color=m==='carbs'?'#E24B4A':m==='protein'?'#639922':m==='fat'?'#378ADD':'var(--tc)';
-        return`<div style="text-align:center;background:var(--bc3);border:1px solid var(--border);padding:10px 4px">
-          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);text-transform:uppercase;margin-bottom:6px">${m==='calories'?'kcal':m}</div>
-          <input type="number" class="nutr-input" style="text-align:center;padding:4px 2px;font-size:16px;font-weight:700;border:none;background:transparent;width:100%;color:${color}"
-            value="${nutr.foodOverrides[m]??calc}" onchange="nutrSetOverride('${m}',this.value)">
+  if(!f)return;
+  const mult=nutr.foodQty?nutrCalcMult(nutr.foodQty,nutr.foodUnit,f.serving_size):0;
+  const calc={
+    calories:Math.round((f.per100g?.calories||0)*mult),
+    protein:Math.round((f.per100g?.protein||0)*mult),
+    fat:Math.round((f.per100g?.fat||0)*mult),
+    carbs:Math.round((f.per100g?.carbs||0)*mult),
+  };
+  const macros=[
+    {k:'protein',label:'Protein',unit:'g',color:'#639922'},
+    {k:'fat',label:'Fat',unit:'g',color:'#378ADD'},
+    {k:'carbs',label:'Carbs',unit:'g',color:'#E24B4A'},
+    {k:'calories',label:'Kcal',unit:'',color:'var(--tc)'},
+  ];
+  const isFav=nutr.foodFavorites.some(h=>h.name===f.name)||nutr.foodHistory.find(h=>h.name===f.name)?.is_favorite;
+  const starColor=isFav?'#c8f036':'var(--tc3)';
+  const warn=nutr.barcodeWarning?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;background:#E24B4A18;border:1px solid #E24B4A44;padding:8px 10px;margin-bottom:10px">⚠ ${nutr.barcodeWarning}</div>`:'';
+  content.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--tc);text-transform:uppercase;line-height:1.1">${f.name}</div>
+        ${f.brand?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:2px">${f.brand}</div>`:''}
+      </div>
+      <button onmousedown="event.preventDefault()" onclick='nutrToggleFavorite(${JSON.stringify(JSON.stringify(f))});nutrRenderConfirm()' style="background:none;border:none;cursor:pointer;font-size:20px;color:${starColor};padding:2px 6px;flex-shrink:0">${isFav?'★':'☆'}</button>
+      <button onclick="nutrCloseFoodModal()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:22px;line-height:1;padding:2px 6px">✕</button>
+    </div>
+    ${warn}
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <input type="number" id="nutrQtyInput" class="nutr-input" style="flex:1;font-size:20px;font-weight:700;padding:10px 12px"
+        placeholder="Amount" value="${nutr.foodQty}" oninput="nutrSetFoodQty(this.value)" autocomplete="off">
+      <select class="nutr-select" style="padding:10px 8px;font-size:13px" onchange="nutrSetFoodUnit(this.value)">
+        ${['g','oz','fl oz','ml','serving','piece','cup','tbsp','tsp'].map(u=>`<option value="${u}"${nutr.foodUnit===u?' selected':''}>${u}</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:14px">
+      ${macros.map(({k,label,unit,color})=>{
+        const displayed=nutr.foodOverrides[k]??calc[k];
+        const edited=nutr.foodOverrides[k]!==undefined;
+        return`<div style="text-align:center;background:var(--bc3);border:1px solid ${edited?color:'var(--border)'};padding:8px 4px;position:relative">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);text-transform:uppercase;margin-bottom:4px">${label}</div>
+          <input type="number" class="nutr-input" style="text-align:center;padding:2px;font-size:15px;font-weight:700;border:none;background:transparent;width:100%;color:${color}"
+            value="${displayed}" onchange="nutrSetOverride('${k}',this.value);nutrRenderConfirm()">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3)">${unit}</div>
+          ${edited?`<button onmousedown="event.preventDefault()" onclick="delete nutr.foodOverrides['${k}'];nutrRenderConfirm()" style="position:absolute;top:2px;right:2px;background:none;border:none;cursor:pointer;font-size:9px;color:var(--tc3);line-height:1;padding:1px">↺</button>`:''}
         </div>`;
       }).join('')}
-    </div>`:'<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--tc3);margin:10px 0">Enter an amount to see macros</div>';
-    const comboCheck=`<label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2)">
-      <input type="checkbox" ${nutr.saveAsCombo?'checked':''} onchange="nutr.saveAsCombo=this.checked;nutrRenderFoodModal()" style="accent-color:var(--acc)">
-      Save as combo
-      ${nutr.saveAsCombo?`<input type="text" class="nutr-input" placeholder="Combo name..." value="${nutr.comboName.replace(/"/g,'&quot;')}" oninput="nutr.comboName=this.value" style="flex:1;margin-left:4px">`:''}
-    </label>`;
-    const isFav=nutr.foodHistory.find(h=>h.name===f.name)?.is_favorite||nutr.foodFavorites.some(h=>h.name===f.name);
-    selectedHtml=`<div style="margin-top:12px">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--tc);text-transform:uppercase">${f.name}${f.brand?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);font-weight:400;text-transform:none;margin-top:2px">${f.brand}</div>`:''}</div>
-        <button onclick='nutrToggleFavorite(${JSON.stringify(JSON.stringify(f))})' style="background:none;border:none;cursor:pointer;font-size:20px;color:${isFav?'#c8f036':'var(--tc3)'};padding:4px 8px;flex-shrink:0" title="Toggle favorite">${isFav?'★':'☆'}</button>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="number" class="nutr-input" id="nutrQtyInput" style="flex:1;font-size:18px;font-weight:700;padding:10px 12px" placeholder="Amount" value="${nutr.foodQty}" oninput="nutrSetFoodQty(this.value)" autofocus>
-        <select class="nutr-select" style="padding:10px 8px;font-size:13px" onchange="nutrSetFoodUnit(this.value)">
-          ${['g','oz','fl oz','ml','serving','cup','tbsp','tsp'].map(u=>`<option value="${u}"${nutr.foodUnit===u?' selected':''}>${u}</option>`).join('')}
-        </select>
-      </div>
-      ${macroPreview}
-      ${comboCheck}
-      <div style="display:flex;gap:8px;margin-top:14px">
-        <button class="nutr-btn" style="flex:1;padding:14px;font-size:14px" onclick="nutrAddFoodFromModal()">ADD TO LOG</button>
-        <button class="nutr-btn-ghost" style="padding:14px 20px" onclick="nutrClearFoodModal()">← Back</button>
-      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="nutr-btn" style="flex:1;padding:13px;font-size:14px" onclick="nutrAddFoodFromModal()">ADD TO LOG</button>
+      <button class="nutr-btn-ghost" style="padding:13px 18px" onclick="nutrClearFoodModal()">← Back</button>
     </div>`;
-  }
+  setTimeout(()=>{const inp=document.getElementById('nutrQtyInput');if(inp)inp.focus();},40);
+}
+
+function nutrRenderFoodModal(){
+  const content=document.getElementById('nutrFoodModalContent');
+  if(!content)return;
+  if(nutr.selectedFood){nutrRenderConfirm();return;}
 
   content.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase">Add Food</div>
       <button onclick="nutrCloseFoodModal()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:24px;line-height:1;padding:4px 8px">✕</button>
     </div>
-    ${!f?`<button onclick="nutrOpenBarcode(nutr.foodModalWindow)" class="nutr-scan-btn">SCAN BARCODE</button>`:''}
-    ${!f?`<input id="nutrFoodSearchInput" type="text" class="nutr-input nutr-modal-search" placeholder="Search food..." value="${nutr.searchQuery.replace(/"/g,'&quot;')}" oninput="nutrModalSearchInput(this.value)" autocomplete="off" style="margin-top:8px">`:''}
-    ${!f?`<div id="nutrFoodSearchResultsEl">${nutrSearchResultsHtml()}</div>`:''}
-    ${selectedHtml}`;
+    <button onclick="nutrOpenBarcode(nutr.foodModalWindow)" class="nutr-scan-btn">SCAN BARCODE</button>
+    <input id="nutrFoodSearchInput" type="text" class="nutr-input nutr-modal-search"
+      placeholder="Search food… or try '100g oats', '2 eggs'" value="${nutr.searchQuery.replace(/"/g,'&quot;')}"
+      oninput="nutrModalSearchInput(this.value)" autocomplete="off" style="margin-top:8px">
+    <div id="nutrFoodSearchResultsEl">${nutrSearchResultsHtml()}</div>`;
 
-  if(!f){
-    // Restore cursor to end of input without blurring
-    const inp=document.getElementById('nutrFoodSearchInput');
-    if(inp&&nutr.searchQuery){const l=nutr.searchQuery.length;inp.setSelectionRange(l,l);}
-    if(inp&&!nutr.searchQuery)setTimeout(()=>inp.focus(),50);
-  }else{
-    setTimeout(()=>{const inp=document.getElementById('nutrQtyInput');if(inp)inp.focus();},50);
-  }
+  const inp=document.getElementById('nutrFoodSearchInput');
+  if(inp&&nutr.searchQuery){const l=nutr.searchQuery.length;inp.setSelectionRange(l,l);}
+  else if(inp)setTimeout(()=>inp.focus(),50);
 }
 
 function nutrModalSearchInput(val){
@@ -3425,41 +3450,54 @@ function nutrModalSearchInput(val){
     return;
   }
   nutr.searchError='';
+  const parsed=nutrParseSearchInput(val);
+  nutr.parsedQty=parsed.qty;nutr.parsedUnit=parsed.unit;
+  const foodTerm=parsed.foodName||val;
   nutr.searchTimer=setTimeout(async()=>{
     const aid=currentAthlete?.id||'';
     const[usdaRaw,histRaw]=await Promise.all([
-      fetch('/api/nutrition-food?q='+encodeURIComponent(val)).then(async r=>{
+      fetch('/api/nutrition-food?q='+encodeURIComponent(foodTerm)).then(async r=>{
         const d=await r.json();
         if(!r.ok||d.error){nutr.searchError=d.error||('Search failed (HTTP '+r.status+')');return[];}
         return d;
       }).catch(e=>{nutr.searchError='Search unavailable: '+e.message;return[];}),
-      fetch('/api/nutrition-food?type=history&q='+encodeURIComponent(val)+'&athlete_id='+aid).then(async r=>{
+      fetch('/api/nutrition-food?type=history&q='+encodeURIComponent(foodTerm)+'&athlete_id='+aid).then(async r=>{
         const d=await r.json();return r.ok?d:[];
       }).catch(()=>[]),
     ]);
     const hf=(histRaw||[]).map(h=>({...h,fromHistory:true}));
     const uf=(usdaRaw||[]).filter(u=>!hf.some(h=>h.name.toLowerCase()===u.name.toLowerCase()));
     nutr.searchResults=[...hf,...uf];
-    nutrUpdateSearchResults(); // only update results list, never touch the input
+    nutrUpdateSearchResults();
+    // Auto-select top USDA result if food name closely matches and we parsed a quantity
+    if(nutr.parsedQty&&!hf.length&&uf.length){
+      const top=uf[0];
+      const topName=top.name.toLowerCase();
+      const term=foodTerm.toLowerCase();
+      if(topName.includes(term)||term.includes(topName.split(',')[0])){
+        nutrSelectFoodObj(JSON.stringify(top));
+      }
+    }
   },300);
 }
 
 function nutrSelectFoodObj(jsonStr){
   nutr.selectedFood=JSON.parse(jsonStr);
   const f=nutr.selectedFood;
-  // Default to the food's serving size so macros appear immediately
-  nutr.foodQty=String(f.serving_size||100);
-  nutr.foodUnit=f.serving_unit||'g';
-  nutr.foodOverrides={};
-  nutrRenderFoodModal(); // full re-render: search area replaced by food entry form
+  // Use NLP-parsed qty if available, else food's serving_size
+  nutr.foodQty=nutr.parsedQty?String(nutr.parsedQty):String(f.serving_size||100);
+  nutr.foodUnit=nutr.parsedUnit||(f.serving_unit||'g');
+  nutr.foodOverrides={};nutr.barcodeWarning='';
+  nutrRenderConfirm();
 }
 function nutrClearFoodModal(){
   nutr.selectedFood=null;nutr.foodQty='';nutr.foodUnit='g';
   nutr.foodOverrides={};nutr.searchResults=[];nutr.searchQuery='';nutr.searchError='';
+  nutr.parsedQty=null;nutr.parsedUnit=null;nutr.barcodeWarning='';
   nutrRenderFoodModal();
 }
-function nutrSetFoodQty(v){nutr.foodQty=v;nutr.foodOverrides={};nutrRenderFoodModal();}
-function nutrSetFoodUnit(v){nutr.foodUnit=v;nutr.foodOverrides={};nutrRenderFoodModal();}
+function nutrSetFoodQty(v){nutr.foodQty=v;nutr.foodOverrides={};nutrRenderConfirm();}
+function nutrSetFoodUnit(v){nutr.foodUnit=v;nutr.foodOverrides={};nutrRenderConfirm();}
 function nutrSetOverride(macro,val){nutr.foodOverrides[macro]=Number(val);}
 
 async function nutrAddFoodFromModal(){
@@ -3473,9 +3511,7 @@ async function nutrAddFoodFromModal(){
     fat:ov.fat??Math.round((f.per100g?.fat||0)*mult)};
   nutr.foodEntries=[...nutr.foodEntries,entry];
   const aid=currentAthlete?.id||'';
-  // Save food history
   fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({food:f,athlete_id:aid})}).catch(()=>{});
-  // Save combo if requested
   if(nutr.saveAsCombo&&nutr.comboName){
     fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({food:{...f,is_combo:true,combo_name:nutr.comboName},athlete_id:aid})}).catch(()=>{});
@@ -3486,13 +3522,9 @@ async function nutrAddFoodFromModal(){
 
 async function nutrAddCombo(comboId){
   const c=nutr.combos.find(x=>x.id===comboId);if(!c)return;
-  const entry={id:crypto.randomUUID(),windowId:nutr.foodModalWindow||'unassigned',
-    name:c.combo_name||c.name,qty:c.serving_size||100,unit:'g',
-    calories:Math.round(c.per100g?.calories||0),carbs:Math.round(c.per100g?.carbs||0),
-    protein:Math.round(c.per100g?.protein||0),fat:Math.round(c.per100g?.fat||0)};
-  nutr.foodEntries=[...nutr.foodEntries,entry];
-  nutrSaveTodayLog();
-  nutrCloseFoodModal();
+  nutr.selectedFood={...c,name:c.combo_name||c.name};
+  nutr.foodQty=String(c.serving_size||100);nutr.foodUnit='g';nutr.foodOverrides={};nutr.barcodeWarning='';
+  nutrRenderConfirm();
 }
 
 function nutrRemoveFood(id){
@@ -3577,9 +3609,20 @@ function nutrInitScanner(){
       const r=await fetch('/api/nutrition-food',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({barcode})});
       const food=await r.json();
       if(food.error){alert('Product not found — try searching manually');nutrOpenFoodModal(nutr.foodModalWindow);return;}
-      nutr.selectedFood=food;nutr.foodUnit=food.serving_unit||'g';nutr.foodQty='';nutr.foodOverrides={};
+      // Calorie sanity check: protein*4 + carbs*4 + fat*9 should be within 10% of stated calories
+      const p=food.per100g;
+      if(p){
+        const computed=Math.round((p.protein||0)*4+(p.carbs||0)*4+(p.fat||0)*9);
+        const stated=p.calories||0;
+        if(stated>0&&Math.abs(computed-stated)/stated>0.10){
+          nutr.barcodeWarning=`Barcode data may be inaccurate — calculated ${computed} kcal from macros but label says ${stated} kcal`;
+        }
+      }
+      nutr.selectedFood=food;nutr.foodQty=String(food.serving_size||100);nutr.foodUnit=food.serving_unit||'g';nutr.foodOverrides={};
       document.getElementById('nutrFoodModal').classList.add('show');
-      nutrRenderFoodModal();
+      document.getElementById('nutrFoodModalOverlay').classList.add('show');
+      document.body.style.overflow='hidden';
+      nutrRenderConfirm();
     },()=>{});
   }).catch(()=>{document.getElementById('nutrScanError').textContent='Camera access denied';});
 }
