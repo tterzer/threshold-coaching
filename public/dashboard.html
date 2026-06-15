@@ -1805,6 +1805,16 @@ async function loadAthProfile(){
 }
 
 function fillProfileForm(p){
+  // Mirror key fields onto currentAthlete so calcBMR / TDEE can read them anywhere
+  if(currentAthlete){
+    if(p.age!=null) currentAthlete.age=p.age;
+    if(p.height_feet!=null) currentAthlete.height_feet=p.height_feet;
+    if(p.height_inches!=null) currentAthlete.height_inches=p.height_inches;
+    if(p.experience_level) currentAthlete.experience_level=p.experience_level;
+    if(p.weight_lbs!=null) currentAthlete.weight_lbs=p.weight_lbs;
+    if(p.ftp_watts!=null) currentAthlete.ftp_watts=p.ftp_watts;
+    if(p.activity_level) currentAthlete.activity_level=p.activity_level;
+  }
   const set = (id, val) => { const el=document.getElementById(id); if(el&&val!=null) el.value=val; };
   const setChk = (id, val) => { const el=document.getElementById(id); if(el) el.checked=!!val; };
   set('pf_age', p.age);
@@ -2880,16 +2890,17 @@ function calcBMR(){
   const age=Number(currentAthlete?.age||0);
   const wt_kg=wt*0.453592;
   const ht_cm=(hf*12+hi)*2.54;
-  if(!age||!ht_cm)return 1800;
+  if(!age||!ht_cm){console.log('[calcBMR] missing age or height — age:',age,'ht_cm:',ht_cm,'→ fallback 1800');return 1800;}
   const base=Math.round((10*wt_kg)+(6.25*ht_cm)-(5*age)+5);
-  // Fitness experience correction
   const expMult={'beginner':1.02,'intermediate':1.05,'advanced':1.08,'elite':1.10};
   const exp=currentAthlete?.experience_level||'intermediate';
-  const withExp=Math.round(base*(expMult[exp]??1.05));
-  // CTL correction
+  const expM=expMult[exp]??1.05;
+  const withExp=Math.round(base*expM);
   const ctl=window.currentCTL||0;
   const ctlMult=ctl>80?1.03:ctl>=60?1.02:1.00;
-  return Math.round(withExp*ctlMult);
+  const final=Math.round(withExp*ctlMult);
+  console.log('[calcBMR] wt_kg:',wt_kg.toFixed(1),'ht_cm:',ht_cm.toFixed(1),'age:',age,'base:',base,'exp:',exp,'×'+expM,'=',withExp,'CTL:',ctl,'×'+ctlMult,'→ final:',final);
+  return final;
 }
 function calcExerciseCalories(activities){
   const wt=((nutr.weightLogs||[])[0]?.weight_lbs)||nutr.profile?.weight_lbs||currentAthlete?.weight_lbs||168;
@@ -3400,39 +3411,39 @@ function nutrRenderToday(){
 
   // 1. Macro donut gauges
   function donut(label,eaten,target,color){
-    const r=32,cx=40,cy=40,circ=2*Math.PI*r;
+    const r=27,cx=35,cy=35,circ=2*Math.PI*r;
     const pct=target>0?Math.min(eaten/target,1.2):0;
     const over=pct>1;
     const fillColor=over?'#E24B4A':color;
     const dash=circ*Math.min(pct,1);
     const gap=circ-dash;
     const unit=label==='Kcal'?'':label==='Protein'||label==='Fat'||label==='Carbs'?'g':'';
-    return`<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-      <svg width="80" height="80" viewBox="0 0 80 80">
-        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--bc3)" stroke-width="7"/>
-        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${fillColor}" stroke-width="7"
+    return`<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+      <svg width="70" height="70" viewBox="0 0 70 70">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--bc3)" stroke-width="6"/>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${fillColor}" stroke-width="6"
           stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}"
           stroke-dashoffset="${(circ/4).toFixed(2)}"
           stroke-linecap="round" transform="rotate(-90 ${cx} ${cy}) rotate(90 ${cx} ${cy})"/>
-        <text x="${cx}" y="${cy-5}" text-anchor="middle" font-family="'Barlow Condensed',sans-serif" font-size="16" font-weight="700" fill="${fillColor}">${eaten}${unit}</text>
-        <text x="${cx}" y="${cy+9}" text-anchor="middle" font-family="'DM Mono',monospace" font-size="9" fill="var(--tc3)">/${target}${unit}</text>
+        <text x="${cx}" y="${cy-3}" text-anchor="middle" font-family="'Barlow Condensed',sans-serif" font-size="14" font-weight="700" fill="${fillColor}">${eaten}${unit}</text>
+        <text x="${cx}" y="${cy+9}" text-anchor="middle" font-family="'DM Mono',monospace" font-size="8" fill="var(--tc3)">/${target}${unit}</text>
       </svg>
-      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.06em">${label}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.06em">${label}</span>
     </div>`;
   }
-  const macroStrip=`<div class="nutr-card" style="padding:14px 10px 10px;margin-bottom:14px">
+  const macroStrip=`<div class="nutr-card" style="padding:10px 8px 8px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-around;align-items:flex-start">
       ${donut('Protein',eaten.protein,adj.protein,'#639922')}
       ${donut('Fat',eaten.fat,adj.fat,'#378ADD')}
       ${donut('Carbs',eaten.carbs,adj.carbs,'#E24B4A')}
       ${donut('Kcal',eaten.kcal,adj.kcal,'#c8f036')}
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${rem.kcal.toLocaleString()} kcal remaining</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:7px;padding-top:7px;border-top:1px solid var(--border)">
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">${rem.kcal.toLocaleString()} kcal remaining</span>
       <span class="nutr-intent ${adj.intent.cls}">${adj.intent.label}</span>
     </div>
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#555;margin-top:8px;line-height:1.6">
-      BMR: ${tdeeResult.bmr}kcal &nbsp;+&nbsp; Activity: ${tdeeResult.neat}kcal &nbsp;+&nbsp; Exercise: ${tdeeResult.exercise}kcal &nbsp;=&nbsp; <span style="color:#777">Total: ${tdeeResult.tdee}kcal</span>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-top:5px;line-height:1.5">
+      BMR: ${tdeeResult.bmr} + Activity: ${tdeeResult.neat} + Exercise: ${tdeeResult.exercise} = <span style="color:#777">${tdeeResult.tdee} kcal</span>
     </div>
   </div>`;
 
@@ -3454,12 +3465,12 @@ function nutrRenderToday(){
     ${a.carbAdjust>0?`+${a.carbAdjust}g carbs added.`:`${Math.abs(a.carbAdjust)}g carbs removed.`}
   </div>`).join('');
 
-  const sessSection=`<div class="nutr-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="section-label" style="margin:0">Today's sessions</div>
-      ${hasIntervals?`<button id="nutrRefreshBtn" onclick="nutrRefreshActivities()" title="Refresh from intervals.icu" style="background:none;border:1px solid var(--border);color:var(--tc3);padding:4px 10px;cursor:pointer;font-family:'DM Mono',monospace;font-size:13px">↻</button>`:''}
+  const sessSection=`<div class="nutr-card" style="padding:10px 12px;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+      <div class="section-label" style="margin:0;font-size:10px">Today's sessions</div>
+      ${hasIntervals?`<button id="nutrRefreshBtn" onclick="nutrRefreshActivities()" title="Refresh from intervals.icu" style="background:none;border:1px solid var(--border);color:var(--tc3);padding:2px 8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px">↻</button>`:''}
     </div>
-    <div class="nutr-pills-row">${pills}</div>
+    <div class="nutr-pills-row" style="gap:4px">${pills}</div>
     ${banners}
   </div>`;
 
@@ -3490,13 +3501,13 @@ function nutrRenderToday(){
     }).join('');
   }else{
     const hasSess=nutr.todaySessions.some(s=>s.typeNum);
-    fuelHtml=`<div class="nutr-card">
-      <div class="section-label" style="margin-top:0;margin-bottom:12px">Fuelling breakdown</div>
-      ${hasSess?`<p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-bottom:12px">Add session start times on the calendar to see time-based windows</p>`:''}
-      <div class="nutr-row"><span style="color:var(--tc2)">Pre-session</span><span style="color:#c8f036;font-weight:700">${adj.pre}g carbs</span></div>
-      <div class="nutr-row"><span style="color:var(--tc2)">Intra (during)</span><span style="color:#c8f036;font-weight:700">${adj.intra}g carbs</span></div>
-      <div class="nutr-row"><span style="color:var(--tc2)">Post-session recovery</span><span style="color:#639922;font-weight:700">${adj.post}g protein</span></div>
-      <div class="nutr-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span style="font-weight:600">From meals</span><span style="color:#E24B4A;font-size:18px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${adj.foodCarbs}g carbs</span></div>
+    fuelHtml=`<div class="nutr-card" style="padding:10px 12px;margin-bottom:8px">
+      <div class="section-label" style="margin-top:0;margin-bottom:7px;font-size:10px">Fuelling breakdown</div>
+      ${hasSess?`<p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:7px">Add session start times on the calendar to see time-based windows</p>`:''}
+      <div class="nutr-row" style="padding:4px 0"><span style="color:var(--tc2);font-size:12px">Pre-session</span><span style="color:#c8f036;font-weight:700;font-size:12px">${adj.pre}g carbs</span></div>
+      <div class="nutr-row" style="padding:4px 0"><span style="color:var(--tc2);font-size:12px">Intra (during)</span><span style="color:#c8f036;font-weight:700;font-size:12px">${adj.intra}g carbs</span></div>
+      <div class="nutr-row" style="padding:4px 0"><span style="color:var(--tc2);font-size:12px">Post-session recovery</span><span style="color:#639922;font-weight:700;font-size:12px">${adj.post}g protein</span></div>
+      <div class="nutr-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span style="font-weight:600;font-size:12px">From meals</span><span style="color:#E24B4A;font-size:16px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${adj.foodCarbs}g carbs</span></div>
     </div>`;
   }
 
