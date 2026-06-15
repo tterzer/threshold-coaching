@@ -24,13 +24,12 @@ export default async function handler(req, res) {
           .from('food_history')
           .select('id,name,per100g,serving_size,serving_unit,use_count,last_used,is_favorite,is_combo,combo_name')
           .ilike('name', `%${q}%`)
-          .or('is_combo.is.null,is_combo.eq.false')
           .order(orderCol, { ascending: false })
           .limit(limit);
         if (athlete_id) query = query.eq('athlete_id', athlete_id);
         if (is_favorite === 'true') query = query.eq('is_favorite', true);
         const { data, error } = await query;
-        if (error) return res.status(200).json([]);
+        if (error) { console.error('food_history GET error:', error); return res.status(200).json([]); }
         return res.status(200).json(data || []);
       }
 
