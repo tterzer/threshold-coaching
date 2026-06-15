@@ -801,6 +801,7 @@ async function loadDashboard(){
     let ctl=0,atl=0,tsb=0;
     if(todayEntry){
       ctl=Math.round(todayEntry.ctl);atl=Math.round(todayEntry.atl);tsb=ctl-atl;
+      window.currentCTL=ctl;
       const ctlEl=document.getElementById('mCTL');
       ctlEl.textContent=ctl;ctlEl.style.color='#378ADD';
       const atlEl=document.getElementById('mATL');
@@ -2880,7 +2881,15 @@ function calcBMR(){
   const wt_kg=wt*0.453592;
   const ht_cm=(hf*12+hi)*2.54;
   if(!age||!ht_cm)return 1800;
-  return Math.round((10*wt_kg)+(6.25*ht_cm)-(5*age)+5);
+  const base=Math.round((10*wt_kg)+(6.25*ht_cm)-(5*age)+5);
+  // Fitness experience correction
+  const expMult={'beginner':1.02,'intermediate':1.05,'advanced':1.08,'elite':1.10};
+  const exp=currentAthlete?.experience_level||'intermediate';
+  const withExp=Math.round(base*(expMult[exp]??1.05));
+  // CTL correction
+  const ctl=window.currentCTL||0;
+  const ctlMult=ctl>80?1.03:ctl>=60?1.02:1.00;
+  return Math.round(withExp*ctlMult);
 }
 function calcExerciseCalories(activities){
   const wt=((nutr.weightLogs||[])[0]?.weight_lbs)||nutr.profile?.weight_lbs||currentAthlete?.weight_lbs||168;
@@ -4164,6 +4173,10 @@ function nutrRenderProfile(){
         <div>
           <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Age</label>
           <input type="number" class="nutr-input" value="${currentAthlete?.age||''}" placeholder="e.g. 32" min="10" max="100" onchange="if(!currentAthlete)currentAthlete={};currentAthlete.age=Number(this.value)">
+        </div>
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Experience level</label>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc);padding:10px 12px;background:var(--bc3);border:1px solid var(--border)">${currentAthlete?.experience_level||'intermediate'} <span style="color:#555;font-size:10px">(set in Profile tab)</span></div>
         </div>
         <div>
           <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Daily Activity</label>
