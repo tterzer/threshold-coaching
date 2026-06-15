@@ -3696,15 +3696,13 @@ function nutrRenderFoodModal(){
   if(inp&&nutr.searchQuery){const l=nutr.searchQuery.length;inp.setSelectionRange(l,l);}
   else if(inp)setTimeout(()=>inp.focus(),50);
   setTimeout(function(){
-    console.log('RECENTS: box element:', document.getElementById('nutrRecentsBox'));
-    console.log('RECENTS: athlete id:', currentAthlete&&currentAthlete.id);
     var box=document.getElementById('nutrRecentsBox');
     if(!box)return;
+    box.style.display='block';
     fetch('/api/nutrition-food?type=history&limit=8&athlete_id='+(currentAthlete&&currentAthlete.id||''))
     .then(function(r){return r.json()})
     .then(function(items){
-      console.log('RECENTS: items received:', items);
-      if(!items||!items.length){box.innerHTML='';return;}
+      if(!items||!items.length){box.style.display='none';return;}
       box.innerHTML='<div style="font-family:DM Mono,monospace;font-size:10px;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+
       items.map(function(f){
         return '<div onclick="nutr.selectedFood='+JSON.stringify(f).replace(/</g,'&lt;')+';nutrRenderFoodModal()" style="padding:8px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'+
