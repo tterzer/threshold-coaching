@@ -3501,7 +3501,7 @@ function nutrOpenFoodModal(windowId){
   setTimeout(()=>{const inp=document.getElementById('nutrFoodSearchInput');if(inp)inp.focus();},120);
   // Fetch fresh recents + favorites on every open
   const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food?type=history&q=&athlete_id='+aid+'&limit=8')
+  fetch('/api/nutrition-food?type=history&q=&athlete_id='+aid+'&limit=20')
     .then(r=>r.json()).then(data=>{
       if(!Array.isArray(data))return;
       nutr.foodHistory=data;
