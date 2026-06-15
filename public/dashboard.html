@@ -4072,9 +4072,25 @@ async function nutrSaveWeight(){
   const r=await fetch('/api/nutrition-data?type=weight',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const d=await r.json();
   if(d.error){alert('Error: '+d.error);return;}
+  const savedWt=Number(nutr.newWeight);
   nutr.newWeight='';
+  // Update in-memory profile weight so W/kg recalculates immediately
+  nutr.profile.weight_lbs=savedWt;
+  // Refresh weight log list
   nutr.weightLogs=await fetch('/api/nutrition-data?type=weight&athlete_id='+currentAthlete.id).then(r=>r.json()).catch(()=>[]);
+  // Sync weight to athlete_profiles table (fire-and-forget)
+  fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({athlete_id:currentAthlete.id,weight_lbs:savedWt})}).catch(()=>{});
   nutrRenderWeightLog();
+  // Confirmation banner
+  const el=document.getElementById('nutr-weightlog');
+  if(el){
+    const msg=document.createElement('div');
+    msg.style.cssText='font-family:"DM Mono",monospace;font-size:11px;color:#639922;padding:8px 14px;background:#63992218;border:1px solid #63992244;margin-bottom:10px';
+    msg.textContent='Weight logged and profile updated';
+    el.prepend(msg);
+    setTimeout(()=>msg.remove(),3000);
+  }
 }
 
 async function nutrSaveProfile(){
