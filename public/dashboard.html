@@ -3716,6 +3716,8 @@ function nutrRenderFoodModal(){
   else if(inp)setTimeout(()=>inp.focus(),50);
   setTimeout(function(){
     var box=document.getElementById('nutrRecentsBox');
+    console.log('RECENTS BOX:', box);
+    console.log('RECENTS FETCH URL:', '/api/nutrition-food?type=history&limit=8&athlete_id='+(currentAthlete&&currentAthlete.id||''));
     if(!box)return;
     box.style.display='block';
     fetch('/api/nutrition-food?type=history&limit=8&athlete_id='+(currentAthlete&&currentAthlete.id||''))
@@ -3812,6 +3814,7 @@ async function nutrAddFoodFromModal(){
         serving_size:nutr.selectedFood?.serving_size||100,serving_unit:nutr.selectedFood?.serving_unit||'g',
         is_combo:true,combo_name:nutr.comboName})}).catch(()=>{});
   }
+  console.log('SAVE CALLED FROM:', new Error().stack);
   nutrSaveTodayLog();
   nutrCloseFoodModal();
 }
@@ -3825,6 +3828,7 @@ async function nutrAddCombo(comboId){
 
 function nutrRemoveFood(id){
   nutr.foodEntries=nutr.foodEntries.filter(e=>e.id!==id);
+  console.log('SAVE CALLED FROM:', new Error().stack);
   nutrSaveTodayLog();
   if(nutr.sub==='weightlog') nutrRenderWeightLog();
   else nutrRenderToday();
