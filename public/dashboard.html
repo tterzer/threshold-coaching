@@ -3808,7 +3808,7 @@ async function nutrAddFoodFromModal(){
       per100g:nutr.selectedFood?nutr.selectedFood.per100g:{carbs:entry.carbs,protein:entry.protein,fat:entry.fat,calories:entry.calories},
       serving_size:nutr.selectedFood?(nutr.selectedFood.serving_size||100):100,
       serving_unit:nutr.selectedFood?(nutr.selectedFood.serving_unit||'g'):'g'
-    })}).catch(()=>{});
+    })}).then(function(r){return r.json();}).then(function(d){console.log('HISTORY POST response:',d);}).catch(function(e){console.error('HISTORY POST error:',e);});
   if(nutr.saveAsCombo&&nutr.comboName){
     fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({athlete_id:aid,name:nutr.comboName,per100g:nutr.selectedFood?.per100g||{},
