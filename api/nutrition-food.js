@@ -52,33 +52,37 @@ export default async function handler(req, res) {
       if (req.method === 'POST') {
         let body = req.body;
         if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
-        const { food, athlete_id, set_favorite } = body || {};
-        if (!food?.name || !food?.per100g) return res.status(400).json({ ok: false });
+        const { food, athlete_id, set_favorite, name, per100g, serving_size, serving_unit, is_combo, combo_name, is_favorite } = body || {};
+        // Accept flat format (name/per100g at top level) or legacy nested {food:{}}
+        const fname = name || food?.name;
+        const fper100g = per100g || food?.per100g;
+        if (!fname || !fper100g) return res.status(400).json({ ok: false, error: 'Missing name or per100g' });
 
         let query = supabase
           .from('food_history')
           .select('id, use_count')
-          .ilike('name', food.name)
+          .ilike('name', fname)
           .limit(1);
         if (athlete_id) query = query.eq('athlete_id', athlete_id);
         const { data: existing } = await query;
 
         if (existing && existing.length > 0) {
           const upd = set_favorite !== undefined
-            ? { is_favorite: food.is_favorite, last_used: new Date().toISOString() }
+            ? { is_favorite: is_favorite ?? food?.is_favorite ?? false, last_used: new Date().toISOString() }
             : { use_count: existing[0].use_count + 1, last_used: new Date().toISOString() };
           await supabase.from('food_history').update(upd).eq('id', existing[0].id);
         } else {
           await supabase.from('food_history').insert({
             athlete_id: athlete_id || null,
-            name: food.name,
-            search_term: food.name,
-            per100g: food.per100g,
-            serving_size: food.serving_size || 100,
-            serving_unit: food.serving_unit || 'g',
+            name: fname,
+            search_term: fname,
+            per100g: fper100g,
+            serving_size: serving_size || food?.serving_size || 100,
+            serving_unit: serving_unit || food?.serving_unit || 'g',
             use_count: 1,
-            is_favorite: food.is_favorite || false,
-            is_combo: food.is_combo || false,
+            is_favorite: is_favorite || food?.is_favorite || false,
+            is_combo: is_combo || food?.is_combo || false,
+            combo_name: combo_name || food?.combo_name || null,
             last_used: new Date().toISOString(),
           });
         }

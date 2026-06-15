@@ -3776,13 +3776,19 @@ async function nutrAddFoodFromModal(){
     fat:ov.fat??Math.round((f.per100g?.fat||0)*mult)};
   nutr.foodEntries=[...nutr.foodEntries,entry];
   const aid=currentAthlete?.id||'';
-  const histPayload={food:f,athlete_id:aid};
-  console.log('[nutrAddFood] saving to food_history:', histPayload);
-  const histResp=await fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(histPayload)}).then(r=>r.json()).catch(e=>({error:e.message}));
-  console.log('[nutrAddFood] food_history response:', histResp);
+  fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      athlete_id:aid,
+      name:entry.name,
+      per100g:nutr.selectedFood?nutr.selectedFood.per100g:{carbs:entry.carbs,protein:entry.protein,fat:entry.fat,calories:entry.calories},
+      serving_size:nutr.selectedFood?(nutr.selectedFood.serving_size||100):100,
+      serving_unit:nutr.selectedFood?(nutr.selectedFood.serving_unit||'g'):'g'
+    })}).catch(()=>{});
   if(nutr.saveAsCombo&&nutr.comboName){
     fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({food:{...f,is_combo:true,combo_name:nutr.comboName},athlete_id:aid})}).catch(()=>{});
+      body:JSON.stringify({athlete_id:aid,name:nutr.comboName,per100g:nutr.selectedFood?.per100g||{},
+        serving_size:nutr.selectedFood?.serving_size||100,serving_unit:nutr.selectedFood?.serving_unit||'g',
+        is_combo:true,combo_name:nutr.comboName})}).catch(()=>{});
   }
   nutrSaveTodayLog();
   nutrCloseFoodModal();
