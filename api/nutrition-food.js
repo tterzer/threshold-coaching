@@ -24,7 +24,7 @@ export default async function handler(req, res) {
           .from('food_history')
           .select('id,name,per100g,serving_size,serving_unit,use_count,last_used,is_favorite,is_combo,combo_name')
           .ilike('name', `%${q}%`)
-          .eq('is_combo', false)
+          .or('is_combo.is.null,is_combo.eq.false')
           .order(orderCol, { ascending: false })
           .limit(limit);
         if (athlete_id) query = query.eq('athlete_id', athlete_id);
@@ -78,6 +78,7 @@ export default async function handler(req, res) {
             serving_unit: food.serving_unit || 'g',
             use_count: 1,
             is_favorite: food.is_favorite || false,
+            is_combo: food.is_combo || false,
             last_used: new Date().toISOString(),
           });
         }
