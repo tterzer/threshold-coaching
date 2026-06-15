@@ -3510,18 +3510,20 @@ function nutrSearchResultsHtml(){
         <span style="color:var(--tc3);margin-left:4px">per 100g</span>
       </div>`).join('')}
     </div>`;
-  // Idle: Saved above Recents
+  // Idle: Favorites pills above Recents list
   const favs=nutr.foodFavorites;
   const recents=nutr.foodHistory;
   const combos=nutr.combos;
   const favHtml=favs.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:12px">Saved</div>
-    <div style="border:1px solid var(--border)" onmousedown="event.preventDefault()">${favs.map(h=>nutrFoodItemHtml(h)).join('')}</div>`:'';
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;margin-top:12px;margin-bottom:6px">Saved</div>
+    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none" onmousedown="event.preventDefault()">
+      ${favs.map(h=>{const js=JSON.stringify(JSON.stringify(h));return`<button onmousedown="event.preventDefault()" onclick='nutrSelectFoodObj(${js})' style="flex-shrink:0;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-family:'DM Mono',monospace;font-size:11px;padding:5px 12px;cursor:pointer;white-space:nowrap;border-radius:20px">★ ${h.name}</button>`;}).join('')}
+    </div>`:'';
   const recentHtml=recents.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:10px">Recent</div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;margin-top:10px;margin-bottom:6px">Recent</div>
     <div style="border:1px solid var(--border)" onmousedown="event.preventDefault()">${recents.map(h=>nutrFoodItemHtml(h,{showCount:true})).join('')}</div>`:'';
   const comboHtml=combos.length?`
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);border-bottom:none;margin-top:10px">Combos</div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;margin-top:10px;margin-bottom:6px">Combos</div>
     <div style="border:1px solid var(--border)" onmousedown="event.preventDefault()">${combos.map(c=>`<div class="nutr-hist-item" onmousedown="event.preventDefault()" onclick="nutrAddCombo('${c.id}')">
       <span class="nutr-hist-name" style="color:var(--acc)">${c.combo_name||c.name}</span>
       <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">combo · tap to add</span>
@@ -3533,14 +3535,21 @@ async function nutrToggleFavorite(foodJson){
   const food=typeof foodJson==='string'?JSON.parse(foodJson):foodJson;
   const aid=currentAthlete?.id||'';
   const newFav=!food.is_favorite;
+  // Update local state
   const upd=arr=>arr.map(h=>h.name===food.name?{...h,is_favorite:newFav}:h);
   nutr.foodHistory=upd(nutr.foodHistory);
   nutr.foodFavorites=newFav
     ?[...nutr.foodFavorites,{...food,is_favorite:true}].filter((v,i,a)=>a.findIndex(x=>x.name===v.name)===i)
     :nutr.foodFavorites.filter(h=>h.name!==food.name);
   nutrUpdateSearchResults();
-  await fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({food:{...food,is_favorite:newFav},athlete_id:aid,set_favorite:true})}).catch(()=>{});
+  // Persist: use PATCH by id if available, else fall back to POST
+  if(food.id){
+    await fetch('/api/nutrition-food?type=history&id='+food.id,{method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({is_favorite:newFav})}).catch(()=>{});
+  }else{
+    await fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({food:{...food,is_favorite:newFav},athlete_id:aid,set_favorite:true})}).catch(()=>{});
+  }
 }
 
 // Partial update — only the results div, never the search input
