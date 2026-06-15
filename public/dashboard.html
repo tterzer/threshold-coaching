@@ -3017,9 +3017,10 @@ async function loadNutritionTab(){
     const rawEntries=Array.isArray(rawFE)?rawFE:(Array.isArray(rawSess)?rawSess:[]);
     nutr.foodEntries=rawEntries;
     nutr.todayLogId=todayLog?.id||null;
-    const src=Array.isArray(rawFE)&&rawFE.length?'food_entries':Array.isArray(rawSess)&&rawSess.length?'sessions (fallback)':'none';
-    console.log('[FuelPro] ✅ Loaded',rawEntries.length,'food entries from column:',src);
-    console.log('[FuelPro] Raw today log record:',JSON.stringify(todayLog,null,2));
+    console.log('[FuelPro LOAD] raw todayLog record:', todayLog);
+    console.log('[FuelPro LOAD] food_entries value:', rawFE);
+    console.log('[FuelPro LOAD] sessions value:', rawSess);
+    console.log('[FuelPro LOAD] restored entries count:', rawEntries.length, '| source:', Array.isArray(rawFE)&&rawFE.length?'food_entries':Array.isArray(rawSess)&&rawSess.length?'sessions':'none');
     // History — exclude today, last 30 days only
     nutr.logHistory=(Array.isArray(allLogs)?allLogs:[]).filter(l=>l.log_date!==today);
     // Weight
@@ -3241,16 +3242,19 @@ function nutrCalcMult(qty,unit,servingSize){
   return q/100;
 }
 
-// ── NLP parser: "100g chicken breast" → {qty:100, unit:'g', foodName:'chicken breast'}
+// ── NLP parser: "100g chicken breast" / "6oz raspberries" → {qty, unit, foodName}
 function nutrParseSearchInput(raw){
   const s=raw.trim();
-  // number + unit + food
-  const m=s.match(/^(\d+(?:\.\d+)?)\s*(g|oz|ml|cup|tbsp|tsp|serving|piece|large|medium|small)s?\s+(.+)$/i);
-  if(m)return{qty:parseFloat(m[1]),unit:m[2].toLowerCase().replace(/s$/,''),foodName:m[3].trim()};
-  // word-unit + food (e.g. "large chocolate cookie")
+  // number immediately followed by (optional space) unit then food  e.g. "6oz raspberries", "100 g oats"
+  const m=s.match(/^(\d+(?:\.\d+)?)\s*(g|oz|ml|fl\s*oz|cup|tbsp|tsp|serving|piece|large|medium|small)s?\s+(.+)$/i);
+  if(m)return{qty:parseFloat(m[1]),unit:m[2].toLowerCase().replace(/\s+/,'').replace(/s$/,''),foodName:m[3].trim()};
+  // number glued to unit with no trailing space then food — e.g. "6oz raspberries" with no space after oz
+  const m1b=s.match(/^(\d+(?:\.\d+)?)(g|oz|ml|cup|tbsp|tsp)\s+(.+)$/i);
+  if(m1b)return{qty:parseFloat(m1b[1]),unit:m1b[2].toLowerCase(),foodName:m1b[3].trim()};
+  // word-size + food  e.g. "large chocolate cookie"
   const m2=s.match(/^(large|medium|small|piece)\s+(.+)$/i);
   if(m2)return{qty:1,unit:'serving',foodName:m2[2].trim()};
-  // number + food (e.g. "2 eggs")
+  // plain number + food  e.g. "2 eggs"
   const m3=s.match(/^(\d+(?:\.\d+)?)\s+(.+)$/);
   if(m3)return{qty:parseFloat(m3[1]),unit:'serving',foodName:m3[2].trim()};
   return{qty:null,unit:null,foodName:s};
@@ -3469,15 +3473,7 @@ function nutrModalSearchInput(val){
     const uf=(usdaRaw||[]).filter(u=>!hf.some(h=>h.name.toLowerCase()===u.name.toLowerCase()));
     nutr.searchResults=[...hf,...uf];
     nutrUpdateSearchResults();
-    // Auto-select top USDA result if food name closely matches and we parsed a quantity
-    if(nutr.parsedQty&&!hf.length&&uf.length){
-      const top=uf[0];
-      const topName=top.name.toLowerCase();
-      const term=foodTerm.toLowerCase();
-      if(topName.includes(term)||term.includes(topName.split(',')[0])){
-        nutrSelectFoodObj(JSON.stringify(top));
-      }
-    }
+    // Never auto-select — user must tap a result to reach the confirm screen
   },300);
 }
 
@@ -3553,16 +3549,21 @@ async function nutrSaveTodayLog(){
     actual_carbs:eaten.carbs||null,actual_protein:eaten.protein||null,actual_fat:eaten.fat||null,actual_kcal:eaten.kcal||null,
     intent:targets.intent.label,
   };
-  console.log('[FuelPro] 💾 Saving',nutr.foodEntries.length,'entries | athlete='+currentAthlete.id+' date='+today);
+  console.log('[FuelPro SAVE] athlete_id:', currentAthlete.id);
+  console.log('[FuelPro SAVE] payload:', JSON.parse(JSON.stringify(payload)));
   fetch('/api/nutrition-data?type=log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
-    .then(async r=>{const d=await r.json();
-      if(r.ok&&!d.error){
-        console.log('[FuelPro] ✅ Save OK | HTTP '+r.status+' | row id:',d.id,'| food_entries saved:',Array.isArray(d.food_entries)?d.food_entries.length:'(col missing)');
+    .then(async r=>{
+      const text=await r.text();
+      let d;try{d=JSON.parse(text);}catch{d=null;}
+      console.log('[FuelPro SAVE] HTTP status:', r.status);
+      console.log('[FuelPro SAVE] response body:', d??text);
+      if(r.ok&&d&&!d.error){
+        console.log('[FuelPro SAVE] ✅ food_entries in response:', d.food_entries);
         nutrShowSavedFlash();
       }else{
-        console.error('[FuelPro] ❌ Save FAILED | HTTP '+r.status+' | error:',d.error);
+        console.error('[FuelPro SAVE] ❌ FAILED — error:', d?.error, '| full response:', d??text);
       }
-    }).catch(e=>console.error('[FuelPro] ❌ Save fetch error:',e));
+    }).catch(e=>console.error('[FuelPro SAVE] ❌ fetch threw:', e));
 }
 
 function nutrShowSavedFlash(){
