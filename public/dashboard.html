@@ -3175,7 +3175,7 @@ async function loadNutritionTab(){
       fetch('/api/nutrition-data?type=log&athlete_id='+aid+'&date='+today).then(r=>r.json()).catch(()=>({})),
       fetch('/api/nutrition-data?type=log&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
       fetch('/api/nutrition-data?type=weight&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
-      fetch('/api/nutrition-food-history?q=&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
+      fetch('/api/nutrition-food?type=history?q=&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
       iId&&iKey?fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=activities&qs=oldest='+today+'%26newest='+tomStr).then(r=>r.json()).catch(()=>[]):Promise.resolve([]),
       iId&&iKey?fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=wellness.json&qs=oldest='+today+'%26newest='+today).then(r=>r.json()).catch(()=>[]):Promise.resolve([]),
     ];
@@ -3462,7 +3462,7 @@ function nutrOpenFoodModal(windowId){
   setTimeout(()=>{const inp=document.getElementById('nutrFoodSearchInput');if(inp)inp.focus();},120);
   // Fetch fresh recents + favorites on every open
   const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food-history?q=&athlete_id='+aid+'&limit=8')
+  fetch('/api/nutrition-food?type=history?q=&athlete_id='+aid+'&limit=8')
     .then(r=>r.json()).then(data=>{
       if(!Array.isArray(data))return;
       nutr.foodHistory=data;
@@ -3550,10 +3550,10 @@ async function nutrToggleFavorite(foodJson){
   nutrUpdateSearchResults();
   // Persist: use PATCH by id if available, else fall back to POST
   if(food.id){
-    await fetch('/api/nutrition-food-history?id='+food.id,{method:'PATCH',headers:{'Content-Type':'application/json'},
+    await fetch('/api/nutrition-food?type=history?id='+food.id,{method:'PATCH',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({is_favorite:newFav})}).catch(()=>{});
   }else{
-    await fetch('/api/nutrition-food-history',{method:'POST',headers:{'Content-Type':'application/json'},
+    await fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({food:{...food,is_favorite:newFav},athlete_id:aid,set_favorite:true})}).catch(()=>{});
   }
 }
@@ -3645,7 +3645,7 @@ function nutrRenderFoodModal(){
   else if(inp)setTimeout(()=>inp.focus(),50);
   // Populate recents panel
   const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food-history?limit=8&athlete_id='+aid).then(r=>r.json()).then(function(items){
+  fetch('/api/nutrition-food?type=history?limit=8&athlete_id='+aid).then(r=>r.json()).then(function(items){
     var el=document.getElementById('nutr-recents-panel');
     if(!el||!items||!items.length)return;
     el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+items.map(function(f){
@@ -3675,7 +3675,7 @@ function nutrModalSearchInput(val){
         if(!r.ok||d.error){nutr.searchError=d.error||('Search failed (HTTP '+r.status+')');return[];}
         return d;
       }).catch(e=>{nutr.searchError='Search unavailable: '+e.message;return[];}),
-      fetch('/api/nutrition-food-history?q='+encodeURIComponent(foodTerm)+'&athlete_id='+aid).then(async r=>{
+      fetch('/api/nutrition-food?type=history?q='+encodeURIComponent(foodTerm)+'&athlete_id='+aid).then(async r=>{
         const d=await r.json();return r.ok?d:[];
       }).catch(()=>[]),
     ]);
@@ -3717,9 +3717,9 @@ async function nutrAddFoodFromModal(){
     fat:ov.fat??Math.round((f.per100g?.fat||0)*mult)};
   nutr.foodEntries=[...nutr.foodEntries,entry];
   const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food-history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({food:f,athlete_id:aid})}).catch(()=>{});
+  fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({food:f,athlete_id:aid})}).catch(()=>{});
   if(nutr.saveAsCombo&&nutr.comboName){
-    fetch('/api/nutrition-food-history',{method:'POST',headers:{'Content-Type':'application/json'},
+    fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({food:{...f,is_combo:true,combo_name:nutr.comboName},athlete_id:aid})}).catch(()=>{});
   }
   nutrSaveTodayLog();
