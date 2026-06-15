@@ -3036,7 +3036,7 @@ async function loadNutritionTab(){
     nutr.wellness=Array.isArray(wellnessArr)?(wellnessArr.find(w=>w.id===today)||null):null;
     nutr.workoutAdjustments=nutrComputeAdjustments(nutr.completedActivities,nutr.plannedWorkouts);
     nutr.loaded=true;
-  }catch(e){console.error('loadNutritionTab',e);}
+  }catch(e){console.error('loadNutritionTab',e);nutr.loaded=true;}
   nutr.loading=false;
   nutrRender();
 }
