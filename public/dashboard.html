@@ -3712,7 +3712,7 @@ function nutrRenderRecentsPanel(){
   el.innerHTML=`<div style="margin-top:12px;border-bottom:1px solid var(--bc3);margin-bottom:2px">
     ${tabBtn('recent','Recent')}${tabBtn('saved','Saved')}
   </div>
-  <div>${listHtml}</div>`;
+  <div style="max-height:260px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#555 #333">${listHtml}</div>`;
 }
 
 function nutrToggleFavoriteInline(foodJson){
