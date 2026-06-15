@@ -3696,11 +3696,14 @@ function nutrRenderFoodModal(){
   if(inp&&nutr.searchQuery){const l=nutr.searchQuery.length;inp.setSelectionRange(l,l);}
   else if(inp)setTimeout(()=>inp.focus(),50);
   setTimeout(function(){
+    console.log('RECENTS: box element:', document.getElementById('nutrRecentsBox'));
+    console.log('RECENTS: athlete id:', currentAthlete&&currentAthlete.id);
     var box=document.getElementById('nutrRecentsBox');
     if(!box)return;
     fetch('/api/nutrition-food?type=history&limit=8&athlete_id='+(currentAthlete&&currentAthlete.id||''))
     .then(function(r){return r.json()})
     .then(function(items){
+      console.log('RECENTS: items received:', items);
       if(!items||!items.length){box.innerHTML='';return;}
       box.innerHTML='<div style="font-family:DM Mono,monospace;font-size:10px;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+
       items.map(function(f){
@@ -4142,6 +4145,7 @@ async function nutrSaveProfile(){
     athlete_id:currentAthlete.id,
     mode:nutr.profile.mode||1,
     goal_weight_lbs:nutr.profile.goal_weight_lbs||null,
+    goal_date:nutr.profile.goal_date||null,
     protein_factor:nutr.profile.protein_factor||1.09,
     fat_floor:nutr.profile.fat_floor||85,
     fat_ceiling:nutr.profile.fat_ceiling||110,
