@@ -3238,6 +3238,18 @@ async function loadNutritionTab(){
   try{
     const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
     const tomStr=tomorrow.toISOString().split('T')[0];
+    // Pre-load athlete profile fields (age, height, experience_level) so calcBMR works from first render
+    fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(aid)).then(r=>r.json()).then(d=>{
+      if(d?.profile){const p=d.profile;
+        if(p.age!=null)currentAthlete.age=p.age;
+        if(p.height_feet!=null)currentAthlete.height_feet=p.height_feet;
+        if(p.height_inches!=null)currentAthlete.height_inches=p.height_inches;
+        if(p.experience_level)currentAthlete.experience_level=p.experience_level;
+        if(p.weight_lbs!=null)currentAthlete.weight_lbs=p.weight_lbs;
+        if(p.ftp_watts!=null)currentAthlete.ftp_watts=p.ftp_watts;
+        if(p.activity_level)currentAthlete.activity_level=p.activity_level;
+      }
+    }).catch(()=>{});
     const fetches=[
       fetch('/api/nutrition-data?type=profile&athlete_id='+aid).then(r=>r.json()).catch(()=>({})),
       fetch('/api/workouts?athlete_id='+encodeURIComponent(aid)+'&start='+today+'&end='+today).then(r=>r.json()).catch(()=>({})),
@@ -3443,7 +3455,8 @@ function nutrRenderToday(){
       <span class="nutr-intent ${adj.intent.cls}">${adj.intent.label}</span>
     </div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-top:5px;line-height:1.5">
-      BMR: ${tdeeResult.bmr} + Activity: ${tdeeResult.neat} + Exercise: ${tdeeResult.exercise} = <span style="color:#777">${tdeeResult.tdee} kcal</span>
+      BMR: ${tdeeResult.bmr} + NEAT: ${tdeeResult.neat} + Exercise: ${tdeeResult.exercise} = ${tdeeResult.tdee}${mode===1?` − ${Math.round(wkly*500)} (cut)`:mode===3?' + 300 (build)':''}
+      = <span style="color:#c8f036;font-weight:700">${tdeeTarget} kcal target</span>
     </div>
   </div>`;
 
