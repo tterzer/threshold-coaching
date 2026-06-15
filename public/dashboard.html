@@ -3175,7 +3175,7 @@ async function loadNutritionTab(){
       fetch('/api/nutrition-data?type=log&athlete_id='+aid+'&date='+today).then(r=>r.json()).catch(()=>({})),
       fetch('/api/nutrition-data?type=log&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
       fetch('/api/nutrition-data?type=weight&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
-      fetch('/api/nutrition-food?type=history?q=&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
+      fetch('/api/nutrition-food?type=history&q=&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
       iId&&iKey?fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=activities&qs=oldest='+today+'%26newest='+tomStr).then(r=>r.json()).catch(()=>[]):Promise.resolve([]),
       iId&&iKey?fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=wellness.json&qs=oldest='+today+'%26newest='+today).then(r=>r.json()).catch(()=>[]):Promise.resolve([]),
     ];
@@ -3601,7 +3601,7 @@ async function nutrToggleFavorite(foodJson){
   nutrUpdateSearchResults();
   // Persist: use PATCH by id if available, else fall back to POST
   if(food.id){
-    await fetch('/api/nutrition-food?type=history?id='+food.id,{method:'PATCH',headers:{'Content-Type':'application/json'},
+    await fetch('/api/nutrition-food?type=history&id='+food.id,{method:'PATCH',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({is_favorite:newFav})}).catch(()=>{});
   }else{
     await fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -3756,7 +3756,7 @@ function nutrModalSearchInput(val){
         if(!r.ok||d.error){nutr.searchError=d.error||('Search failed (HTTP '+r.status+')');return[];}
         return d;
       }).catch(e=>{nutr.searchError='Search unavailable: '+e.message;return[];}),
-      fetch('/api/nutrition-food?type=history?q='+encodeURIComponent(foodTerm)+'&athlete_id='+aid).then(async r=>{
+      fetch('/api/nutrition-food?type=history&q='+encodeURIComponent(foodTerm)+'&athlete_id='+aid).then(async r=>{
         const d=await r.json();return r.ok?d:[];
       }).catch(()=>[]),
     ]);
