@@ -3131,7 +3131,7 @@ const nutr={
   // food modal
   foodModalOpen:false,foodModalWindow:'unassigned',
   selectedFood:null,searchResults:[],searchQuery:'',searchError:'',
-  foodQty:'',foodUnit:'g',foodOverrides:{},
+  foodQty:'',foodUnit:'g',foodOverrides:{},recentsTab:'recent',
   saveAsCombo:false,comboName:'',
   searchTimer:null,
   // week view
@@ -3507,16 +3507,7 @@ function nutrOpenFoodModal(windowId){
       nutr.foodHistory=data;
       nutr.foodFavorites=data.filter(h=>h.is_favorite);
       if(!nutr.searchQuery)nutrUpdateSearchResults();
-      // Populate permanent recents panel
-      const panel=document.getElementById('nutr-recents-panel');
-      if(!panel)return;
-      if(!data.length){panel.style.display='none';return;}
-      panel.style.display='block';
-      panel.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;padding-top:12px">Recent</div>'
-        +data.map(function(f){
-          var js=JSON.stringify(JSON.stringify(f));
-          return'<div onclick="nutrSelectFoodObj('+js.replace(/"/g,'&quot;')+')" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer"><span style="color:var(--tc);font-size:13px">'+f.name+'</span><span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-left:8px">'+((f.per100g||{}).carbs||0)+'g C · '+((f.per100g||{}).protein||0)+'g P</span></div>';
-        }).join('');
+      nutrRenderRecentsPanel();
     }).catch(()=>{});
 }
 
@@ -3525,8 +3516,6 @@ function nutrCloseFoodModal(){
   document.getElementById('nutrFoodModal').classList.remove('show');
   document.getElementById('nutrFoodModalOverlay').classList.remove('show');
   document.body.style.overflow='';
-  const rp=document.getElementById('nutr-recents-panel');
-  if(rp){rp.style.display='none';rp.innerHTML='';}
   if(nutr.sub==='weightlog') nutrRenderWeightLog();
   else nutrRenderToday();
 }
@@ -3621,9 +3610,6 @@ function nutrRenderConfirm(){
   if(!content)return;
   const f=nutr.selectedFood;
   if(!f)return;
-  // Hide recents panel while confirming a food
-  const rp=document.getElementById('nutr-recents-panel');
-  if(rp)rp.style.display='none';
   const effServing=nutrEffectiveServingSize(f);
   const mult=nutr.foodQty?nutrCalcMult(nutr.foodQty,nutr.foodUnit,effServing):0;
   const calc={
@@ -3695,53 +3681,83 @@ function nutrRenderFoodModal(){
   if(!content)return;
   if(nutr.selectedFood){nutrRenderConfirm();return;}
 
-  // Show recents panel (hidden during confirm state)
-  const recentsPanel=document.getElementById('nutr-recents-panel');
-  if(recentsPanel)recentsPanel.style.display=nutr.foodHistory.length?'block':'none';
-
   content.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase">Add Food</div>
       <button onclick="nutrCloseFoodModal()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:24px;line-height:1;padding:4px 8px">✕</button>
     </div>
     <button onclick="nutrOpenBarcode(nutr.foodModalWindow)" class="nutr-scan-btn">SCAN BARCODE</button>
-    <div id="nutrRecentsBox" style="margin:12px 0"></div>
     <input id="nutrFoodSearchInput" type="text" class="nutr-input nutr-modal-search"
       placeholder="Search food… or try '100g oats', '2 eggs'" value="${nutr.searchQuery.replace(/"/g,'&quot;')}"
-      oninput="nutrModalSearchInput(this.value);var rp=document.getElementById('nutr-recents-panel');if(rp)rp.style.display=this.value?'none':'block';var rb=document.getElementById('nutrRecentsBox');if(rb)rb.style.display=this.value?'none':'block'" autocomplete="off" style="margin-top:8px">
-    <div id="nutrFoodSearchResultsEl">${nutrSearchResultsHtml()}</div>`;
+      oninput="nutrModalSearchInput(this.value)" autocomplete="off" style="margin-top:8px">
+    <div id="nutrFoodSearchResultsEl">${nutrSearchResultsHtml()}</div>
+    <div id="nutrRecentsPanel" style="${nutr.searchQuery?'display:none':''}"></div>`;
 
   const inp=document.getElementById('nutrFoodSearchInput');
   if(inp&&nutr.searchQuery){const l=nutr.searchQuery.length;inp.setSelectionRange(l,l);}
   else if(inp)setTimeout(()=>inp.focus(),50);
-  setTimeout(function(){
-    var box=document.getElementById('nutrRecentsBox');
-    console.log('RECENTS BOX:', box);
-    console.log('RECENTS FETCH URL:', '/api/nutrition-food?type=history&limit=8&athlete_id='+(currentAthlete&&currentAthlete.id||''));
-    if(!box)return;
-    box.style.display='block';
-    fetch('/api/nutrition-food?type=history&limit=8&athlete_id='+(currentAthlete&&currentAthlete.id||''))
-    .then(function(r){return r.json()})
-    .then(function(items){
-      console.log('RECENTS ITEMS:', items);
-      if(!items||!items.length){
-        box.innerHTML='<div style="font-family:DM Mono,monospace;font-size:10px;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div><div style="font-size:12px;color:#555;padding:8px 0">No recent foods yet — foods you log will appear here</div>';
-        return;
-      }
-      box.innerHTML='<div style="font-family:DM Mono,monospace;font-size:10px;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+
-      items.map(function(f){
-        return '<div onclick="nutr.selectedFood='+JSON.stringify(f).replace(/</g,'&lt;')+';nutrRenderFoodModal()" style="padding:8px 0;border-bottom:1px solid #1a1a1a;cursor:pointer;display:flex;justify-content:space-between;align-items:center">'+
-        '<div><div style="color:#f0f0f0;font-size:13px">'+f.name+'</div>'+
-        '<div style="font-family:DM Mono,monospace;font-size:10px;color:#555">'+((f.per100g||{}).carbs||0)+'g C · '+((f.per100g||{}).protein||0)+'g P · '+((f.per100g||{}).fat||0)+'g F</div></div>'+
-        '<span style="color:#c8f036;font-size:16px">›</span></div>';
-      }).join('');
-    }).catch(function(){box.innerHTML='';});
-  },100);
+  nutrRenderRecentsPanel();
+}
+
+function nutrRenderRecentsPanel(){
+  const el=document.getElementById('nutrRecentsPanel');
+  if(!el)return;
+  const tab=nutr.recentsTab||'recent';
+  const recents=nutr.foodHistory||[];
+  const favs=(nutr.foodHistory||[]).filter(h=>h.is_favorite);
+  const tabBtn=(id,label)=>`<button onmousedown="event.preventDefault()" onclick="nutr.recentsTab='${id}';nutrRenderRecentsPanel()"
+    style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid ${tab===id?'#c8f036':'transparent'};color:${tab===id?'#c8f036':'#555'};padding:6px 0;margin-right:16px;cursor:pointer">${label}</button>`;
+  const rowHtml=(f)=>{
+    const js=JSON.stringify(JSON.stringify(f));
+    const star=f.is_favorite?'★':'☆';
+    const starCol=f.is_favorite?'#c8f036':'#555';
+    return`<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--bc3)">
+      <div style="flex:1;min-width:0;cursor:pointer" onmousedown="event.preventDefault()" onclick='nutrSelectFoodObj(${js})'>
+        <div style="color:#f0f0f0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#555;margin-top:2px">${(f.per100g?.carbs||0)}g C · ${(f.per100g?.protein||0)}g P · ${(f.per100g?.fat||0)}g F</div>
+      </div>
+      <button onmousedown="event.preventDefault()" onclick='nutrToggleFavoriteInline(${js})' style="background:none;border:none;cursor:pointer;font-size:18px;color:${starCol};padding:4px 6px;flex-shrink:0">${star}</button>
+    </div>`;
+  };
+  let listHtml='';
+  if(tab==='recent'){
+    listHtml=recents.length?recents.map(rowHtml).join('')
+      :'<div style="font-size:12px;color:#555;padding:10px 0">No recent foods yet — foods you log will appear here</div>';
+  }else{
+    listHtml=favs.length?favs.map(rowHtml).join('')
+      :'<div style="font-size:12px;color:#555;padding:10px 0">No saved foods yet — star a food to save it</div>';
+  }
+  el.innerHTML=`<div style="margin-top:12px;border-bottom:1px solid var(--bc3);margin-bottom:2px">
+    ${tabBtn('recent','Recent')}${tabBtn('saved','Saved')}
+  </div>
+  <div>${listHtml}</div>`;
+}
+
+function nutrToggleFavoriteInline(foodJson){
+  const food=typeof foodJson==='string'?JSON.parse(foodJson):foodJson;
+  const newFav=!food.is_favorite;
+  // Update in-memory state
+  const idx=nutr.foodHistory.findIndex(h=>h.id===food.id||h.name===food.name);
+  if(idx>=0)nutr.foodHistory[idx]={...nutr.foodHistory[idx],is_favorite:newFav};
+  nutr.foodFavorites=nutr.foodHistory.filter(h=>h.is_favorite);
+  nutrRenderRecentsPanel();
+  // Persist
+  if(food.id){
+    fetch('/api/nutrition-food?type=history&id='+food.id,{method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({is_favorite:newFav})}).catch(()=>{});
+  }else{
+    const aid=currentAthlete?.id||'';
+    fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({athlete_id:aid,name:food.name,per100g:food.per100g,serving_size:food.serving_size||100,
+        serving_unit:food.serving_unit||'g',is_favorite:newFav,set_favorite:true})}).catch(()=>{});
+  }
 }
 
 function nutrModalSearchInput(val){
   nutr.searchQuery=val;
   if(nutr.searchTimer)clearTimeout(nutr.searchTimer);
+  const rp=document.getElementById('nutrRecentsPanel');
+  if(rp)rp.style.display=val?'none':'';
   if(!val||val.length<2){
     nutr.searchResults=[];nutr.searchError='';
     nutrUpdateSearchResults();
@@ -4357,7 +4373,7 @@ function nutrRenderHistory(){
 <div id="nutrFoodModalOverlay" onclick="nutrCloseFoodModal()"></div>
 <div id="nutrFoodModal">
   <div class="nutr-modal-drag"></div>
-  <div id="nutr-recents-panel" style="display:none;padding:0 1.5rem"></div>
+  <div id="nutr-recents-panel" style="display:none"></div>
   <div class="nutr-modal-inner" id="nutrFoodModalContent"></div>
 </div>
 
