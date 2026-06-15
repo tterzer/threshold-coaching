@@ -28,6 +28,11 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .field label{display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
 .field input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s}
 .field input:focus{border-color:var(--acc)}
+.field select{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Mono',monospace;font-size:13px;outline:none}
+.field textarea{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Mono',monospace;font-size:13px;outline:none;resize:vertical}
+.ath-add-modal{background:var(--bc2);border:1px solid var(--border);width:100%;max-width:480px;padding:28px 32px;position:relative}
+.ath-add-modal .modal-close-x{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--tc3);font-size:22px;cursor:pointer;line-height:1}
+.ath-badge-a{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;background:var(--acc);color:#000;border-radius:2px;padding:0 3px;line-height:14px;vertical-align:middle;margin-left:3px}
 .btn{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:12px 28px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;width:100%;margin-top:0.5rem}
 .btn:disabled{opacity:0.5;cursor:not-allowed}
 .btn-sm{width:auto;padding:8px 16px;font-size:11px}
@@ -424,7 +429,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         <button class="btn btn-sm btn-ghost" onclick="athCalShift(1)">Next &#8250;</button>
       </div>
       <div class="ath-cal-grid" id="athCalGrid"></div>
-      <p style="font-size:11px;color:var(--tc3);margin-top:1rem">Tap a workout or race for details.</p>
+      <p style="font-size:11px;color:var(--tc3);margin-top:1rem">Tap a workout or race for details. Tap an empty day to add a session. <span class="ath-badge-a">A</span> = added by you.</p>
     </div>
 
     <div class="dash-panel" id="dtp-profile">
@@ -1991,10 +1996,12 @@ function renderAthCal(){
         const timePrefix=_fmtBlockTime(icu.start_date_local);
         const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
         const icuIdStr=String(icu.id);
-        return '<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>';
+        const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
+        return '<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+label+badge+'</div>';
       }else{
         const label=athEscHtml(w.title||w.sport||'Workout');
-        return '<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+label+'</div>';
+        const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
+        return '<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+label+badge+'</div>';
       }
     }).join('');
 
@@ -2144,12 +2151,17 @@ async function openAthBlockModal(mode, woId, icuId){
     ?'<button class="modal-btn-delete" onclick="deleteAthWorkout('+wo.id+')">Delete</button>'
     :'';
   const detailBtn=act?'<button class="modal-btn-close" onclick="document.getElementById(\'athWoModal\').style.display=\'none\';openDetailView(\''+String(act.id)+'\',\''+sport+'\')" style="border-color:var(--acc);color:var(--acc)">Detailed view →</button>':'';
+  const editBtn=(wo&&wo.created_by==='athlete')?'<button class="modal-btn-close" onclick="closeAthModal();openAthAddWoModal(null,athWorkoutsCache.find(x=>String(x.id)===\''+String(wo.id)+'\'))">Edit</button>':'';
+  const woDate=wo?wo.date:(act?(act.start_date_local||'').slice(0,10):'');
+  const addSessionBtn=woDate?'<button class="modal-btn-close" onclick="closeAthModal();openAthAddWoModal(\''+woDate+'\')">+ Add Session</button>':'';
   html+='<div class="modal-actions">'
     +'<div style="display:flex;gap:8px">'
       +deleteBtn
+      +editBtn
       +'<button class="modal-btn-save" onclick="saveAthNote()">Save note</button>'
     +'</div>'
     +'<div style="display:flex;gap:8px">'
+      +addSessionBtn
       +detailBtn
       +'<button class="modal-btn-close" onclick="closeAthModal()">Close</button>'
     +'</div>'
@@ -2165,7 +2177,6 @@ function closeAthModal(){
 }
 
 function openAthDayModal(dateStr){
-  // Find first workout or ICU activity for this date and open its modal
   const wo=(athWorkoutsCache||[]).find(w=>w.date===dateStr);
   const act=(allActivities||[]).find(a=>(a.start_date_local||'').slice(0,10)===dateStr);
   if(wo&&act){
@@ -2174,8 +2185,107 @@ function openAthDayModal(dateStr){
     openAthBlockModal('planned',String(wo.id),null);
   } else if(act){
     openAthBlockModal('icu_only',null,String(act.id));
+  } else {
+    openAthAddWoModal(dateStr);
   }
-  // empty day — no-op
+}
+
+let _athEditingWoId=null;
+
+function athWoAutoSuggest(){
+  const sel=document.getElementById('athWoFuelpro');
+  if(!sel||sel.value!=='')return;
+  const sport=document.getElementById('athWoSport').value;
+  const intensity=document.getElementById('athWoIntensity').value;
+  const dur=Number(document.getElementById('athWoDuration').value)||0;
+  let t=3;
+  if(/swim/i.test(sport))               t=dur>0&&dur<45?4:5;
+  else if(/run/i.test(sport)){
+    if(/interval/i.test(intensity))     t=9;
+    else if(/tempo/i.test(intensity))   t=10;
+    else if(dur>=70)                    t=14;
+    else                                t=11;
+  } else if(/cycl|bike|ride/i.test(sport)){
+    if(/threshold|interval/i.test(intensity)) t=7;
+    else if(dur>=150)                   t=13;
+    else                                t=12;
+  } else if(/strength|gym|lift/i.test(sport)) t=3;
+  sel.value=String(t);
+}
+
+function openAthAddWoModal(dateStr, editWo){
+  _athEditingWoId=editWo?editWo.id:null;
+  document.getElementById('athAddWoTitle').textContent=editWo?'Edit Session':'Add Session';
+  document.getElementById('athWoDate').value=editWo?editWo.date:(dateStr||'');
+  document.getElementById('athWoSport').value=editWo?(editWo.sport||'cycling'):'cycling';
+  document.getElementById('athWoTitle').value=editWo?(editWo.title||''):'';
+  document.getElementById('athWoIntensity').value=editWo?(editWo.workout_type||'endurance'):'endurance';
+  document.getElementById('athWoFuelpro').value=editWo&&editWo.fuelpro_type!=null?String(editWo.fuelpro_type):'';
+  document.getElementById('athWoDuration').value=editWo&&editWo.duration_minutes!=null?editWo.duration_minutes:'';
+  document.getElementById('athWoTSS').value=editWo&&editWo.tss_target!=null?editWo.tss_target:'';
+  document.getElementById('athWoDesc').value=editWo?(editWo.description||''):'';
+  document.getElementById('athWoError').style.display='none';
+  document.getElementById('athWoDeleteBtn').style.display=editWo?'block':'none';
+  document.getElementById('athAddWoModal').classList.add('show');
+}
+
+function closeAthAddWoModal(){
+  document.getElementById('athAddWoModal').classList.remove('show');
+  _athEditingWoId=null;
+}
+
+async function saveAthAddWorkout(){
+  if(!currentAthlete?.id)return;
+  const errEl=document.getElementById('athWoError');
+  errEl.style.display='none';
+  const fuelpro_raw=document.getElementById('athWoFuelpro').value;
+  const tss_raw=document.getElementById('athWoTSS').value;
+  const dur_raw=document.getElementById('athWoDuration').value;
+  const payload={
+    athlete_id:currentAthlete.id,
+    date:document.getElementById('athWoDate').value,
+    sport:document.getElementById('athWoSport').value,
+    title:document.getElementById('athWoTitle').value.trim(),
+    description:document.getElementById('athWoDesc').value.trim(),
+    duration_minutes:dur_raw!==''?Number(dur_raw):null,
+    tss_target:tss_raw!==''?Number(tss_raw):null,
+    fuelpro_type:fuelpro_raw!==''?Number(fuelpro_raw):null,
+    created_by:'athlete',
+  };
+  if(!payload.date){errEl.textContent='Pick a date.';errEl.style.display='block';return;}
+  try{
+    let r;
+    if(_athEditingWoId){
+      r=await fetch('/api/workouts',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_athEditingWoId,...payload})});
+    }else{
+      r=await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    }
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Could not save session');
+    closeAthAddWoModal();
+    // Refresh workout cache
+    const wr=await fetch('/api/workouts?athlete_id='+currentAthlete.id);
+    if(wr.ok){const d=await wr.json();athWorkoutsCache=d.workouts||[];}
+    renderAthCalendar();
+  }catch(err){
+    errEl.textContent=err.message||'Could not save session.';
+    errEl.style.display='block';
+  }
+}
+
+async function deleteAthAddWorkout(){
+  if(!_athEditingWoId)return;
+  if(!confirm('Delete this session?'))return;
+  try{
+    const r=await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_athEditingWoId})});
+    if(!r.ok){const d=await r.json();throw new Error(d.error||'Delete failed');}
+    closeAthAddWoModal();
+    const wr=await fetch('/api/workouts?athlete_id='+currentAthlete.id);
+    if(wr.ok){const d=await wr.json();athWorkoutsCache=d.workouts||[];}
+    renderAthCalendar();
+  }catch(err){
+    alert('Could not delete: '+err.message);
+  }
 }
 
 async function saveAthNote(){
@@ -2563,6 +2673,66 @@ function _applyFitnessToUI(){
     <div id="athRaceDetails"></div>
     <div style="display:flex;margin-top:1.5rem">
       <button class="btn" style="width:auto;background:transparent;border:1px solid var(--border);color:var(--tc2)" onclick="closeAthRaceModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Athlete add-workout modal -->
+<div class="ath-modal-bg" id="athAddWoModal">
+  <div class="ath-add-modal">
+    <button class="modal-close-x" onclick="closeAthAddWoModal()">&times;</button>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.25rem" id="athAddWoTitle">Add Session</div>
+    <div class="field"><label>Date</label><input type="date" id="athWoDate" /></div>
+    <div class="field"><label>Sport</label>
+      <select id="athWoSport" onchange="athWoAutoSuggest()">
+        <option value="cycling">Bike</option>
+        <option value="running">Run</option>
+        <option value="swimming">Swim</option>
+        <option value="strength">Strength</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="field"><label>Title</label><input type="text" id="athWoTitle" placeholder="e.g. Easy run" /></div>
+    <div class="field"><label>Intensity</label>
+      <select id="athWoIntensity" onchange="athWoAutoSuggest()">
+        <option value="easy">Easy / Recovery</option>
+        <option value="endurance" selected>Endurance / Base</option>
+        <option value="tempo">Tempo</option>
+        <option value="threshold">Threshold</option>
+        <option value="intervals">Intervals</option>
+      </select>
+    </div>
+    <div class="field"><label>FuelPro Type</label>
+      <select id="athWoFuelpro">
+        <option value="">— auto-suggest —</option>
+        <option value="1">1 — REST / Off</option>
+        <option value="2">2 — Mobility / Yoga / Walking</option>
+        <option value="3">3 — Easy Aerobic</option>
+        <option value="4">4 — Easy Swim — Short</option>
+        <option value="5">5 — Endurance Swim — Long</option>
+        <option value="6">6 — Hockey — Repeated Sprint</option>
+        <option value="7">7 — Threshold Bike Intervals</option>
+        <option value="8">8 — Brick Run — Short</option>
+        <option value="9">9 — Mixed Intervals — Running</option>
+        <option value="10">10 — Long Tempo Run</option>
+        <option value="11">11 — Easy Base Run</option>
+        <option value="12">12 — Neuromuscular / Cadence Bike</option>
+        <option value="13">13 — Long Brick — Bike Polarised</option>
+        <option value="14">14 — Long Easy Run</option>
+        <option value="15">15 — A-Race — 70.3</option>
+        <option value="16">16 — A-Race — Olympic Distance</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
+      <div class="field" style="margin-bottom:0"><label>Duration (min)</label><input type="number" id="athWoDuration" placeholder="e.g. 60" onchange="athWoAutoSuggest()" /></div>
+      <div class="field" style="margin-bottom:0"><label>Target TSS</label><input type="number" id="athWoTSS" placeholder="optional" /></div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="athWoDesc" rows="2" placeholder="Optional notes"></textarea></div>
+    <div class="error-msg" id="athWoError">Could not save session.</div>
+    <div style="display:flex;gap:10px;margin-top:1rem">
+      <button class="modal-btn-save" onclick="saveAthAddWorkout()">Save</button>
+      <button class="modal-btn-close" onclick="closeAthAddWoModal()">Cancel</button>
+      <button class="modal-btn-delete" id="athWoDeleteBtn" style="display:none;margin-left:auto" onclick="deleteAthAddWorkout()">Delete</button>
     </div>
   </div>
 </div>

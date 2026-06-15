@@ -1372,7 +1372,8 @@ async function saveWorkout(){
     tss_target:tssRaw!==''?Number(tssRaw):null,
     duration_minutes:durationMin,
     completed:document.getElementById('woCompleted').checked,
-    fuelpro_type:fuelpro_type_raw!==''?Number(fuelpro_type_raw):null
+    fuelpro_type:fuelpro_type_raw!==''?Number(fuelpro_type_raw):null,
+    created_by:'coach',
   };
   if(!payload.date){errEl.textContent='Pick a date.';errEl.style.display='block';return;}
   try{
