@@ -555,18 +555,16 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 
         <!-- Nutrition sub-tabs -->
         <div class="sub-tabs" id="nutrSubTabs" style="margin-bottom:1.5rem">
-          <button class="sub-tab active" data-nsub="today"    onclick="nutrSwitchSub('today')">Today</button>
-          <button class="sub-tab"        data-nsub="week"     onclick="nutrSwitchSub('week')">Week</button>
-          <button class="sub-tab"        data-nsub="history"  onclick="nutrSwitchSub('history')">Stats</button>
-          <button class="sub-tab"        data-nsub="weight"   onclick="nutrSwitchSub('weight')">Weight</button>
-          <button class="sub-tab"        data-nsub="settings" onclick="nutrSwitchSub('settings')">Settings</button>
+          <button class="sub-tab active" data-nsub="today"   onclick="nutrSwitchSub('today')">Today</button>
+          <button class="sub-tab"        data-nsub="week"    onclick="nutrSwitchSub('week')">Week</button>
+          <button class="sub-tab"        data-nsub="log"     onclick="nutrSwitchSub('log')">Log</button>
+          <button class="sub-tab"        data-nsub="profile" onclick="nutrSwitchSub('profile')">Profile</button>
         </div>
 
-        <div id="nutr-today"    class="nutr-sub"></div>
-        <div id="nutr-week"     class="nutr-sub" style="display:none"></div>
-        <div id="nutr-history"  class="nutr-sub" style="display:none"></div>
-        <div id="nutr-weight"   class="nutr-sub" style="display:none"></div>
-        <div id="nutr-settings" class="nutr-sub" style="display:none"></div>
+        <div id="nutr-today"   class="nutr-sub"></div>
+        <div id="nutr-week"    class="nutr-sub" style="display:none"></div>
+        <div id="nutr-log"     class="nutr-sub" style="display:none"></div>
+        <div id="nutr-profile" class="nutr-sub" style="display:none"></div>
       </div>
     </div><!-- /dtp-nutrition -->
 
@@ -3252,6 +3250,29 @@ function nutrSwitchSub(name){
   else nutrRender();
 }
 
+function nutrRenderLog(){
+  const el=document.getElementById('nutr-log');
+  if(!el)return;
+  const unassigned=nutr.foodEntries.filter(e=>!e.windowId||e.windowId==='unassigned');
+  const assigned=nutr.foodEntries.filter(e=>e.windowId&&e.windowId!=='unassigned');
+  let rows='';
+  if(nutr.foodEntries.length){
+    rows=nutr.foodEntries.map(e=>`<div class="nutr-food-row">
+      <div class="nutr-food-name">${e.name} <span style="opacity:0.5">${e.qty}${e.unit}</span></div>
+      <div class="nutr-food-macros"><span style="color:#639922">${e.protein}P</span><span style="color:#378ADD">${e.fat}F</span><span style="color:#E24B4A">${e.carbs}C</span><span style="color:var(--tc3);margin-left:4px">${e.calories}kcal</span>
+        <button onclick="nutrRemoveFood('${e.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;padding:0 0 0 6px;font-size:13px">✕</button>
+      </div>
+    </div>`).join('');
+  }else{
+    rows=`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3);padding:12px 0">Nothing logged yet today.</div>`;
+  }
+  el.innerHTML=`<div class="nutr-card">
+    <div class="section-label" style="margin-top:0;margin-bottom:10px">Today's food log</div>
+    ${rows}
+    <button onclick="nutrOpenFoodModal('unassigned')" class="nutr-fab" style="margin-top:10px">+ Add Food</button>
+  </div>`;
+}
+
 async function nutrLoadWeek(){
   const wb=nutrGetWeekBounds();
   const aid=currentAthlete?.id;
@@ -3265,11 +3286,10 @@ async function nutrLoadWeek(){
 
 function nutrRender(){
   if(!nutr.loaded){loadNutritionTab();return;}
-  if(nutr.sub==='today')         nutrRenderToday();
-  else if(nutr.sub==='week')     nutrRenderWeek();
-  else if(nutr.sub==='history')  nutrRenderHistory();
-  else if(nutr.sub==='weight')   nutrRenderWeight();
-  else if(nutr.sub==='settings') nutrRenderSettings();
+  if(nutr.sub==='today')   nutrRenderToday();
+  else if(nutr.sub==='week')    nutrRenderWeek();
+  else if(nutr.sub==='log')     nutrRenderLog();
+  else if(nutr.sub==='profile') nutrRenderProfile();
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3394,22 +3414,7 @@ function nutrRenderToday(){
     </div>`;
   }
 
-  // 4. Food log (unassigned)
-  const unassigned=nutr.foodEntries.filter(e=>!e.windowId||e.windowId==='unassigned');
-  const unassignedHtml=unassigned.length||!windows?`<div class="nutr-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="section-label" style="margin:0">Food log</div>
-    </div>
-    ${unassigned.map(e=>`<div class="nutr-food-row">
-      <div class="nutr-food-name">${e.name} <span style="opacity:0.5">${e.qty}${e.unit}</span></div>
-      <div class="nutr-food-macros"><span style="color:#639922">${e.protein}P</span><span style="color:#378ADD">${e.fat}F</span><span style="color:#E24B4A">${e.carbs}C</span>
-        <button onclick="nutrRemoveFood('${e.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;padding:0 0 0 6px;font-size:13px">✕</button>
-      </div>
-    </div>`).join('')}
-    <button onclick="nutrOpenFoodModal('unassigned')" class="nutr-fab">+ Add Food</button>
-  </div>`:'';
-
-  el.innerHTML=macroStrip+sessSection+fuelHtml+(windows?'':unassignedHtml);
+  el.innerHTML=macroStrip+sessSection+fuelHtml;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3471,7 +3476,8 @@ function nutrCloseFoodModal(){
   document.getElementById('nutrFoodModal').classList.remove('show');
   document.getElementById('nutrFoodModalOverlay').classList.remove('show');
   document.body.style.overflow='';
-  nutrRenderToday();
+  if(nutr.sub==='log') nutrRenderLog();
+  else nutrRenderToday();
 }
 
 function nutrFoodItemHtml(item,opts={}){
@@ -3719,7 +3725,8 @@ async function nutrAddCombo(comboId){
 function nutrRemoveFood(id){
   nutr.foodEntries=nutr.foodEntries.filter(e=>e.id!==id);
   nutrSaveTodayLog();
-  nutrRenderToday();
+  if(nutr.sub==='log') nutrRenderLog();
+  else nutrRenderToday();
 }
 
 async function nutrSaveTodayLog(){
@@ -3966,8 +3973,109 @@ function nutrRenderWeek(){
 function nutrSelectWeekDay(i){nutr.weekSelectedDay=i;nutrRenderWeek();}
 
 // ═══════════════════════════════════════════════════════════════════
-// FUELPRO — STATS TAB
+// FUELPRO — PROFILE TAB (weight log + nutrition settings)
 // ═══════════════════════════════════════════════════════════════════
+function nutrRenderProfile(){
+  const el=document.getElementById('nutr-profile');
+  if(!el)return;
+  const logs=nutr.weightLogs||[];
+  const p=nutr.profile;
+
+  // Weight table rows with change column
+  const wtRows=logs.map((l,i)=>{
+    const prev=logs[i+1];
+    const change=prev?+(l.weight_lbs-prev.weight_lbs).toFixed(1):null;
+    const chColor=change===null?'var(--tc3)':change<0?'#639922':change>0?'#E24B4A':'var(--tc3)';
+    const chLabel=change===null?'—':change>0?'+'+change+' lbs':change+' lbs';
+    return `<tr>
+      <td style="padding:7px 10px;font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3)">${l.log_date}</td>
+      <td style="padding:7px 10px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700">${l.weight_lbs}</td>
+      <td style="padding:7px 10px;font-family:'DM Mono',monospace;font-size:12px;color:${chColor}">${chLabel}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div class="nutr-card">
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">Log weight</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px">
+        <div style="flex:1">
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Weight (lbs)</label>
+          <input type="number" class="nutr-input" placeholder="168.0" id="nutrWtInput" value="${nutr.newWeight||''}" oninput="nutr.newWeight=this.value">
+        </div>
+        <button class="nutr-btn" style="padding:10px 20px;white-space:nowrap" onclick="nutrSaveWeight()">LOG WEIGHT</button>
+      </div>
+      ${logs.length?`<table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
+        <thead><tr>
+          <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Date</th>
+          <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Weight (lbs)</th>
+          <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Change</th>
+        </tr></thead>
+        <tbody>${wtRows}</tbody>
+      </table>`:`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3)">No entries yet.</div>`}
+    </div>
+    <div class="nutr-card">
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">Nutrition profile</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Mode</label>
+          <select class="nutr-select" style="width:100%" onchange="nutr.profile.mode=Number(this.value)">
+            <option value="1"${p.mode===1?' selected':''}>CUT — deficit on easy days</option>
+            <option value="2"${p.mode===2?' selected':''}>MAINTAIN — match TDEE</option>
+            <option value="3"${p.mode===3?' selected':''}>BUILD — surplus on hard days</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Goal weight (lbs)</label>
+          <input type="number" class="nutr-input" value="${p.goal_weight_lbs||159}" onchange="nutr.profile.goal_weight_lbs=Number(this.value)">
+        </div>
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">FTP (watts)</label>
+          <input type="number" class="nutr-input" value="${currentAthlete?.ftp||p.ftp||''}" placeholder="e.g. 280" id="nutrFtpInput">
+        </div>
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Weekly loss target (lbs)</label>
+          <input type="number" step="0.1" class="nutr-input" value="${p.weekly_loss_target||0.5}" onchange="nutr.profile.weekly_loss_target=Number(this.value)">
+        </div>
+      </div>
+      <button class="nutr-btn" style="width:100%;padding:13px;font-size:12px" onclick="nutrSaveProfile()">SAVE PROFILE</button>
+      <div id="nutrProfileSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#639922;margin-top:8px;display:none">Saved ✓</div>
+    </div>`;
+}
+
+async function nutrSaveWeight(){
+  if(!currentAthlete?.id||!nutr.newWeight)return;
+  const body={athlete_id:currentAthlete.id,log_date:nutrTodayStr(),weight_lbs:Number(nutr.newWeight)};
+  const r=await fetch('/api/nutrition-data?type=weight',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.error){alert('Error: '+d.error);return;}
+  nutr.newWeight='';
+  nutr.weightLogs=await fetch('/api/nutrition-data?type=weight&athlete_id='+currentAthlete.id).then(r=>r.json()).catch(()=>[]);
+  nutrRenderProfile();
+}
+
+async function nutrSaveProfile(){
+  if(!currentAthlete?.id)return;
+  const ftp=Number(document.getElementById('nutrFtpInput')?.value||0);
+  // Save nutrition profile
+  const r=await fetch('/api/nutrition-data?type=profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...nutr.profile,athlete_id:currentAthlete.id})});
+  const d=await r.json();
+  if(d.error){alert('Error: '+d.error);return;}
+  nutr.profile=d;
+  // Save FTP to athlete record if changed
+  if(ftp&&ftp!==(currentAthlete.ftp||0)){
+    await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'update_profile',athlete_id:currentAthlete.id,ftp})}).catch(()=>{});
+    currentAthlete.ftp=ftp;
+    localStorage.setItem('hm2l_athlete',JSON.stringify(currentAthlete));
+  }
+  const msg=document.getElementById('nutrProfileSaveMsg');
+  if(msg){msg.style.display='block';setTimeout(()=>{msg.style.display='none';},2000);}
+}
+
+// kept for legacy callers — redirect to profile tab
+function nutrRenderSettings(){ nutrRenderProfile(); }
+
+// (Stats tab removed)
 function nutrRenderHistory(){
   const el=document.getElementById('nutr-history');
   const logs=nutr.logHistory; // already excludes today, sorted desc
@@ -4121,158 +4229,6 @@ function nutrRenderHistory(){
   el.innerHTML=streakHtml+weeklyHtml+avgHtml+weightHtml+logHtml;
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// FUELPRO — WEIGHT TAB
-// ═══════════════════════════════════════════════════════════════════
-function nutrRenderWeight(){
-  const el=document.getElementById('nutr-weight');
-  const logs=nutr.weightLogs;
-  const statsHtml=logs.length?`<div class="nutr-card">
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">LATEST</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${logs[0].weight_lbs} lbs</div></div>
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">7-DAY AVG</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#378ADD">${(logs.slice(0,7).reduce((s,w)=>s+w.weight_lbs,0)/Math.min(7,logs.length)).toFixed(1)} lbs</div></div>
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">TO GOAL</div><div style="font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#c8f036">${(logs[0].weight_lbs-nutr.profile.goal_weight_lbs).toFixed(1)} lbs</div></div>
-    </div>
-  </div>`:'' ;
-  const histHtml=logs.length?`<div class="nutr-card">
-    <div class="section-label" style="margin-top:0;margin-bottom:10px">History</div>
-    ${logs.map(l=>`<div class="nutr-row">
-      <div><div style="font-weight:600;font-size:14px">${l.weight_lbs} lbs</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${l.log_date}</div></div>
-      <div style="text-align:right">
-        ${l.body_fat_pct?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${l.body_fat_pct}% BF</div>`:''}
-        ${l.feeling?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--acc)">${l.feeling}/5</div>`:''}
-      </div>
-    </div>`).join('')}
-  </div>`:'' ;
-  el.innerHTML=`
-    <div class="nutr-card">
-      <div class="section-label" style="margin-top:0;margin-bottom:12px">Log weight</div>
-      <div style="margin-bottom:10px">
-        <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Weight (lbs)</label>
-        <input type="number" class="nutr-input" placeholder="168.0" value="${nutr.newWeight}" onchange="nutr.newWeight=this.value">
-      </div>
-      <div style="display:flex;gap:10px;margin-bottom:10px">
-        <div style="flex:1">
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Body fat % (optional)</label>
-          <input type="number" class="nutr-input" placeholder="12.0" value="${nutr.newBodyFat}" onchange="nutr.newBodyFat=this.value">
-        </div>
-        <div style="flex:1">
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Feeling (1-5)</label>
-          <select class="nutr-select" style="width:100%" onchange="nutr.newFeeling=this.value">
-            <option value="">—</option>
-            <option value="1"${nutr.newFeeling==='1'?' selected':''}>1 — Terrible</option>
-            <option value="2"${nutr.newFeeling==='2'?' selected':''}>2 — Poor</option>
-            <option value="3"${nutr.newFeeling==='3'?' selected':''}>3 — OK</option>
-            <option value="4"${nutr.newFeeling==='4'?' selected':''}>4 — Good</option>
-            <option value="5"${nutr.newFeeling==='5'?' selected':''}>5 — Great</option>
-          </select>
-        </div>
-      </div>
-      <div style="margin-bottom:12px">
-        <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Notes</label>
-        <input type="text" class="nutr-input" placeholder="e.g. post-race, travel day..." value="${nutr.newWeightNotes}" onchange="nutr.newWeightNotes=this.value">
-      </div>
-      <button class="nutr-btn" style="width:100%;padding:12px" onclick="nutrSaveWeight()">LOG WEIGHT</button>
-    </div>
-    ${statsHtml}${histHtml}`;
-}
-
-async function nutrSaveWeight(){
-  if(!currentAthlete?.id||!nutr.newWeight)return;
-  const body={athlete_id:currentAthlete.id,log_date:nutrTodayStr(),
-    weight_lbs:Number(nutr.newWeight),body_fat_pct:nutr.newBodyFat?Number(nutr.newBodyFat):null,
-    feeling:nutr.newFeeling?Number(nutr.newFeeling):null,notes:nutr.newWeightNotes||null};
-  const r=await fetch('/api/nutrition-data?type=weight',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const d=await r.json();
-  if(d.error)alert('Error: '+d.error);
-  else{
-    nutr.newWeight='';nutr.newBodyFat='';nutr.newFeeling='';nutr.newWeightNotes='';
-    nutr.weightLogs=await fetch('/api/nutrition-data?type=weight&athlete_id='+currentAthlete.id).then(r=>r.json()).catch(()=>[]);
-    nutrRenderWeight();
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// FUELPRO — SETTINGS TAB
-// ═══════════════════════════════════════════════════════════════════
-function nutrRenderSettings(){
-  const el=document.getElementById('nutr-settings');
-  const p=nutr.profile;
-  const iId=currentAthlete?.intervals_athlete_id||'';
-  const iKey=currentAthlete?.intervals_api_key||'';
-  const latestWt=nutr.weightLogs[0]?.weight_lbs||p.weight_lbs||168;
-  const toLose=((latestWt)-(p.goal_weight_lbs||159)).toFixed(1);
-  const weeks=p.weekly_loss_target>0?Math.ceil(toLose/p.weekly_loss_target):'—';
-  el.innerHTML=`
-    <div class="nutr-card">
-      <div class="section-label" style="margin-top:0;margin-bottom:12px">intervals.icu connection</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-        <div>
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Athlete ID</label>
-          <input type="text" class="nutr-input" id="nutrIId" value="${iId}" placeholder="i12345">
-        </div>
-        <div>
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">API Key</label>
-          <input type="password" class="nutr-input" id="nutrIKey" value="${iKey}" placeholder="••••••••">
-        </div>
-      </div>
-      <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:12px;line-height:1.6">Used to pull today's completed activities and wellness data (HRV, CTL/ATL) for real-time prescription adjustment.</p>
-    </div>
-    <div class="nutr-card">
-      <div class="section-label" style="margin-top:0;margin-bottom:12px">Nutrition profile</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-        <div>
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Body weight (lbs)</label>
-          <input type="number" class="nutr-input" value="${latestWt}" onchange="nutr.profile.weight_lbs=Number(this.value)">
-        </div>
-        <div>
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Goal weight (lbs)</label>
-          <input type="number" class="nutr-input" value="${p.goal_weight_lbs||159}" onchange="nutr.profile.goal_weight_lbs=Number(this.value)">
-        </div>
-        <div>
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Mode</label>
-          <select class="nutr-select" style="width:100%" onchange="nutr.profile.mode=Number(this.value)">
-            <option value="1"${p.mode===1?' selected':''}>CUT — deficit on easy days</option>
-            <option value="2"${p.mode===2?' selected':''}>MAINTAIN — match TDEE</option>
-            <option value="3"${p.mode===3?' selected':''}>BUILD — surplus on hard days</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Weekly loss target (lbs)</label>
-          <input type="number" step="0.1" class="nutr-input" value="${p.weekly_loss_target||0.5}" onchange="nutr.profile.weekly_loss_target=Number(this.value)">
-        </div>
-      </div>
-    </div>
-    <div class="nutr-card" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin-bottom:14px">
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">TO LOSE</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#c8f036">${toLose} lbs</div></div>
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">AT RATE</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${p.weekly_loss_target} lbs/wk</div></div>
-      <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">EST. WEEKS</div><div style="font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:#639922">${weeks}</div></div>
-    </div>
-    <button class="nutr-btn" style="width:100%;padding:13px;font-size:12px" onclick="nutrSaveSettings()">SAVE SETTINGS</button>`;
-}
-
-async function nutrSaveSettings(){
-  if(!currentAthlete?.id)return;
-  const iId=document.getElementById('nutrIId')?.value||'';
-  const iKey=document.getElementById('nutrIKey')?.value||'';
-  // Update intervals creds on athlete record
-  if(iId||iKey){
-    await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'update_profile',athlete_id:currentAthlete.id,intervals_athlete_id:iId,intervals_api_key:iKey})}).catch(()=>{});
-    currentAthlete.intervals_athlete_id=iId;
-    currentAthlete.intervals_api_key=iKey;
-    localStorage.setItem('hm2l_athlete',JSON.stringify(currentAthlete));
-  }
-  // Save nutrition profile
-  const r=await fetch('/api/nutrition-data?type=profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...nutr.profile,athlete_id:currentAthlete.id})});
-  const d=await r.json();
-  if(d.error)alert('Error: '+d.error);
-  else{
-    nutr.profile=d;
-    const btn=document.querySelector('[onclick="nutrSaveSettings()"]');
-    if(btn){btn.textContent='SAVED';setTimeout(()=>{btn.textContent='SAVE SETTINGS';nutrRenderSettings();},2000);}
-  }
-}
 
 </script>
 
