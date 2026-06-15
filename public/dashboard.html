@@ -3261,10 +3261,11 @@ function nutrRenderWeightLog(){
     const chLabel=change===null?'—':change>0?'+'+change+' lbs':change+' lbs';
     // show datetime if available, else date
     const dateLabel=l.logged_at?l.logged_at.replace('T',' ').slice(0,16):l.log_date;
-    return`<tr>
+    return`<tr id="wl-row-${l.id}">
       <td style="padding:7px 10px;font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3)">${dateLabel}</td>
       <td style="padding:7px 10px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700">${Number(l.weight_lbs).toFixed(1)}</td>
       <td style="padding:7px 10px;font-family:'DM Mono',monospace;font-size:12px;color:${chColor}">${chLabel}</td>
+      <td style="padding:7px 6px"><button onclick="nutrDeleteWeightLog('${l.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px" title="Delete">✕</button></td>
     </tr>`;
   }).join('');
   el.innerHTML=`<div class="nutr-card">
@@ -3494,12 +3495,22 @@ function nutrOpenFoodModal(windowId){
   setTimeout(()=>{const inp=document.getElementById('nutrFoodSearchInput');if(inp)inp.focus();},120);
   // Fetch fresh recents + favorites on every open
   const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food?type=history?q=&athlete_id='+aid+'&limit=8')
+  fetch('/api/nutrition-food?type=history&q=&athlete_id='+aid+'&limit=8')
     .then(r=>r.json()).then(data=>{
       if(!Array.isArray(data))return;
       nutr.foodHistory=data;
       nutr.foodFavorites=data.filter(h=>h.is_favorite);
       if(!nutr.searchQuery)nutrUpdateSearchResults();
+      // Populate permanent recents panel
+      const panel=document.getElementById('nutr-recents-panel');
+      if(!panel)return;
+      if(!data.length){panel.style.display='none';return;}
+      panel.style.display='block';
+      panel.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;padding-top:12px">Recent</div>'
+        +data.map(function(f){
+          var js=JSON.stringify(JSON.stringify(f));
+          return'<div onclick="nutrSelectFoodObj('+js.replace(/"/g,'&quot;')+')" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer"><span style="color:var(--tc);font-size:13px">'+f.name+'</span><span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-left:8px">'+((f.per100g||{}).carbs||0)+'g C · '+((f.per100g||{}).protein||0)+'g P</span></div>';
+        }).join('');
     }).catch(()=>{});
 }
 
@@ -3508,6 +3519,8 @@ function nutrCloseFoodModal(){
   document.getElementById('nutrFoodModal').classList.remove('show');
   document.getElementById('nutrFoodModalOverlay').classList.remove('show');
   document.body.style.overflow='';
+  const rp=document.getElementById('nutr-recents-panel');
+  if(rp){rp.style.display='none';rp.innerHTML='';}
   if(nutr.sub==='weightlog') nutrRenderWeightLog();
   else nutrRenderToday();
 }
@@ -3602,6 +3615,9 @@ function nutrRenderConfirm(){
   if(!content)return;
   const f=nutr.selectedFood;
   if(!f)return;
+  // Hide recents panel while confirming a food
+  const rp=document.getElementById('nutr-recents-panel');
+  if(rp)rp.style.display='none';
   const mult=nutr.foodQty?nutrCalcMult(nutr.foodQty,nutr.foodUnit,f.serving_size):0;
   const calc={
     calories:Math.round((f.per100g?.calories||0)*mult),
@@ -3660,33 +3676,24 @@ function nutrRenderFoodModal(){
   if(!content)return;
   if(nutr.selectedFood){nutrRenderConfirm();return;}
 
+  // Show recents panel (hidden during confirm state)
+  const recentsPanel=document.getElementById('nutr-recents-panel');
+  if(recentsPanel)recentsPanel.style.display=nutr.foodHistory.length?'block':'none';
+
   content.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase">Add Food</div>
       <button onclick="nutrCloseFoodModal()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:24px;line-height:1;padding:4px 8px">✕</button>
     </div>
     <button onclick="nutrOpenBarcode(nutr.foodModalWindow)" class="nutr-scan-btn">SCAN BARCODE</button>
-    <div id="nutr-recents-panel" style="margin-top:1rem"></div>
     <input id="nutrFoodSearchInput" type="text" class="nutr-input nutr-modal-search"
       placeholder="Search food… or try '100g oats', '2 eggs'" value="${nutr.searchQuery.replace(/"/g,'&quot;')}"
-      oninput="nutrModalSearchInput(this.value);document.getElementById('nutr-recents-panel').style.display=this.value?'none':'block'" autocomplete="off" style="margin-top:8px">
+      oninput="nutrModalSearchInput(this.value);var rp=document.getElementById('nutr-recents-panel');if(rp)rp.style.display=this.value?'none':'block'" autocomplete="off" style="margin-top:8px">
     <div id="nutrFoodSearchResultsEl">${nutrSearchResultsHtml()}</div>`;
 
   const inp=document.getElementById('nutrFoodSearchInput');
   if(inp&&nutr.searchQuery){const l=nutr.searchQuery.length;inp.setSelectionRange(l,l);}
   else if(inp)setTimeout(()=>inp.focus(),50);
-  // Populate recents panel
-  const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food?type=history&limit=8&athlete_id='+aid).then(r=>r.json()).then(function(items){
-    console.log('[nutrRenderFoodModal] recents items:', items);
-    var el=document.getElementById('nutr-recents-panel');
-    if(!el){console.log('[nutrRenderFoodModal] nutr-recents-panel not found in DOM');return;}
-    if(!items||!items.length){console.log('[nutrRenderFoodModal] no items to render');return;}
-    el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">RECENT</div>'+items.map(function(f){
-      var js=JSON.stringify(JSON.stringify(f));
-      return'<div onclick="nutrSelectFoodObj('+js.replace(/"/g,'&quot;')+')" style="padding:10px 0;border-bottom:1px solid #2a2a2a;cursor:pointer"><span style="color:#f0f0f0;font-size:13px">'+f.name+'</span><span style="font-family:\'DM Mono\',monospace;font-size:10px;color:#555;margin-left:8px">'+((f.per100g||{}).carbs||0)+'g C · '+((f.per100g||{}).protein||0)+'g P</span></div>';
-    }).join('');
-  }).catch(function(e){console.log('[nutrRenderFoodModal] recents fetch error:',e);});
 }
 
 function nutrModalSearchInput(val){
@@ -4086,6 +4093,9 @@ async function nutrSaveWeight(){
   const apResp=await fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({athlete_id:currentAthlete.id,weight_lbs:savedWt})}).then(r=>r.json()).catch(e=>({error:e.message}));
   console.log('[nutrSaveWeight] athlete-profile update response:', apResp);
+  // Sync to athlete profile form + W/kg banner in main dashboard
+  const wtInp=document.getElementById('pf_weight_lbs');
+  if(wtInp){wtInp.value=savedWt;if(typeof updateWkg==='function')updateWkg();}
   nutrRenderWeightLog();
   // Confirmation banner
   const el=document.getElementById('nutr-weightlog');
@@ -4096,6 +4106,16 @@ async function nutrSaveWeight(){
     el.prepend(msg);
     setTimeout(()=>msg.remove(),3000);
   }
+}
+
+async function nutrDeleteWeightLog(id){
+  if(!id)return;
+  const r=await fetch('/api/nutrition-data?type=weight&id='+id,{method:'DELETE'}).then(r=>r.json()).catch(()=>({error:'Network error'}));
+  if(r.error){alert('Delete failed: '+r.error);return;}
+  // Remove from in-memory list and DOM instantly
+  nutr.weightLogs=nutr.weightLogs.filter(l=>String(l.id)!==String(id));
+  const row=document.getElementById('wl-row-'+id);
+  if(row)row.remove();
 }
 
 async function nutrSaveProfile(){
@@ -4283,6 +4303,7 @@ function nutrRenderHistory(){
 <div id="nutrFoodModalOverlay" onclick="nutrCloseFoodModal()"></div>
 <div id="nutrFoodModal">
   <div class="nutr-modal-drag"></div>
+  <div id="nutr-recents-panel" style="display:none;padding:0 1.5rem"></div>
   <div class="nutr-modal-inner" id="nutrFoodModalContent"></div>
 </div>
 

@@ -16,7 +16,7 @@ const PROFILE_DEFAULTS = {
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
@@ -105,6 +105,13 @@ export default async function handler(req, res) {
         const { data, error } = await supabase.from('weight_logs').insert(body).select().single();
         if (error) return res.status(500).json({ error: error.message });
         return res.status(200).json(data);
+      }
+      if (req.method === 'DELETE') {
+        const { id } = req.query;
+        if (!id) return res.status(400).json({ error: 'Missing id' });
+        const { error } = await supabase.from('weight_logs').delete().eq('id', id);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ ok: true });
       }
     }
 
