@@ -29,6 +29,7 @@ export default async function handler(req, res) {
         if (athlete_id) query = query.eq('athlete_id', athlete_id);
         if (is_favorite === 'true') query = query.eq('is_favorite', true);
         const { data, error } = await query;
+        console.log('food_history GET athlete_id:', athlete_id, '| rows:', data?.length, '| error:', error?.message);
         if (error) { console.error('food_history GET error:', error); return res.status(200).json([]); }
         return res.status(200).json(data || []);
       }
