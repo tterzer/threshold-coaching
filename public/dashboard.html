@@ -2868,6 +2868,56 @@ const NUTR_SESSION_TYPES = {
   16: { name:"A-Race — Olympic Distance",   carbMult:3.18, tssPerHour:200, glycogenCoeff:1.00, qualitySession:true  },
 };
 
+// ── TDEE CALCULATION ─────────────────────────────────────────────
+const NEAT_LEVELS={
+  'desk':0.20,'light':0.30,'active':0.40,'manual':0.60
+};
+function calcBMR(){
+  const wt=((nutr.weightLogs||[])[0]?.weight_lbs)||nutr.profile?.weight_lbs||currentAthlete?.weight_lbs||168;
+  const hf=Number(currentAthlete?.height_feet||0);
+  const hi=Number(currentAthlete?.height_inches||0);
+  const age=Number(currentAthlete?.age||0);
+  const wt_kg=wt*0.453592;
+  const ht_cm=(hf*12+hi)*2.54;
+  if(!age||!ht_cm)return 1800;
+  return Math.round((10*wt_kg)+(6.25*ht_cm)-(5*age)+5);
+}
+function calcExerciseCalories(activities){
+  const wt=((nutr.weightLogs||[])[0]?.weight_lbs)||nutr.profile?.weight_lbs||currentAthlete?.weight_lbs||168;
+  const wt_kg=wt*0.453592;
+  const ftp=Number(currentAthlete?.ftp_watts||200);
+  return (activities||[]).reduce((sum,a)=>{
+    const t=(a.type||a.sport_type||'').toLowerCase();
+    const secs=Number(a.moving_time||a.elapsed_time||0);
+    const hrs=secs/3600;
+    if(!hrs)return sum;
+    if(/ride|cycling|virtualride/.test(t)){
+      const kj=Number(a.work||a.kilojoules||0);
+      if(kj>0)return sum+Math.round(kj/0.238);
+      const watts=Number(a.average_watts||ftp);
+      return sum+Math.round(hrs*watts*3.6/0.238);
+    }
+    if(/run|virtualrun/.test(t)){
+      const dist_m=Number(a.distance||0);
+      return sum+Math.round(wt_kg*(dist_m/1000)*1.04);
+    }
+    if(/swim/.test(t)){
+      const met=10;
+      return sum+Math.round(met*wt_kg*hrs);
+    }
+    return sum+Math.round(5*wt_kg*hrs);
+  },0);
+}
+function calcTDEE(activities){
+  const bmr=calcBMR();
+  const level=currentAthlete?.activity_level||'light';
+  const neatMult=NEAT_LEVELS[level]??0.30;
+  const neat=Math.round(bmr*neatMult);
+  const exercise=calcExerciseCalories(activities||[]);
+  return{tdee:bmr+neat+exercise,bmr,neat,exercise};
+}
+// ─────────────────────────────────────────────────────────────────
+
 function nutrCalcAdjTss(sessions){
   return (sessions||[]).filter(s=>s.typeNum&&s.durationMins).reduce((sum,s)=>{
     const t=NUTR_SESSION_TYPES[s.typeNum]||{tssPerHour:40,glycogenCoeff:0.85};
@@ -3314,9 +3364,18 @@ function nutrRenderToday(){
   const el=document.getElementById('nutr-today');
   const tsb=nutr.wellness?.form??null;
   const targets=nutrCalcDay(nutr.profile,nutr.todaySessions,tsb);
+  const tdeeResult=calcTDEE(nutr.completedActivities);
+  const mode=nutr.profile.mode||1;
+  const wkly=nutr.profile.weekly_loss_target||0.5;
+  let tdeeTarget=tdeeResult.tdee;
+  if(mode===1) tdeeTarget=Math.round(tdeeResult.tdee-(wkly*500));
+  else if(mode===3) tdeeTarget=tdeeResult.tdee+300;
+  const tProtein=targets.protein;
+  const tFat=targets.fat;
+  const tCarbsFromTdee=Math.max(0,Math.round((tdeeTarget-tProtein*4-tFat*9)/4));
   const adjTotal=nutrAdjTotal();
-  const adjCarbs=Math.max(targets.carbs,targets.carbs+adjTotal);
-  const adj={...targets,carbs:adjCarbs};
+  const adjCarbs=Math.max(tCarbsFromTdee,tCarbsFromTdee+adjTotal);
+  const adj={...targets,carbs:adjCarbs,kcal:tdeeTarget};
   const eaten={
     carbs:nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0),
     protein:nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0),
@@ -3362,6 +3421,9 @@ function nutrRenderToday(){
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${rem.kcal.toLocaleString()} kcal remaining</span>
       <span class="nutr-intent ${adj.intent.cls}">${adj.intent.label}</span>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#555;margin-top:8px;line-height:1.6">
+      BMR: ${tdeeResult.bmr}kcal &nbsp;+&nbsp; Activity: ${tdeeResult.neat}kcal &nbsp;+&nbsp; Exercise: ${tdeeResult.exercise}kcal &nbsp;=&nbsp; <span style="color:#777">Total: ${tdeeResult.tdee}kcal</span>
     </div>
   </div>`;
 
@@ -4099,6 +4161,19 @@ function nutrRenderProfile(){
     <div class="nutr-card">
       <div class="section-label" style="margin-top:0;margin-bottom:12px">Nutrition profile</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Age</label>
+          <input type="number" class="nutr-input" value="${currentAthlete?.age||''}" placeholder="e.g. 32" min="10" max="100" onchange="if(!currentAthlete)currentAthlete={};currentAthlete.age=Number(this.value)">
+        </div>
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Daily Activity</label>
+          <select class="nutr-select" style="width:100%" onchange="if(!currentAthlete)currentAthlete={};currentAthlete.activity_level=this.value">
+            <option value="desk"${(currentAthlete?.activity_level||'light')==='desk'?' selected':''}>Desk job / mostly sitting</option>
+            <option value="light"${(currentAthlete?.activity_level||'light')==='light'?' selected':''}>Light activity / on feet sometimes</option>
+            <option value="active"${(currentAthlete?.activity_level||'')==='active'?' selected':''}>Active job / on feet most of day</option>
+            <option value="manual"${(currentAthlete?.activity_level||'')==='manual'?' selected':''}>Manual labor / very active job</option>
+          </select>
+        </div>
         <div style="grid-column:1/-1">
           <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Mode</label>
           <select class="nutr-select" style="width:100%" onchange="nutr.profile.mode=Number(this.value)">
@@ -4185,8 +4260,21 @@ async function nutrSaveProfile(){
   const r=await fetch('/api/nutrition-data?type=profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const d=await r.json();
   if(d.error){alert('Error: '+d.error);return;}
-  // Merge response back but preserve local-only fields (goal_date)
   nutr.profile={...nutr.profile,...d};
+  // Save age + activity_level to athlete_profiles
+  if(currentAthlete?.id){
+    const apPayload={athlete_id:currentAthlete.id};
+    if(currentAthlete.age) apPayload.age=Number(currentAthlete.age);
+    if(currentAthlete.activity_level) apPayload.activity_level=currentAthlete.activity_level;
+    if(apPayload.age||apPayload.activity_level){
+      const apRes=await fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(apPayload)}).then(r=>r.json()).catch(()=>({}));
+      // Persist to localStorage so TDEE calc uses updated values on next load
+      if(!apRes.error){
+        const stored=localStorage.getItem('hm2l_athlete');
+        if(stored){try{const a=JSON.parse(stored);a.age=currentAthlete.age;a.activity_level=currentAthlete.activity_level;localStorage.setItem('hm2l_athlete',JSON.stringify(a));}catch(e){}}
+      }
+    }
+  }
   const msg=document.getElementById('nutrProfileSaveMsg');
   if(msg){msg.style.display='block';setTimeout(()=>{msg.style.display='none';nutrRenderProfile();},2000);}
 }
