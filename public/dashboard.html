@@ -2157,7 +2157,7 @@ async function openAthBlockModal(mode, woId, icuId){
 
   // Footer: delete button only for planned-only workouts
   const deleteBtn=(mode==='planned'&&wo)
-    ?'<button class="modal-btn-delete" onclick="deleteAthWorkout('+wo.id+')">Delete</button>'
+    ?'<button class="modal-btn-delete" onclick="deleteAthWorkout(\''+String(wo.id)+'\')">Delete</button>'
     :'';
   const detailBtn=act?'<button class="modal-btn-close" onclick="document.getElementById(\'athWoModal\').style.display=\'none\';openDetailView(\''+String(act.id)+'\',\''+sport+'\')" style="border-color:var(--acc);color:var(--acc)">Detailed view →</button>':'';
   const editBtn=(wo&&wo.created_by==='athlete')?'<button class="modal-btn-close" onclick="closeAthModal();openAthAddWoModal(null,athWorkoutsCache.find(x=>String(x.id)===\''+String(wo.id)+'\'))">Edit</button>':'';
@@ -2337,6 +2337,7 @@ function closeAthWoModal(){ closeAthModal(); }
 async function deleteAthWorkout(id){
   if(!confirm('Delete this planned workout?'))return;
   try{
+    console.log('[deleteAthWorkout] deleting id:', id);
     const res=await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
     if(!res.ok)throw new Error('Delete failed');
     closeAthModal();
