@@ -39,14 +39,15 @@ export default async function handler(req, res) {
       if (req.method === 'GET') {
         const { athlete_id, date } = req.query;
         if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
+        const cols = 'id,athlete_id,log_date,food_entries,sessions,target_carbs,target_protein,target_fat,target_kcal,actual_carbs,actual_protein,actual_fat,actual_kcal,intent';
         if (date) {
           const { data, error } = await supabase
-            .from('daily_logs').select('*').eq('athlete_id', athlete_id).eq('log_date', date).maybeSingle();
+            .from('daily_logs').select(cols).eq('athlete_id', athlete_id).eq('log_date', date).maybeSingle();
           if (error) return res.status(500).json({ error: error.message });
           return res.status(200).json(data || {});
         }
         const { data, error } = await supabase
-          .from('daily_logs').select('*').eq('athlete_id', athlete_id)
+          .from('daily_logs').select(cols).eq('athlete_id', athlete_id)
           .order('log_date', { ascending: false }).limit(30);
         if (error) return res.status(500).json({ error: error.message });
         return res.status(200).json(data || []);
@@ -54,33 +55,16 @@ export default async function handler(req, res) {
       if (req.method === 'POST') {
         const body = parseBody(req);
         if (!body.athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
-        // Upsert by athlete_id + log_date
         const { data: existing } = await supabase
           .from('daily_logs').select('id').eq('athlete_id', body.athlete_id).eq('log_date', body.log_date).maybeSingle();
-
-        // Helper: try save, retry without food_entries if that column doesn't exist yet
-        async function trySave(payload, existingId) {
-          let r;
-          if (existingId) {
-            r = await supabase.from('daily_logs').update(payload).eq('id', existingId).select().single();
-          } else {
-            r = await supabase.from('daily_logs').insert(payload).select().single();
-          }
-          if (r.error && r.error.message && r.error.message.toLowerCase().includes('food_entries')) {
-            const { food_entries, ...fallback } = payload;
-            console.warn('[nutrition-data] food_entries column missing, retrying without it');
-            if (existingId) {
-              r = await supabase.from('daily_logs').update(fallback).eq('id', existingId).select().single();
-            } else {
-              r = await supabase.from('daily_logs').insert(fallback).select().single();
-            }
-          }
-          return r;
+        let result;
+        if (existing) {
+          result = await supabase.from('daily_logs').update(body).eq('id', existing.id).select().single();
+        } else {
+          result = await supabase.from('daily_logs').insert(body).select().single();
         }
-
-        const result = await trySave(body, existing?.id || null);
-        if (result.error) return res.status(500).json({ error: result.error.message, body_keys: Object.keys(body) });
-        return res.status(200).json({ ...result.data, _saved_keys: Object.keys(body) });
+        if (result.error) return res.status(500).json({ error: result.error.message });
+        return res.status(200).json(result.data);
       }
     }
 

@@ -3252,6 +3252,15 @@ function nutrOpenFoodModal(windowId){
   document.body.style.overflow='hidden';
   nutrRenderFoodModal();
   setTimeout(()=>{const inp=document.querySelector('#nutrFoodModal .nutr-modal-search');if(inp)inp.focus();},120);
+  // Fetch fresh recents + favorites on every open
+  const aid=currentAthlete?.id||'';
+  fetch('/api/nutrition-food?type=history&q=&athlete_id='+aid+'&limit=8')
+    .then(r=>r.json()).then(data=>{
+      if(!Array.isArray(data))return;
+      nutr.foodHistory=data;
+      nutr.foodFavorites=data.filter(h=>h.is_favorite);
+      if(!nutr.searchQuery)nutrUpdateSearchResults();
+    }).catch(()=>{});
 }
 
 function nutrCloseFoodModal(){
@@ -3512,15 +3521,14 @@ async function nutrSaveTodayLog(){
     actual_carbs:eaten.carbs||null,actual_protein:eaten.protein||null,actual_fat:eaten.fat||null,actual_kcal:eaten.kcal||null,
     intent:targets.intent.label,
   };
-  console.log('[FuelPro] 💾 Saving',nutr.foodEntries.length,'food entries to daily_logs | athlete='+currentAthlete.id+' date='+today);
-  console.log('[FuelPro] food_entries payload:',JSON.stringify(nutr.foodEntries));
+  console.log('[FuelPro] 💾 Saving',nutr.foodEntries.length,'entries | athlete='+currentAthlete.id+' date='+today);
   fetch('/api/nutrition-data?type=log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
     .then(async r=>{const d=await r.json();
       if(r.ok&&!d.error){
-        console.log('[FuelPro] ✅ Save OK | saved keys:',d._saved_keys,'| id:',d.id);
+        console.log('[FuelPro] ✅ Save OK | HTTP '+r.status+' | row id:',d.id,'| food_entries saved:',Array.isArray(d.food_entries)?d.food_entries.length:'(col missing)');
         nutrShowSavedFlash();
       }else{
-        console.error('[FuelPro] ❌ Save FAILED | status:'+r.status,'| error:',d.error,'| body_keys:',d.body_keys);
+        console.error('[FuelPro] ❌ Save FAILED | HTTP '+r.status+' | error:',d.error);
       }
     }).catch(e=>console.error('[FuelPro] ❌ Save fetch error:',e));
 }

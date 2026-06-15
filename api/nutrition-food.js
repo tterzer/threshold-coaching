@@ -16,13 +16,17 @@ export default async function handler(req, res) {
     // ── FOOD HISTORY ──────────────────────────────────────────────
     if (type === 'history') {
       if (req.method === 'GET') {
-        const { q = '', athlete_id } = req.query;
+        const { q = '', athlete_id, limit: limitParam } = req.query;
+        const limit = Math.min(parseInt(limitParam) || 8, 50);
+        // When q is empty fetch recents ordered by last_used; when searching order by use_count
+        const orderCol = q ? 'use_count' : 'last_used';
         let query = supabase
           .from('food_history')
-          .select('*')
+          .select('id,name,per100g,serving_size,serving_unit,use_count,last_used,is_favorite,is_combo,combo_name')
           .ilike('name', `%${q}%`)
-          .order('use_count', { ascending: false })
-          .limit(5);
+          .eq('is_combo', false)
+          .order(orderCol, { ascending: false })
+          .limit(limit);
         if (athlete_id) query = query.eq('athlete_id', athlete_id);
         const { data, error } = await query;
         if (error) return res.status(200).json([]);
