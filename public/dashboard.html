@@ -3167,47 +3167,75 @@ function nutrMatchActivity(act,planned){
   });
 }
 
+function nutrSportKey(s){
+  const t=(s||'').toLowerCase();
+  if(/ride|cycl|virtual|bike/i.test(t))return 'ride';
+  if(/run|jog/i.test(t))return 'run';
+  if(/swim/i.test(t))return 'swim';
+  return t||'other';
+}
+
 function nutrComputeAdjustments(activities,planned){
   const out=[];
-  const usedIds=new Set();
-  planned.forEach(w=>{
-    const match=activities.find(a=>!usedIds.has(a.id)&&nutrMatchActivity(a,[w]));
-    if(!match)return;
-    usedIds.add(match.id);
-    const actualMins=Math.round((match.moving_time||0)/60);
+  // Group completed activities by sport key, summing moving_time
+  const sportGroups={};
+  (activities||[]).forEach(a=>{
+    const k=nutrSportKey(a.type||a.sport_type);
+    if(!sportGroups[k])sportGroups[k]={totalMins:0,acts:[],sport:a.sport_type||a.type||k};
+    sportGroups[k].totalMins+=Math.round((a.moving_time||0)/60);
+    sportGroups[k].acts.push(a);
+  });
+  const usedKeys=new Set();
+  (planned||[]).forEach(w=>{
+    const k=nutrSportKey(w.sport);
+    const grp=sportGroups[k];
+    if(!grp)return;
+    usedKeys.add(k);
+    const actualMins=grp.totalMins;
     const plannedMins=w.duration_minutes||actualMins;
     if(!plannedMins)return;
-    if(actualMins/plannedMins>=0.90)return;
+    const ratio=actualMins/plannedMins;
+    if(ratio>=0.90)return; // complete — no adjustment needed
     const typeNum=w.fuelpro_type||nutrMapWorkoutToTypeNum(w.sport,plannedMins);
     const t=NUTR_SESSION_TYPES[typeNum];
     const kcalDelta=(t?.kcalPerMin||8)*(actualMins-plannedMins);
     const carbDelta=Math.round(kcalDelta/4);
     if(Math.abs(carbDelta)<10)return;
-    out.push({name:match.name||w.title||'Workout',actualMins,plannedMins,diffMins:Math.round(actualMins-plannedMins),carbAdjust:carbDelta,type:'partial'});
+    out.push({name:w.title||grp.sport||'Workout',actualMins,plannedMins,diffMins:Math.round(actualMins-plannedMins),carbAdjust:carbDelta,type:'partial',sportKey:k});
   });
-  activities.filter(a=>!usedIds.has(a.id)).forEach(a=>{
-    const mins=Math.round((a.moving_time||0)/60);
-    const typeNum=nutrMapWorkoutToTypeNum(a.type||a.sport_type,mins);
+  Object.entries(sportGroups).filter(([k])=>!usedKeys.has(k)).forEach(([k,grp])=>{
+    const mins=grp.totalMins;
+    const typeNum=nutrMapWorkoutToTypeNum(grp.sport,mins);
     const t=NUTR_SESSION_TYPES[typeNum];
     const carbAdj=Math.round((t?.kcalPerMin||8)*mins/4);
     if(carbAdj<10)return;
-    out.push({name:a.name||a.sport_type||'Activity',actualMins:mins,plannedMins:0,diffMins:mins,carbAdjust:carbAdj,type:'unplanned'});
+    const label=grp.sport.charAt(0).toUpperCase()+grp.sport.slice(1);
+    out.push({name:'Unplanned '+label,actualMins:mins,plannedMins:0,diffMins:mins,carbAdjust:carbAdj,type:'unplanned',sportKey:k});
   });
   return out;
 }
 
 function nutrBuildSessionPillsHtml(planned,completed){
   const sc=s=>/cycl|bike|ride|virtual/i.test(s)?'#378ADD':/run|jog/i.test(s)?'#639922':/swim/i.test(s)?'#1D9E75':'var(--acc)';
-  const usedIds=new Set();
+  // Group completed by sport key for summing
+  const sportGroups={};
+  (completed||[]).forEach(a=>{
+    const k=nutrSportKey(a.type||a.sport_type);
+    if(!sportGroups[k])sportGroups[k]={totalMins:0,sport:a.sport_type||a.type||k};
+    sportGroups[k].totalMins+=Math.round((a.moving_time||0)/60);
+  });
+  const usedKeys=new Set();
   const pills=[];
   (planned||[]).forEach(w=>{
     const c=sc(w.sport||'');
     const plannedMins=w.duration_minutes||60;
-    const match=(completed||[]).find(a=>!usedIds.has(a.id)&&nutrMatchActivity(a,[w]));
-    if(match)usedIds.add(match.id);
-    const actualMins=match?Math.round((match.moving_time||0)/60):null;
-    const ratio=match&&plannedMins?actualMins/plannedMins:null;
+    const k=nutrSportKey(w.sport);
+    const grp=sportGroups[k];
+    if(grp)usedKeys.add(k);
+    const actualMins=grp?grp.totalMins:null;
+    const ratio=grp&&plannedMins?actualMins/plannedMins:null;
     if(ratio!==null&&ratio>=0.90){
+      // Complete
       pills.push(`<div class="nutr-session-pill" style="background:${c}18;border-color:${c};color:${c}">
         <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
         <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
@@ -3215,13 +3243,15 @@ function nutrBuildSessionPillsHtml(planned,completed){
         <span style="color:#639922;margin-left:6px">✓</span>
       </div>`);
     }else if(ratio!==null&&ratio<0.90){
-      pills.push(`<div class="nutr-session-pill" style="border-color:${c};color:${c}">
+      // Partial — filled pill with yellow warning
+      pills.push(`<div class="nutr-session-pill" style="background:${c}18;border-color:${c};color:${c}">
         <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
         <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
-        <span style="margin-left:6px;color:#c8f036">⚠</span>
-        <span style="margin-left:4px;font-size:10px;color:var(--tc3)">Partial — ${actualMins}min of ${plannedMins}min planned</span>
+        <span style="margin-left:6px;opacity:0.6">${actualMins}min of ${plannedMins}min</span>
+        <span style="color:#c8f036;margin-left:6px">⚠</span>
       </div>`);
     }else{
+      // No match — unfilled planned pill
       pills.push(`<div class="nutr-session-pill" style="border-color:${c};color:${c}">
         <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
         <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
@@ -3229,12 +3259,12 @@ function nutrBuildSessionPillsHtml(planned,completed){
       </div>`);
     }
   });
-  (completed||[]).filter(a=>!usedIds.has(a.id)).forEach(a=>{
-    const mins=Math.round((a.moving_time||0)/60);
+  // Unplanned sport groups
+  Object.entries(sportGroups).filter(([k])=>!usedKeys.has(k)).forEach(([k,grp])=>{
+    const label=grp.sport.charAt(0).toUpperCase()+grp.sport.slice(1);
     pills.push(`<div class="nutr-session-pill" style="border-color:#444;color:#777">
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Unplanned</span>
-      <span style="font-weight:600;margin-left:6px">${a.name||a.sport_type||'Activity'}</span>
-      <span style="margin-left:6px;opacity:0.6">${mins}min</span>
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Unplanned ${label}</span>
+      <span style="margin-left:6px;opacity:0.6">${grp.totalMins}min</span>
     </div>`);
   });
   return pills.length?pills.join(''):`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">No workouts planned today — targets shown for rest day</span>`;
