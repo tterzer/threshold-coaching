@@ -1260,18 +1260,22 @@ function woAutoSuggestFuelpro(){
   const sport=document.getElementById('woSport').value;
   const intensity=document.getElementById('woIntensity').value;
   const dur=Number(document.getElementById('woDuration').value)||0;
-  let t=3;
-  if(/swim/i.test(sport))               t=dur>0&&dur<45?4:5;
+  let t=42;
+  if(/swim/i.test(sport))               t=dur>0&&dur<40?10:11;
   else if(/run/i.test(sport)){
-    if(/interval/i.test(intensity))     t=9;
-    else if(/tempo/i.test(intensity))   t=10;
-    else if(dur>=70)                    t=14;
-    else                                t=11;
+    if(/interval/i.test(intensity))     t=14;
+    else if(/tempo/i.test(intensity))   t=30;
+    else if(/threshold/i.test(intensity)) t=33;
+    else if(dur>=70)                    t=29;
+    else                                t=26;
   } else if(/cycl|bike|ride/i.test(sport)){
-    if(/threshold|interval/i.test(intensity)) t=7;
-    else if(dur>=150)                   t=13;
-    else                                t=12;
-  } else if(/strength|gym|lift/i.test(sport)) t=3;
+    if(/threshold|interval/i.test(intensity)) t=19;
+    else if(/tempo|sweet/i.test(intensity))   t=18;
+    else if(dur>=150)                   t=23;
+    else                                t=17;
+  } else if(/strength|gym|lift/i.test(sport)) t=8;
+  else if(/yoga/i.test(sport))          t=3;
+  else if(/mobil|stretch/i.test(sport)) t=4;
   sel.value=String(t);
 }
 
