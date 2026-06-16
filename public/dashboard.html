@@ -2800,7 +2800,7 @@ function _applyFitnessToUI(){
 .nutr-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--tc2);padding:8px 18px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer}
 .nutr-btn-ghost:hover{border-color:var(--acc);color:var(--acc)}
 .nutr-intent{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;padding:2px 8px;text-transform:uppercase;border-radius:2px}
-.nutr-intent-yellow{background:rgba(200,240,54,0.1);color:var(--acc);border:1px solid rgba(200,240,54,0.25)}
+.nutr-intent-yellow{background:rgba(226,75,74,0.1);color:#E24B4A;border:1px solid rgba(226,75,74,0.25)}
 .nutr-intent-green{background:rgba(99,153,34,0.1);color:#639922;border:1px solid rgba(99,153,34,0.25)}
 .nutr-intent-blue{background:rgba(55,138,221,0.1);color:#378ADD;border:1px solid rgba(55,138,221,0.25)}
 .nutr-search-result{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px}
@@ -4001,7 +4001,7 @@ function nutrRenderWeek(){
     const total=r.carbs+r.intra;
     const pct=Math.round(total/maxCarbs*100);
     const isToday=date===nutrTodayStr();
-    const barColor=r.intent.cls==='nutr-intent-yellow'?'#c8f036':r.intent.cls==='nutr-intent-green'?'#639922':'#378ADD';
+    const barColor=r.intent.cls==='nutr-intent-yellow'?'#E24B4A':r.intent.cls==='nutr-intent-green'?'#639922':'#378ADD';
     const dayWos=(nutr.weekWorkouts||[]).filter(w=>w.date===date);
     const dayActs=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(date));
     // dot indicators: filled=completed, outlined=planned only
