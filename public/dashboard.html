@@ -2720,22 +2720,48 @@ function _applyFitnessToUI(){
     <div class="field"><label>FuelPro Type</label>
       <select id="athWoFuelpro">
         <option value="">— auto-suggest —</option>
-        <option value="1">1 — REST / Off</option>
-        <option value="2">2 — Mobility / Yoga / Walking</option>
-        <option value="3">3 — Easy Aerobic</option>
-        <option value="4">4 — Easy Swim — Short</option>
-        <option value="5">5 — Endurance Swim — Long</option>
-        <option value="6">6 — Hockey — Repeated Sprint</option>
-        <option value="7">7 — Threshold Bike Intervals</option>
-        <option value="8">8 — Brick Run — Short</option>
-        <option value="9">9 — Mixed Intervals — Running</option>
-        <option value="10">10 — Long Tempo Run</option>
-        <option value="11">11 — Easy Base Run</option>
-        <option value="12">12 — Neuromuscular / Cadence Bike</option>
-        <option value="13">13 — Long Brick — Bike Polarised</option>
-        <option value="14">14 — Long Easy Run</option>
-        <option value="15">15 — A-Race — 70.3</option>
-        <option value="16">16 — A-Race — Olympic Distance</option>
+        <option value="1">1 - Rest Day</option>
+        <option value="2">2 - Active Recovery</option>
+        <option value="3">3 - Yoga</option>
+        <option value="4">4 - Mobility / Stretching</option>
+        <option value="5">5 - Foam Roll / Recovery Work</option>
+        <option value="6">6 - Strength — Upper Body</option>
+        <option value="7">7 - Strength — Lower Body</option>
+        <option value="8">8 - Strength — Full Body / Dynamic</option>
+        <option value="9">9 - Strength — Core</option>
+        <option value="10">10 - Easy / Technique Swim</option>
+        <option value="11">11 - Aerobic Endurance Swim</option>
+        <option value="12">12 - Threshold / CSS Swim</option>
+        <option value="13">13 - VO2 / Speed Swim</option>
+        <option value="14">14 - Open Water Swim</option>
+        <option value="15">15 - Race Simulation Swim</option>
+        <option value="16">16 - Recovery Ride</option>
+        <option value="17">17 - Aerobic Base / Z2 Ride</option>
+        <option value="18">18 - Tempo / Sweet Spot Ride</option>
+        <option value="19">19 - Threshold / FTP Intervals</option>
+        <option value="20">20 - VO2max Intervals</option>
+        <option value="21">21 - Neuromuscular / Cadence Drills</option>
+        <option value="22">22 - Sprint / Power Work</option>
+        <option value="23">23 - Long Endurance Ride</option>
+        <option value="24">24 - Race Simulation Ride</option>
+        <option value="25">25 - Recovery Run</option>
+        <option value="26">26 - Easy Base Run</option>
+        <option value="27">27 - Easy Base Run — Short Brick</option>
+        <option value="28">28 - Easy Base Run — Long Brick</option>
+        <option value="29">29 - Long Easy Run</option>
+        <option value="30">30 - Tempo Run</option>
+        <option value="31">31 - Tempo Run — Short Brick</option>
+        <option value="32">32 - Tempo Run — Long Brick</option>
+        <option value="33">33 - Threshold / Track Intervals</option>
+        <option value="34">34 - VO2max / Speed Work</option>
+        <option value="35">35 - Hill Repeats</option>
+        <option value="36">36 - Race Simulation Run</option>
+        <option value="37">37 - Triathlon Race — Sprint</option>
+        <option value="38">38 - Triathlon Race — Olympic</option>
+        <option value="39">39 - Triathlon Race — 70.3</option>
+        <option value="40">40 - Triathlon Race — Full IM</option>
+        <option value="41">41 - Hockey</option>
+        <option value="42">42 - Other Aerobic</option>
       </select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem">
@@ -2866,24 +2892,51 @@ function _applyFitnessToUI(){
 // ═══════════════════════════════════════════════════════════════════
 // FUELPRO — CARB CYCLING ALGORITHM
 // ═══════════════════════════════════════════════════════════════════
-const NUTR_SESSION_TYPES = {
-  1:  { name:"REST / Off",                   carbMult:1.36, tssPerHour:0,   glycogenCoeff:0.50, qualitySession:false },
-  2:  { name:"Mobility / Yoga / Walking",    carbMult:1.36, tssPerHour:38,  glycogenCoeff:0.50, qualitySession:false },
-  3:  { name:"Easy Aerobic — Generic",       carbMult:1.59, tssPerHour:40,  glycogenCoeff:0.80, qualitySession:false },
-  4:  { name:"Easy Swim — Short",            carbMult:1.59, tssPerHour:75,  glycogenCoeff:0.55, qualitySession:false },
-  5:  { name:"Endurance Swim — Long",        carbMult:1.82, tssPerHour:90,  glycogenCoeff:0.55, qualitySession:false },
-  6:  { name:"Hockey — Repeated Sprint",     carbMult:2.05, tssPerHour:109, glycogenCoeff:0.65, qualitySession:true  },
-  7:  { name:"Threshold Bike Intervals",     carbMult:2.73, tssPerHour:70,  glycogenCoeff:0.85, qualitySession:true  },
-  8:  { name:"Brick Run — Short",            carbMult:1.59, tssPerHour:75,  glycogenCoeff:1.00, qualitySession:false },
-  9:  { name:"Mixed Intervals — Running",    carbMult:2.50, tssPerHour:82,  glycogenCoeff:1.00, qualitySession:true  },
-  10: { name:"Long Tempo Run",               carbMult:2.27, tssPerHour:75,  glycogenCoeff:1.00, qualitySession:true  },
-  11: { name:"Easy Base Run",                carbMult:1.59, tssPerHour:55,  glycogenCoeff:1.00, qualitySession:false },
-  12: { name:"Neuromuscular / Cadence Bike", carbMult:1.59, tssPerHour:38,  glycogenCoeff:0.85, qualitySession:false },
-  13: { name:"Long Brick — Bike Polarised",  carbMult:3.10, tssPerHour:57,  glycogenCoeff:1.05, qualitySession:true  },
-  14: { name:"Long Easy Run",                carbMult:2.05, tssPerHour:70,  glycogenCoeff:1.00, qualitySession:false },
-  15: { name:"A-Race — 70.3",               carbMult:3.40, tssPerHour:250, glycogenCoeff:1.00, qualitySession:true  },
-  16: { name:"A-Race — Olympic Distance",   carbMult:3.18, tssPerHour:200, glycogenCoeff:1.00, qualitySession:true  },
-};
+const SESSION_TYPES = [
+  { id:1,  name:'Rest Day',                        tssPerHour:0,   glycogenCoeff:0,    kcalPerMin:1.2,  intraCarbs:0,  quality:false },
+  { id:2,  name:'Active Recovery',                 tssPerHour:15,  glycogenCoeff:0.20, kcalPerMin:3,    intraCarbs:0,  quality:false },
+  { id:3,  name:'Yoga',                            tssPerHour:20,  glycogenCoeff:0.10, kcalPerMin:2.5,  intraCarbs:0,  quality:false },
+  { id:4,  name:'Mobility / Stretching',           tssPerHour:10,  glycogenCoeff:0.05, kcalPerMin:2,    intraCarbs:0,  quality:false },
+  { id:5,  name:'Foam Roll / Recovery Work',       tssPerHour:5,   glycogenCoeff:0.05, kcalPerMin:1.5,  intraCarbs:0,  quality:false },
+  { id:6,  name:'Strength — Upper Body',           tssPerHour:35,  glycogenCoeff:0.30, kcalPerMin:6,    intraCarbs:0,  quality:false },
+  { id:7,  name:'Strength — Lower Body',           tssPerHour:45,  glycogenCoeff:0.40, kcalPerMin:7,    intraCarbs:0,  quality:false },
+  { id:8,  name:'Strength — Full Body / Dynamic',  tssPerHour:50,  glycogenCoeff:0.45, kcalPerMin:7.5,  intraCarbs:0,  quality:false },
+  { id:9,  name:'Strength — Core',                 tssPerHour:30,  glycogenCoeff:0.25, kcalPerMin:5,    intraCarbs:0,  quality:false },
+  { id:10, name:'Easy / Technique Swim',           tssPerHour:30,  glycogenCoeff:0.35, kcalPerMin:8,    intraCarbs:0,  quality:false },
+  { id:11, name:'Aerobic Endurance Swim',          tssPerHour:50,  glycogenCoeff:0.55, kcalPerMin:10,   intraCarbs:0,  quality:false },
+  { id:12, name:'Threshold / CSS Swim',            tssPerHour:70,  glycogenCoeff:0.70, kcalPerMin:12,   intraCarbs:20, quality:true  },
+  { id:13, name:'VO2 / Speed Swim',                tssPerHour:80,  glycogenCoeff:0.80, kcalPerMin:13,   intraCarbs:20, quality:true  },
+  { id:14, name:'Open Water Swim',                 tssPerHour:55,  glycogenCoeff:0.60, kcalPerMin:10,   intraCarbs:0,  quality:false },
+  { id:15, name:'Race Simulation Swim',            tssPerHour:75,  glycogenCoeff:0.75, kcalPerMin:12,   intraCarbs:20, quality:true  },
+  { id:16, name:'Recovery Ride',                   tssPerHour:25,  glycogenCoeff:0.25, kcalPerMin:5,    intraCarbs:0,  quality:false },
+  { id:17, name:'Aerobic Base / Z2 Ride',          tssPerHour:55,  glycogenCoeff:0.55, kcalPerMin:8,    intraCarbs:40, quality:false },
+  { id:18, name:'Tempo / Sweet Spot Ride',         tssPerHour:75,  glycogenCoeff:0.70, kcalPerMin:10,   intraCarbs:60, quality:true  },
+  { id:19, name:'Threshold / FTP Intervals',       tssPerHour:90,  glycogenCoeff:0.85, kcalPerMin:12,   intraCarbs:80, quality:true  },
+  { id:20, name:'VO2max Intervals',                tssPerHour:100, glycogenCoeff:0.90, kcalPerMin:13,   intraCarbs:80, quality:true  },
+  { id:21, name:'Neuromuscular / Cadence Drills',  tssPerHour:45,  glycogenCoeff:0.40, kcalPerMin:7,    intraCarbs:20, quality:false },
+  { id:22, name:'Sprint / Power Work',             tssPerHour:80,  glycogenCoeff:0.70, kcalPerMin:11,   intraCarbs:40, quality:true  },
+  { id:23, name:'Long Endurance Ride',             tssPerHour:60,  glycogenCoeff:0.65, kcalPerMin:9,    intraCarbs:60, quality:false },
+  { id:24, name:'Race Simulation Ride',            tssPerHour:85,  glycogenCoeff:0.80, kcalPerMin:11,   intraCarbs:90, quality:true  },
+  { id:25, name:'Recovery Run',                    tssPerHour:30,  glycogenCoeff:0.30, kcalPerMin:7,    intraCarbs:0,  quality:false },
+  { id:26, name:'Easy Base Run',                   tssPerHour:45,  glycogenCoeff:0.45, kcalPerMin:9,    intraCarbs:0,  quality:false },
+  { id:27, name:'Easy Base Run — Short Brick',     tssPerHour:40,  glycogenCoeff:0.40, kcalPerMin:9,    intraCarbs:0,  quality:false },
+  { id:28, name:'Easy Base Run — Long Brick',      tssPerHour:50,  glycogenCoeff:0.50, kcalPerMin:9,    intraCarbs:20, quality:false },
+  { id:29, name:'Long Easy Run',                   tssPerHour:55,  glycogenCoeff:0.60, kcalPerMin:9,    intraCarbs:40, quality:false },
+  { id:30, name:'Tempo Run',                       tssPerHour:75,  glycogenCoeff:0.75, kcalPerMin:12,   intraCarbs:40, quality:true  },
+  { id:31, name:'Tempo Run — Short Brick',         tssPerHour:70,  glycogenCoeff:0.70, kcalPerMin:12,   intraCarbs:20, quality:true  },
+  { id:32, name:'Tempo Run — Long Brick',          tssPerHour:80,  glycogenCoeff:0.80, kcalPerMin:12,   intraCarbs:40, quality:true  },
+  { id:33, name:'Threshold / Track Intervals',     tssPerHour:90,  glycogenCoeff:0.85, kcalPerMin:13,   intraCarbs:60, quality:true  },
+  { id:34, name:'VO2max / Speed Work',             tssPerHour:100, glycogenCoeff:0.90, kcalPerMin:14,   intraCarbs:60, quality:true  },
+  { id:35, name:'Hill Repeats',                    tssPerHour:85,  glycogenCoeff:0.80, kcalPerMin:13,   intraCarbs:40, quality:true  },
+  { id:36, name:'Race Simulation Run',             tssPerHour:90,  glycogenCoeff:0.85, kcalPerMin:13,   intraCarbs:60, quality:true  },
+  { id:37, name:'Triathlon Race — Sprint',         tssPerHour:85,  glycogenCoeff:0.85, kcalPerMin:13,   intraCarbs:60, quality:true  },
+  { id:38, name:'Triathlon Race — Olympic',        tssPerHour:90,  glycogenCoeff:0.90, kcalPerMin:13,   intraCarbs:70, quality:true  },
+  { id:39, name:'Triathlon Race — 70.3',           tssPerHour:95,  glycogenCoeff:0.95, kcalPerMin:13,   intraCarbs:90, quality:true  },
+  { id:40, name:'Triathlon Race — Full IM',        tssPerHour:100, glycogenCoeff:1.00, kcalPerMin:13,   intraCarbs:90, quality:true  },
+  { id:41, name:'Hockey',                          tssPerHour:75,  glycogenCoeff:0.75, kcalPerMin:12,   intraCarbs:30, quality:true  },
+  { id:42, name:'Other Aerobic',                   tssPerHour:50,  glycogenCoeff:0.50, kcalPerMin:8,    intraCarbs:20, quality:false },
+];
+const NUTR_SESSION_TYPES=Object.fromEntries(SESSION_TYPES.map(t=>[t.id,t]));
 
 // ── TDEE CALCULATION ─────────────────────────────────────────────
 const NEAT_LEVELS={
@@ -2999,21 +3052,13 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
 }
 function nutrCalcIntra(typeNum,durationMins){
   if(!typeNum||!durationMins) return 0;
-  const d=durationMins;
-  switch(Number(typeNum)){
-    case 6:  return d<60?0:Math.round(45*d/60);
-    case 7:  return Math.round(90*d/60);
-    case 9:  return d<60?0:Math.round(50*d/60);
-    case 10: return d<60?0:Math.round(50*d/60);
-    case 12: return Math.round(60*d/60);
-    case 13: return Math.round(110*d/60);
-    case 14: return d<60?0:Math.round(40*d/60);
-    case 15: case 16: return Math.round(110*d/60);
-    default: return 0;
-  }
+  const t=NUTR_SESSION_TYPES[Number(typeNum)];
+  if(!t||!t.intraCarbs) return 0;
+  return Math.round(t.intraCarbs*durationMins/60);
 }
 function nutrCalcPre(typeNum,dailyCarbs){
-  return [7,9,10,13,14,15,16].includes(Number(typeNum))?Math.round(dailyCarbs*0.20):0;
+  const t=NUTR_SESSION_TYPES[Number(typeNum)];
+  return t?.quality?Math.round(dailyCarbs*0.20):0;
 }
 function nutrCalcWindows(sessions,targets,foodEntries){
   const active=(sessions||[]).filter(s=>s.typeNum&&s.startTime);
