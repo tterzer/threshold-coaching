@@ -1996,9 +1996,11 @@ function renderAthCal(){
         +'&#9873; '+athEscHtml(r.name||'Race')+athEscHtml(dist)+'</div>';
     }).join('');
 
-    // Match planned workouts with ICU activities by sport
+    // Match planned workouts with ICU activities by sport, build merged sorted list
     const matchedIcuIds=new Set();
-    const blocksHtml=wos.map(w=>{
+    const dayItems=[]; // {html, sortKey} — sortKey is ISO string or '' for untimed planned
+
+    wos.forEach(w=>{
       const spClass='sport-'+(w.sport||'other');
       const woIdStr=String(w.id);
       const matchIdx=icuForDay.findIndex(a=>athIcuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
@@ -2011,16 +2013,16 @@ function renderAthCal(){
         const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
         const icuIdStr=String(icu.id);
         const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-        return '<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+label+badge+'</div>';
+        dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+label+badge+'</div>',sortKey:icu.start_date_local||''});
       }else{
         const label=athEscHtml(w.title||w.sport||'Workout');
         const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-        return '<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+label+badge+'</div>';
+        dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+label+badge+'</div>',sortKey:'',createdAt:w.created_at||''});
       }
-    }).join('');
+    });
 
     // Unmatched ICU activities
-    const unmatchedHtml=icuForDay.filter(a=>!matchedIcuIds.has(a.id)).map(a=>{
+    icuForDay.filter(a=>!matchedIcuIds.has(a.id)).forEach(a=>{
       const sp=athIcuTypeToSport(a.type);
       const spClass='sport-'+sp;
       const mins=Math.round((a.moving_time||0)/60);
@@ -2028,12 +2030,21 @@ function renderAthCal(){
       const timePrefix=_fmtBlockTime(a.start_date_local);
       const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(a.id);
-      return '<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>';
-    }).join('');
+      dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>',sortKey:a.start_date_local||''});
+    });
+
+    // Sort: timed items (completed) by start_date_local asc, untimed planned after by created_at asc
+    dayItems.sort((a,b)=>{
+      const aT=a.sortKey,bT=b.sortKey;
+      if(aT&&bT)return aT.localeCompare(bT);
+      if(aT)return -1;
+      if(bT)return 1;
+      return (a.createdAt||'').localeCompare(b.createdAt||'');
+    });
 
     html+='<div class="ath-cal-cell'+(otherMonth?' other-month':'')+'" onclick="openAthDayModal(\''+key+'\')">'
       +'<div class="ath-cal-date">'+d.getDate()+'</div>'
-      +racesHtml+blocksHtml+unmatchedHtml
+      +racesHtml+dayItems.map(x=>x.html).join('')
       +'</div>';
   }
   grid.innerHTML=html;
