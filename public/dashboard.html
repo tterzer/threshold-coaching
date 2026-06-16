@@ -3151,7 +3151,6 @@ function nutrMatchActivity(act,planned){
   const isBike=t=>/ride|cycl|virtual|bike/i.test(t);
   const isRun=t=>/run|jog/i.test(t);
   const isSwim=t=>/swim/i.test(t);
-  const aDur=Math.round((act.moving_time||0)/60);
   return planned.find(p=>{
     const ps=(p.sport||'').toLowerCase();
     return (isBike(aType)&&(isBike(ps)||ps.includes('tri')))||(isRun(aType)&&(isRun(ps)||ps.includes('tri')))||(isSwim(aType)&&(isSwim(ps)||ps.includes('tri')));
@@ -3160,19 +3159,75 @@ function nutrMatchActivity(act,planned){
 
 function nutrComputeAdjustments(activities,planned){
   const out=[];
-  activities.forEach(act=>{
-    const match=nutrMatchActivity(act,planned);
+  const usedIds=new Set();
+  planned.forEach(w=>{
+    const match=activities.find(a=>!usedIds.has(a.id)&&nutrMatchActivity(a,[w]));
     if(!match)return;
-    const actualMins=Math.round((act.moving_time||0)/60);
-    const plannedMins=match.duration_minutes||actualMins;
+    usedIds.add(match.id);
+    const actualMins=Math.round((match.moving_time||0)/60);
+    const plannedMins=w.duration_minutes||actualMins;
     if(!plannedMins)return;
-    const diff=actualMins-plannedMins;
-    if(Math.abs(diff)/plannedMins<0.10)return;
-    const typeNum=match.fuelpro_type||nutrMapWorkoutToTypeNum(match.sport,plannedMins);
-    const carbAdj=Math.round(nutrCalcIntra(typeNum,60)/60*diff);
-    out.push({name:act.name||match.title||'Workout',actualMins,plannedMins,diffMins:Math.round(diff),carbAdjust:carbAdj});
+    if(actualMins/plannedMins>=0.90)return;
+    const typeNum=w.fuelpro_type||nutrMapWorkoutToTypeNum(w.sport,plannedMins);
+    const t=NUTR_SESSION_TYPES[typeNum];
+    const kcalDelta=(t?.kcalPerMin||8)*(actualMins-plannedMins);
+    const carbDelta=Math.round(kcalDelta/4);
+    if(Math.abs(carbDelta)<10)return;
+    out.push({name:match.name||w.title||'Workout',actualMins,plannedMins,diffMins:Math.round(actualMins-plannedMins),carbAdjust:carbDelta,type:'partial'});
+  });
+  activities.filter(a=>!usedIds.has(a.id)).forEach(a=>{
+    const mins=Math.round((a.moving_time||0)/60);
+    const typeNum=nutrMapWorkoutToTypeNum(a.type||a.sport_type,mins);
+    const t=NUTR_SESSION_TYPES[typeNum];
+    const carbAdj=Math.round((t?.kcalPerMin||8)*mins/4);
+    if(carbAdj<10)return;
+    out.push({name:a.name||a.sport_type||'Activity',actualMins:mins,plannedMins:0,diffMins:mins,carbAdjust:carbAdj,type:'unplanned'});
   });
   return out;
+}
+
+function nutrBuildSessionPillsHtml(planned,completed){
+  const sc=s=>/cycl|bike|ride|virtual/i.test(s)?'#378ADD':/run|jog/i.test(s)?'#639922':/swim/i.test(s)?'#1D9E75':'var(--acc)';
+  const usedIds=new Set();
+  const pills=[];
+  (planned||[]).forEach(w=>{
+    const c=sc(w.sport||'');
+    const plannedMins=w.duration_minutes||60;
+    const match=(completed||[]).find(a=>!usedIds.has(a.id)&&nutrMatchActivity(a,[w]));
+    if(match)usedIds.add(match.id);
+    const actualMins=match?Math.round((match.moving_time||0)/60):null;
+    const ratio=match&&plannedMins?actualMins/plannedMins:null;
+    if(ratio!==null&&ratio>=0.90){
+      pills.push(`<div class="nutr-session-pill" style="background:${c}18;border-color:${c};color:${c}">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
+        <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
+        <span style="margin-left:6px;opacity:0.6">${actualMins}min</span>
+        <span style="color:#639922;margin-left:6px">✓</span>
+      </div>`);
+    }else if(ratio!==null&&ratio<0.90){
+      pills.push(`<div class="nutr-session-pill" style="border-color:${c};color:${c}">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
+        <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
+        <span style="margin-left:6px;color:#c8f036">⚠</span>
+        <span style="margin-left:4px;font-size:10px;color:var(--tc3)">Partial — ${actualMins}min of ${plannedMins}min planned</span>
+      </div>`);
+    }else{
+      pills.push(`<div class="nutr-session-pill" style="border-color:${c};color:${c}">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
+        <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
+        <span style="margin-left:6px;opacity:0.6">${plannedMins}min</span>
+      </div>`);
+    }
+  });
+  (completed||[]).filter(a=>!usedIds.has(a.id)).forEach(a=>{
+    const mins=Math.round((a.moving_time||0)/60);
+    pills.push(`<div class="nutr-session-pill" style="border-color:#444;color:#777">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Unplanned</span>
+      <span style="font-weight:600;margin-left:6px">${a.name||a.sport_type||'Activity'}</span>
+      <span style="margin-left:6px;opacity:0.6">${mins}min</span>
+    </div>`);
+  });
+  return pills.length?pills.join(''):`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">No workouts planned today — targets shown for rest day</span>`;
 }
 
 function nutrAdjTotal(){return nutr.workoutAdjustments.reduce((s,a)=>s+(a.carbAdjust||0),0);}
@@ -3449,21 +3504,12 @@ function nutrRenderToday(){
 
   // 2. Sessions section
   const hasIntervals=!!(currentAthlete?.intervals_athlete_id&&currentAthlete?.intervals_api_key);
-  const pills=nutr.plannedWorkouts.length?nutr.plannedWorkouts.map(w=>{
-    const done=nutr.completedActivities.some(a=>nutrMatchActivity(a,[w]));
-    const sc=/cycl|bike|ride/i.test(w.sport)?'#378ADD':/run/i.test(w.sport)?'#639922':/swim/i.test(w.sport)?'#1D9E75':'var(--acc)';
-    return `<div class="nutr-session-pill" style="border-color:${sc};color:${sc}">
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
-      <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
-      <span style="margin-left:6px;opacity:0.6">${w.duration_minutes||'?'}min</span>
-      ${done?'<span style="color:#639922;margin-left:6px">✓</span>':''}
-    </div>`;
-  }).join(''):`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">No workouts planned today — targets shown for rest day</span>`;
+  const pills=nutrBuildSessionPillsHtml(nutr.plannedWorkouts,nutr.completedActivities);
 
-  const banners=nutr.workoutAdjustments.map(a=>`<div class="nutr-adjust-banner">
-    Adjusted: <strong>${a.name}</strong> was ${Math.abs(a.diffMins)}min ${a.diffMins>0?'longer':'shorter'} than planned.
-    ${a.carbAdjust>0?`+${a.carbAdjust}g carbs added.`:`${Math.abs(a.carbAdjust)}g carbs removed.`}
-  </div>`).join('');
+  const banners=nutr.workoutAdjustments.map(a=>a.type==='unplanned'
+    ?`<div class="nutr-adjust-banner">Unplanned <strong>${a.name}</strong> added <strong>+${a.carbAdjust}g carbs</strong> to your remaining targets.</div>`
+    :`<div class="nutr-adjust-banner"><strong>${a.name}</strong>: Partial — ${a.actualMins}min of ${a.plannedMins}min planned. ${a.carbAdjust<0?`${Math.abs(a.carbAdjust)}g carbs removed.`:`+${a.carbAdjust}g carbs added.`}</div>`
+  ).join('');
 
   const sessSection=`<div class="nutr-card" style="padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
@@ -4069,47 +4115,7 @@ function nutrRenderWeek(){
   const wos=(nutr.weekWorkouts||[]).filter(w=>w.date===selDate);
   const selActs=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(selDate));
   function sportColor(s){return /cycl|bike|ride|virtual/i.test(s)?'#378ADD':/run|jog/i.test(s)?'#639922':/swim/i.test(s)?'#1D9E75':'var(--acc)';}
-  let sessRows='';
-  if(wos.length||selActs.length){
-    // Build sortable items with a sort key (ISO time string or high sentinel for unknown)
-    const LATE='9999';
-    const usedActIds=new Set();
-    const items=[];
-    wos.forEach(w=>{
-      const c=sportColor(w.sport||'');
-      const matched=selActs.find(a=>!usedActIds.has(a.id)&&sameWeekSport(w.sport||'',a.sport_type||a.type||''));
-      if(matched)usedActIds.add(matched.id);
-      const actualMins=matched?Math.round((matched.moving_time||0)/60):null;
-      // Sort key: use completed activity's start time if known, else planned start time, else sentinel
-      const sortKey=matched?(matched.start_date_local||LATE):(w.start_time?selDate+'T'+w.start_time:LATE);
-      const html=`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
-        <div style="display:inline-flex;align-items:center;gap:5px;border:1px solid ${c};padding:3px 8px;border-radius:2px">
-          <span style="width:6px;height:6px;border-radius:50%;border:1px solid ${c};display:inline-block"></span>
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:${c}">${w.title||w.sport||'Workout'} · ${w.duration_minutes||'?'}min</span>
-        </div>
-        ${matched?`<div style="display:inline-flex;align-items:center;gap:5px;background:${c}22;border:1px solid ${c};padding:3px 8px;border-radius:2px">
-          <span style="width:6px;height:6px;border-radius:50%;background:${c};display:inline-block"></span>
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:${c};font-weight:600">${matched.name||w.sport} · ${actualMins}min ✓</span>
-        </div>`:''}
-      </div>`;
-      items.push({sortKey,html});
-    });
-    selActs.filter(a=>!usedActIds.has(a.id)).forEach(a=>{
-      const c=sportColor(a.sport_type||a.type||'');
-      const mins=Math.round((a.moving_time||0)/60);
-      const html=`<div style="padding:5px 0;border-bottom:1px solid var(--border)">
-        <div style="display:inline-flex;align-items:center;gap:5px;background:${c}22;border:1px solid ${c};padding:3px 8px;border-radius:2px">
-          <span style="width:6px;height:6px;border-radius:50%;background:${c};display:inline-block"></span>
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:${c};font-weight:600">${a.name||a.sport_type} · ${mins}min ✓</span>
-        </div>
-      </div>`;
-      items.push({sortKey:a.start_date_local||LATE,html});
-    });
-    items.sort((a,b)=>a.sortKey<b.sortKey?-1:a.sortKey>b.sortKey?1:0);
-    sessRows=items.map(i=>i.html).join('');
-  }else{
-    sessRows=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Rest day</div>`;
-  }
+  const sessRows=nutrBuildSessionPillsHtml(wos,selActs)||`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Rest day</div>`;
 
   const srcLabel=sr.source==='actual'?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#639922;text-transform:uppercase;letter-spacing:0.06em">ACTUAL</span>`:sr.source==='live'?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#c8f036;text-transform:uppercase;letter-spacing:0.06em">LIVE</span>`:`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.06em">PREDICTED</span>`;
   const weekMode=parseInt(nutr.profile.mode)||0;
