@@ -1975,8 +1975,6 @@ function renderAthCal(){
     if(!key)return;
     (icuByDate[key]=icuByDate[key]||[]).push(a);
   });
-  // DEBUG: log raw start_date_local vs derived key for first 3 activities
-  (allActivities||[]).slice(0,3).forEach(a=>console.log('[CAL DEBUG] raw start_date_local:',a.start_date_local,'→ icuByDate key:',(a.start_date_local||'').slice(0,10)));
   for(const d of Object.keys(icuByDate)){
     icuByDate[d].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
   }
@@ -1985,7 +1983,6 @@ function renderAthCal(){
     const d=new Date(gridStart);
     d.setDate(gridStart.getDate()+i);
     const key=toYMD(d);
-    if(i<3)console.log('[CAL DEBUG] cell i='+i+' gridStart:',gridStart.toString(),'→ cell key:',key);
     const otherMonth=d.getMonth()!==athCalMonth.getMonth();
     const wos=woByDate[key]||[];
     const races=raceByDate[key]||[];
