@@ -150,7 +150,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 /* Athlete calendar (dashboard) */
 .ath-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
 .ath-cal-head{background:var(--bc3);padding:8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.ath-cal-cell{background:var(--bc2);height:90px;max-height:90px;padding:6px;display:flex;flex-direction:column;gap:2px;cursor:pointer;overflow:hidden}
+.ath-cal-cell{background:var(--bc2);padding:6px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
 .ath-cal-cell:hover{background:var(--bc3)}
 .ath-cal-cell.other-month{opacity:0.35}
 .ath-cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
@@ -162,7 +162,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .ath-cal-wo.completed{opacity:0.55;text-decoration:line-through}
 /* Athlete calendar block styles */
-.ath-cal-block{font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;overflow:hidden;white-space:nowrap;cursor:pointer;height:auto;line-height:1.3;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box;border-radius:1px}
+.ath-cal-block{font-family:'DM Mono',monospace;font-size:9px;padding:1px 4px;overflow:hidden;white-space:nowrap;cursor:pointer;height:auto;line-height:1.3;text-overflow:ellipsis;margin-bottom:1px;box-sizing:border-box;border-radius:1px;display:flex;align-items:center;gap:3px}
+.ath-cal-block .pill-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
 .ath-cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
 .ath-cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
 .ath-cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
@@ -2013,11 +2014,11 @@ function renderAthCal(){
         const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
         const icuIdStr=String(icu.id);
         const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-        dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+label+badge+'</div>',sortKey:icu.start_date_local||''});
+        dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:icu.start_date_local||''});
       }else{
         const label=athEscHtml(w.title||w.sport||'Workout');
         const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-        dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+label+badge+'</div>',sortKey:'',createdAt:w.created_at||''});
+        dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:'',createdAt:w.created_at||''});
       }
     });
 
@@ -2030,7 +2031,7 @@ function renderAthCal(){
       const timePrefix=_fmtBlockTime(a.start_date_local);
       const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(a.id);
-      dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+label+'</div>',sortKey:a.start_date_local||''});
+      dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
     });
 
     // Sort: timed items (completed) by start_date_local asc, untimed planned after by created_at asc
@@ -2042,18 +2043,9 @@ function renderAthCal(){
       return (a.createdAt||'').localeCompare(b.createdAt||'');
     });
 
-    const MAX_PILLS=2;
-    let pillsHtml;
-    if(dayItems.length<=MAX_PILLS){
-      pillsHtml=dayItems.map(x=>x.html).join('');
-    }else{
-      const extra=dayItems.length-MAX_PILLS;
-      pillsHtml=dayItems.slice(0,MAX_PILLS).map(x=>x.html).join('')
-        +'<div class="ath-cal-block" style="border:1px solid #444;color:#777;background:transparent">+'+extra+' more</div>';
-    }
     html+='<div class="ath-cal-cell'+(otherMonth?' other-month':'')+'" onclick="openAthDayModal(\''+key+'\')">'
       +'<div class="ath-cal-date">'+d.getDate()+'</div>'
-      +racesHtml+pillsHtml
+      +racesHtml+dayItems.map(x=>x.html).join('')
       +'</div>';
   }
   grid.innerHTML=html;
