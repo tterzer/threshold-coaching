@@ -1124,15 +1124,14 @@ async function openBlockModal(evt, mode, woId, icuId){
     +'</div>';
   }
 
-  if(wo&&(wo.workout_type||wo.fuelpro_type)){
-    const FUELPRO_NAMES={1:'Rest Day',2:'Active Recovery',3:'Zone 2 / Base Aerobic',4:'Steady State',5:'Sweetspot',6:'Threshold (FTP)',7:'VO2max',8:'Anaerobic Capacity',9:'Sprint / Neuromuscular',10:'Race Simulation',11:'Easy Run',12:'Long Run',13:'Tempo Run',14:'Interval Run',15:'Hill Repeats (Run)',16:'Race Simulation (Run)',17:'Easy Swim',18:'Threshold Swim',19:'Interval Swim',20:'Brick (Bike+Run)',21:'Triathlon Race Sim',22:'Strength — Lower Body',23:'Strength — Upper Body',24:'Strength — Full Body',25:'Power / Olympic Lifting',26:'HIIT Circuit',27:'CrossFit / Functional',28:'Yoga / Mobility',29:'Pilates',30:'Core & Stability',31:'MTB / Trail Riding',32:'Gravel / Adventure',33:'E-Bike Ride',34:'Indoor Cycling (Free)',35:'Track Cycling',36:'Nordic Ski',37:'Rowing',38:'Kayak / Paddle',39:'Climbing / Bouldering',40:'Team Sport',41:'Martial Arts / Boxing',42:'Other Aerobic'};
-    const fpName=wo.fuelpro_type?FUELPRO_NAMES[wo.fuelpro_type]||('Type '+wo.fuelpro_type):'';
-    const intensity=wo.workout_type?wo.workout_type.charAt(0).toUpperCase()+wo.workout_type.slice(1):'';
-    if(fpName||intensity){
-      html+='<div class="modal-section-label">FuelPro</div>';
-      if(fpName) html+='<div class="modal-coach-notes" style="margin-bottom:4px">Type: '+escHtml(fpName)+'</div>';
-      if(intensity) html+='<div class="modal-coach-notes">Intensity: '+escHtml(intensity)+'</div>';
-    }
+  if(wo){
+    const FUELPRO_NAMES={1:'Rest Day',2:'Active Recovery',3:'Yoga',4:'Mobility / Stretching',5:'Foam Roll / Recovery Work',6:'Strength — Upper Body',7:'Strength — Lower Body',8:'Strength — Full Body / Dynamic',9:'Strength — Core',10:'Easy / Technique Swim',11:'Aerobic Endurance Swim',12:'Threshold / CSS Swim',13:'VO2 / Speed Swim',14:'Open Water Swim',15:'Race Simulation Swim',16:'Recovery Ride',17:'Aerobic Base / Z2 Ride',18:'Tempo / Sweet Spot Ride',19:'Threshold / FTP Intervals',20:'VO2max Intervals',21:'Neuromuscular / Cadence Drills',22:'Sprint / Power Work',23:'Long Endurance Ride',24:'Race Simulation Ride',25:'Recovery Run',26:'Easy Base Run',27:'Easy Base Run — Short Brick',28:'Easy Base Run — Long Brick',29:'Long Easy Run',30:'Tempo Run',31:'Tempo Run — Short Brick',32:'Tempo Run — Long Brick',33:'Threshold / Track Intervals',34:'VO2max / Speed Work',35:'Hill Repeats',36:'Race Simulation Run',37:'Triathlon Race — Sprint',38:'Triathlon Race — Olympic',39:'Triathlon Race — 70.3',40:'Triathlon Race — Full IM',41:'Hockey',42:'Other Aerobic'};
+    const fpName=wo.fuelpro_type?FUELPRO_NAMES[wo.fuelpro_type]||'Not set':'Not set';
+    const rawIntensity=wo.intensity||wo.workout_type||'';
+    const intensity=rawIntensity?rawIntensity.charAt(0).toUpperCase()+rawIntensity.slice(1):'—';
+    html+='<div class="modal-section-label">FuelPro</div>';
+    html+='<div class="modal-coach-notes" style="margin-bottom:4px">Type: '+escHtml(fpName)+'</div>';
+    html+='<div class="modal-coach-notes">Intensity: '+escHtml(intensity)+'</div>';
   }
   const coachNotes=wo?(wo.coach_notes||wo.description||''):'';
   if(coachNotes){
@@ -1321,7 +1320,7 @@ function openWoEdit(id){
   switchModalTab('workout');
   document.getElementById('woDate').value=w.date||'';
   document.getElementById('woSport').value=w.sport||'cycling';
-  document.getElementById('woIntensity').value=w.workout_type||'endurance';
+  document.getElementById('woIntensity').value=w.intensity||w.workout_type||'endurance';
   document.getElementById('woTitle').value=w.title||'';
   document.getElementById('woDesc').value=w.description||'';
   document.getElementById('woDuration').value=w.duration_minutes!=null?w.duration_minutes:'';
@@ -1406,7 +1405,7 @@ async function saveWorkout(){
     sport,
     title:document.getElementById('woTitle').value.trim(),
     description:document.getElementById('woDesc').value.trim(),
-    workout_type:intensity||null,
+    intensity:intensity||null,
     tss_target:tssRaw!==''?Number(tssRaw):null,
     duration_minutes:durationMin,
     completed:document.getElementById('woCompleted').checked,

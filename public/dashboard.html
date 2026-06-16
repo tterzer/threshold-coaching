@@ -2121,15 +2121,14 @@ async function openAthBlockModal(mode, woId, icuId){
     +'</div>';
   }
 
-  if(wo&&(wo.workout_type||wo.fuelpro_type)){
+  if(wo){
     const fpType=wo.fuelpro_type?SESSION_TYPES.find(t=>t.id===Number(wo.fuelpro_type)):null;
-    const fpName=fpType?fpType.name:'';
-    const intensity=wo.workout_type?wo.workout_type.charAt(0).toUpperCase()+wo.workout_type.slice(1):'';
-    if(fpName||intensity){
-      html+='<div class="modal-section-label">FuelPro</div>';
-      if(fpName) html+='<div class="modal-coach-notes" style="margin-bottom:4px">Type: '+athEscHtml(fpName)+'</div>';
-      if(intensity) html+='<div class="modal-coach-notes">Intensity: '+athEscHtml(intensity)+'</div>';
-    }
+    const fpName=fpType?fpType.name:'Not set';
+    const rawIntensity=wo.intensity||wo.workout_type||'';
+    const intensity=rawIntensity?rawIntensity.charAt(0).toUpperCase()+rawIntensity.slice(1):'—';
+    html+='<div class="modal-section-label">FuelPro</div>';
+    html+='<div class="modal-coach-notes" style="margin-bottom:4px">Type: '+athEscHtml(fpName)+'</div>';
+    html+='<div class="modal-coach-notes">Intensity: '+athEscHtml(intensity)+'</div>';
   }
   if(wo&&(wo.description||wo.coach_notes)){
     html+='<div class="modal-section-label">Coach Notes</div><div class="modal-coach-notes">'+athEscHtml(wo.description||wo.coach_notes)+'</div>';
@@ -2243,7 +2242,7 @@ function openAthAddWoModal(dateStr, editWo){
   document.getElementById('athWoDate').value=editWo?editWo.date:(dateStr||'');
   document.getElementById('athWoSport').value=editWo?(editWo.sport||'cycling'):'cycling';
   document.getElementById('athWoTitle').value=editWo?(editWo.title||''):'';
-  document.getElementById('athWoIntensity').value=editWo?(editWo.workout_type||'endurance'):'endurance';
+  document.getElementById('athWoIntensity').value=editWo?(editWo.intensity||editWo.workout_type||'endurance'):'endurance';
   document.getElementById('athWoFuelpro').value=editWo&&editWo.fuelpro_type!=null?String(editWo.fuelpro_type):'';
   document.getElementById('athWoDuration').value=editWo&&editWo.duration_minutes!=null?editWo.duration_minutes:'';
   document.getElementById('athWoTSS').value=editWo&&editWo.tss_target!=null?editWo.tss_target:'';
@@ -2271,7 +2270,7 @@ async function saveAthAddWorkout(){
     sport:document.getElementById('athWoSport').value,
     title:document.getElementById('athWoTitle').value.trim(),
     description:document.getElementById('athWoDesc').value.trim(),
-    workout_type:document.getElementById('athWoIntensity').value||null,
+    intensity:document.getElementById('athWoIntensity').value||null,
     duration_minutes:dur_raw!==''?Number(dur_raw):null,
     tss_target:tss_raw!==''?Number(tss_raw):null,
     fuelpro_type:fuelpro_raw!==''?Number(fuelpro_raw):null,
@@ -3219,56 +3218,67 @@ function nutrComputeAdjustments(activities,planned){
 function nutrBuildSessionPillsHtml(planned,completed){
   const sc=s=>/cycl|bike|ride|virtual/i.test(s)?'#378ADD':/run|jog/i.test(s)?'#639922':/swim/i.test(s)?'#1D9E75':'#c8f036';
   const fillBg=c=>{const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);return`rgba(${r},${g},${b},0.14)`;};
-  // Group completed by sport key for summing
+
+  // Group completed by sport key, summing time, tracking earliest start
   const sportGroups={};
-  (completed||[]).forEach(a=>{
+  [...(completed||[])].sort((a,b)=>(a.start_date_local||'').localeCompare(b.start_date_local||'')).forEach(a=>{
     const k=nutrSportKey(a.type||a.sport_type);
-    if(!sportGroups[k])sportGroups[k]={totalMins:0,sport:a.sport_type||a.type||k};
+    if(!sportGroups[k])sportGroups[k]={totalMins:0,sport:a.sport_type||a.type||k,startDate:a.start_date_local||''};
     sportGroups[k].totalMins+=Math.round((a.moving_time||0)/60);
   });
+
+  // Sort sport groups by earliest start_date_local for display order
+  const sortedCompletedKeys=Object.keys(sportGroups).sort((a,b)=>sportGroups[a].startDate.localeCompare(sportGroups[b].startDate));
+
   const usedKeys=new Set();
   const pills=[];
-  (planned||[]).forEach(w=>{
-    const c=sc(w.sport||'');
-    const plannedMins=w.duration_minutes||60;
-    const k=nutrSportKey(w.sport);
+
+  // 1. Completed activities first (matched or unplanned), in chronological order
+  sortedCompletedKeys.forEach(k=>{
     const grp=sportGroups[k];
-    if(grp)usedKeys.add(k);
-    const actualMins=grp?grp.totalMins:null;
-    const ratio=grp&&plannedMins?actualMins/plannedMins:null;
-    if(ratio!==null&&ratio>=0.90){
-      // Complete — filled pill, green check
-      pills.push(`<div class="nutr-session-pill" style="background:${fillBg(c)};border-color:${c};color:${c}">
-        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
-        <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
-        <span style="margin-left:6px;opacity:0.6">${actualMins}min</span>
-        <span style="color:#639922;margin-left:6px">✓</span>
-      </div>`);
-    }else if(ratio!==null&&ratio<0.90){
-      // Partial — filled pill, yellow warning
-      pills.push(`<div class="nutr-session-pill" style="background:${fillBg(c)};border-color:${c};color:${c}">
-        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
-        <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
-        <span style="margin-left:6px;opacity:0.6">${actualMins}min of ${plannedMins}min</span>
-        <span style="color:#c8f036;margin-left:6px">⚠</span>
-      </div>`);
+    const w=(planned||[]).find(p=>nutrSportKey(p.sport)===k);
+    if(w){
+      usedKeys.add(k);
+      const c=sc(w.sport||'');
+      const plannedMins=w.duration_minutes||60;
+      const actualMins=grp.totalMins;
+      const ratio=plannedMins?actualMins/plannedMins:null;
+      if(ratio!==null&&ratio>=0.90){
+        pills.push(`<div class="nutr-session-pill" style="background:${fillBg(c)};border-color:${c};color:${c}">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
+          <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
+          <span style="margin-left:6px;opacity:0.6">${actualMins}min</span>
+          <span style="color:#639922;margin-left:6px">✓</span>
+        </div>`);
+      }else{
+        pills.push(`<div class="nutr-session-pill" style="background:${fillBg(c)};border-color:${c};color:${c}">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
+          <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
+          <span style="margin-left:6px;opacity:0.6">${actualMins}min of ${plannedMins}min</span>
+          <span style="color:#c8f036;margin-left:6px">⚠</span>
+        </div>`);
+      }
     }else{
-      // No match — unfilled planned pill
-      pills.push(`<div class="nutr-session-pill" style="border-color:${c};color:${c}">
-        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
-        <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
-        <span style="margin-left:6px;opacity:0.6">${plannedMins}min</span>
+      // Unplanned completed activity
+      const label=grp.sport.charAt(0).toUpperCase()+grp.sport.slice(1);
+      pills.push(`<div class="nutr-session-pill" style="border-color:#444;color:#777">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Unplanned ${label}</span>
+        <span style="margin-left:6px;opacity:0.6">${grp.totalMins}min</span>
       </div>`);
     }
   });
-  // Unplanned sport groups
-  Object.entries(sportGroups).filter(([k])=>!usedKeys.has(k)).forEach(([k,grp])=>{
-    const label=grp.sport.charAt(0).toUpperCase()+grp.sport.slice(1);
-    pills.push(`<div class="nutr-session-pill" style="border-color:#444;color:#777">
-      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">Unplanned ${label}</span>
-      <span style="margin-left:6px;opacity:0.6">${grp.totalMins}min</span>
+
+  // 2. Unstarted planned workouts after, sorted by created_at
+  [...(planned||[])].sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||'')).filter(w=>!usedKeys.has(nutrSportKey(w.sport))).forEach(w=>{
+    const c=sc(w.sport||'');
+    const plannedMins=w.duration_minutes||60;
+    pills.push(`<div class="nutr-session-pill" style="border-color:${c};color:${c}">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em">${w.sport||'—'}</span>
+      <span style="font-weight:600;margin-left:6px">${w.title||'Workout'}</span>
+      <span style="margin-left:6px;opacity:0.6">${plannedMins}min</span>
     </div>`);
   });
+
   return pills.length?pills.join(''):`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">No workouts planned today — targets shown for rest day</span>`;
 }
 
@@ -3660,7 +3670,9 @@ function nutrRenderToday(){
   const fmtViewDate=(()=>{const d=new Date(viewDate+'T00:00:00');return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});})();
   const navHtml=`<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px">
     <button onclick="nutrSetViewDate(-1)" style="background:none;border:1px solid var(--border);color:var(--tc2);width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1">‹</button>
-    <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);min-width:120px;text-align:center">${fmtViewDate}</span>
+    <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);min-width:120px;text-align:center">
+      ${fmtViewDate}${isToday?` <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--acc);letter-spacing:0.08em;text-transform:uppercase;border:1px solid var(--acc);padding:1px 4px;border-radius:2px;vertical-align:middle">TODAY</span>`:''}
+    </span>
     <button onclick="nutrSetViewDate(1)" style="background:none;border:1px solid var(--border);color:var(--tc2);width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1">›</button>
     ${!isToday?`<button onclick="nutrSetViewDate('today')" style="background:none;border:1px solid var(--border);color:var(--acc);font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em">Today</button>`:''}
   </div>`;
