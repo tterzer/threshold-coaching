@@ -865,7 +865,7 @@ function computeFitnessSimple(acts){
   const series=[];
   for(let i=0;i<days;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);
-    const key=d.toISOString().split('T')[0];
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     const tss=tssByDay[key]||0;
     const ctl=ctlPrev+(tss-ctlPrev)*ctlDecay;
     const atl=atlPrev+(tss-atlPrev)*atlDecay;
@@ -956,7 +956,7 @@ function renderCalendar(){
   for(let i=0;i<42;i++){
     const d=new Date(gridStart);
     d.setDate(gridStart.getDate()+i);
-    const key=d.toISOString().split('T')[0];
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     const otherMonth=d.getMonth()!==calMonth.getMonth();
     const wos=woByDate[key]||[];
     const races=raceByDate[key]||[];
@@ -1494,7 +1494,7 @@ function calcCoachSportCTL(acts, sportName) {
   let ctlPrev = 0;
   for (let i = 0; i < totalDays; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
-    const key = d.toISOString().split('T')[0];
+    const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     const tss = tssByDay[key]||0;
     const ctl = ctlPrev + (tss - ctlPrev) * ctlDecay;
     if (i >= COACH_WARMUP_DAYS) result[key] = ctl;
@@ -1522,7 +1522,7 @@ function buildCoachSportCTL(acts) {
   const fmtD = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
   const cycData=[], runData=[], swimData=[];
   days.forEach(d => {
-    const k = d.toISOString().split('T')[0];
+    const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     cycData.push(cyclingByDate[k] != null ? Math.round(cyclingByDate[k]) : null);
     runData.push(runningByDate[k] != null ? Math.round(runningByDate[k]) : null);
     swimData.push(swimmingByDate[k] != null ? Math.round(swimmingByDate[k]) : null);
