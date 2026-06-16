@@ -604,6 +604,7 @@ let calMonth=new Date(); calMonth.setDate(1);
 let workoutsCache=[];
 let racesCache=[];
 let chatHistory=[];
+let athleteWellness=null;
 let editingWorkout=null;
 let editingRace=null;
 let pendingDate=null;
@@ -686,6 +687,28 @@ function switchTab(name){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
   if(name==='profile'&&selectedAthlete&&selectedAthlete.id) loadCoachProfile();
   if(name==='nutrition'&&selectedAthlete&&selectedAthlete.id) loadCoachNutrition();
+  if(name==='chat'&&selectedAthlete&&selectedAthlete.id) fetchAthleteWellness();
+}
+
+async function fetchAthleteWellness(){
+  const a=selectedAthlete;
+  if(!a||!a.intervals_athlete_id||!a.intervals_api_key){athleteWellness=null;return;}
+  const todayStr=new Date().toISOString().split('T')[0];
+  try{
+    const r=await fetch('/api/intervals?athleteId='+encodeURIComponent(a.intervals_athlete_id)+'&apiKey='+encodeURIComponent(a.intervals_api_key)+'&path=wellness/'+todayStr);
+    if(!r.ok){athleteWellness=null;return;}
+    const d=await r.json();
+    athleteWellness={
+      hrv_rmssd:d.hrv_rmssd??null,
+      resting_hr:d.restingHR??d.resting_hr??null,
+      sleep_hours:d.sleepSecs!=null?Math.round(d.sleepSecs/3600*10)/10:d.sleep_secs!=null?Math.round(d.sleep_secs/3600*10)/10:null,
+      sleep_score:d.sleepScore??d.sleep_score??null,
+      ctl:d.ctl??null,
+      atl:d.atl??null,
+      tsb:d.tsb??null,
+      body_fat:d.bodyFat??d.body_fat??null,
+    };
+  }catch(e){athleteWellness=null;}
 }
 
 // ========== COACH PROFILE TAB ==========
@@ -2163,7 +2186,8 @@ async function sendChat(){
         athlete_id:selectedAthlete.id,
         ctl:d?d.ctl:undefined,
         atl:d?d.atl:undefined,
-        tsb:d?d.tsb:undefined
+        tsb:d?d.tsb:undefined,
+        wellness:athleteWellness||undefined
       })
     });
     const data=await r.json();

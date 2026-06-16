@@ -203,7 +203,7 @@ export default async function handler(req, res) {
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
-  const { system, messages, athlete_id, ctl, atl, tsb } = body || {};
+  const { system, messages, athlete_id, ctl, atl, tsb, wellness } = body || {};
   if (!Array.isArray(messages)) return res.status(400).json({ error: 'Missing messages' });
 
   // Fetch athlete row early — needed for intervals.icu credentials + analysis
@@ -293,6 +293,19 @@ export default async function handler(req, res) {
     if (atl != null) athleteContext += ` ATL=${atl}`;
     if (tsb != null) athleteContext += ` TSB=${tsb}`;
     athleteContext += '\n';
+  }
+
+  if (wellness && typeof wellness === 'object') {
+    const w = wellness;
+    const parts = [];
+    if (w.hrv_rmssd != null) parts.push(`HRV: ${w.hrv_rmssd}ms (higher = better recovered)`);
+    if (w.resting_hr != null) parts.push(`Resting HR: ${w.resting_hr}bpm`);
+    if (w.sleep_hours != null) parts.push(`Sleep: ${w.sleep_hours}hrs${w.sleep_score != null ? ` (score ${w.sleep_score})` : ''}`);
+    if (w.ctl != null || w.atl != null || w.tsb != null) parts.push(`CTL/ATL/TSB: ${w.ctl??'—'}/${w.atl??'—'}/${w.tsb??'—'}`);
+    if (w.body_fat != null) parts.push(`Body fat: ${w.body_fat}%`);
+    if (parts.length > 0) {
+      athleteContext += '\nATHLETE RECOVERY STATUS (Today):\n' + parts.map(p => `- ${p}`).join('\n') + '\n';
+    }
   }
 
   // Inject conversation history
