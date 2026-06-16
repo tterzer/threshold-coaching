@@ -3131,14 +3131,15 @@ function nutrCalcWindows(sessions,targets,foodEntries){
 // ═══════════════════════════════════════════════════════════════════
 const NUTR_DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-function nutrTodayStr(){return new Date().toISOString().split('T')[0];}
+function nutrTodayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function _localStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 
 function nutrGetWeekBounds(){
   const now=new Date(),day=now.getDay();
   const mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1));mon.setHours(0,0,0,0);
   const sun=new Date(mon);sun.setDate(mon.getDate()+6);
-  const dates=Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d.toISOString().split('T')[0];});
-  return{start:mon.toISOString().split('T')[0],end:sun.toISOString().split('T')[0],dates};
+  const dates=Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return _localStr(d);});
+  return{start:_localStr(mon),end:_localStr(sun),dates};
 }
 
 function nutrMapWorkoutToTypeNum(sport,durationMins){
@@ -3242,7 +3243,7 @@ async function loadNutritionTab(){
   console.log('[FuelPro] Loading food entries for today ('+today+') athlete='+aid);
   try{
     const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
-    const tomStr=tomorrow.toISOString().split('T')[0];
+    const tomStr=_localStr(tomorrow);
     // Pre-load athlete profile fields (age, height, experience_level) so calcBMR works from first render
     fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(aid)).then(r=>r.json()).then(d=>{
       if(d?.profile){const p=d.profile;
@@ -3412,19 +3413,19 @@ function nutrRenderToday(){
   const tCarbsFromTdee=Math.max(0,Math.round((tdeeTarget-tProtein*4-tFat*9)/4));
   const adjTotal=nutrAdjTotal();
   const adjCarbs=Math.max(tCarbsFromTdee,tCarbsFromTdee+adjTotal);
-  const adj={...targets,carbs:adjCarbs,kcal:tdeeTarget};
+  const adjKcal=adjCarbs*4+tProtein*4+tFat*9;
+  const adj={...targets,carbs:adjCarbs,kcal:adjKcal};
   const eaten={
     carbs:nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0),
     protein:nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0),
     fat:nutr.foodEntries.reduce((s,e)=>s+(e.fat||0),0),
-    kcal:nutr.foodEntries.reduce((s,e)=>s+(e.calories||0),0),
   };
   const rem={
     carbs:Math.max(0,adj.carbs-eaten.carbs),
     protein:Math.max(0,adj.protein-eaten.protein),
     fat:Math.max(0,adj.fat-eaten.fat),
-    kcal:Math.max(0,adj.kcal-eaten.kcal),
   };
+  rem.kcal=rem.carbs*4+rem.protein*4+rem.fat*9;
 
   // 1. Macro donut gauges
   function donut(label,eaten,target,color){
@@ -3937,18 +3938,24 @@ async function nutrSaveTodayLog(){
   const today=nutrTodayStr();
   const tsb=nutr.wellness?.form??null;
   const targets=nutrCalcDay(nutr.profile,nutr.todaySessions,tsb);
-  const adjCarbs=Math.max(targets.carbs,targets.carbs+nutrAdjTotal());
-  const eaten={
-    carbs:nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0),
-    protein:nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0),
-    fat:nutr.foodEntries.reduce((s,e)=>s+(e.fat||0),0),
-    kcal:nutr.foodEntries.reduce((s,e)=>s+(e.calories||0),0),
-  };
+  const tdeeResult=calcTDEE(nutr.completedActivities);
+  const _mode=nutr.profile.mode||1;
+  const _wkly=nutr.profile.weekly_loss_target||0.5;
+  let _tdeeTarget=tdeeResult.tdee;
+  if(_mode===1) _tdeeTarget=Math.round(tdeeResult.tdee-(_wkly*500));
+  else if(_mode===3) _tdeeTarget=tdeeResult.tdee+300;
+  const _tCarbsFromTdee=Math.max(0,Math.round((_tdeeTarget-targets.protein*4-targets.fat*9)/4));
+  const adjCarbs=Math.max(_tCarbsFromTdee,_tCarbsFromTdee+nutrAdjTotal());
+  const adjKcal=adjCarbs*4+targets.protein*4+targets.fat*9;
+  const _eC=nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0);
+  const _eP=nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0);
+  const _eF=nutr.foodEntries.reduce((s,e)=>s+(e.fat||0),0);
+  const eaten={carbs:_eC,protein:_eP,fat:_eF,kcal:_eC*4+_eP*4+_eF*9};
   const payload={
     athlete_id:currentAthlete.id,log_date:today,
     food_entries:nutr.foodEntries,
     sessions:nutr.foodEntries,
-    target_carbs:adjCarbs,target_protein:targets.protein,target_fat:targets.fat,target_kcal:targets.kcal,
+    target_carbs:adjCarbs,target_protein:targets.protein,target_fat:targets.fat,target_kcal:adjKcal,
     actual_carbs:eaten.carbs||null,actual_protein:eaten.protein||null,actual_fat:eaten.fat||null,actual_kcal:eaten.kcal||null,
     intent:targets.intent.label,
   };
