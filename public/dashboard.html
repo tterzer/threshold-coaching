@@ -3236,10 +3236,12 @@ function nutrBuildSessionPillsHtml(planned,completed){
   const usedPlanIds=new Set();
   const usedSportKeys=new Set();
 
+  console.log('sportGroups:', JSON.stringify(Object.keys(sportGroups)));
   // Pass 1: for each planned workout, check for a completed match
   (planned||[]).forEach(w=>{
     const k=nutrSportKey(w.sport);
     const grp=sportGroups[k];
+    console.log('processing planned:', w.sport, w.title, 'matched:', !!grp);
     if(grp&&!usedSportKeys.has(k)){
       usedSportKeys.add(k);
       usedPlanIds.add(w.id);
@@ -3275,6 +3277,8 @@ function nutrBuildSessionPillsHtml(planned,completed){
     }
   });
 
+  console.log('completedList:', completedList.map(x=>x.pill).join('|'));
+  console.log('plannedList:', plannedList.map(x=>x.pill).join('|'));
   // Pass 2: unplanned completed sport groups (no matching planned workout)
   Object.entries(sportGroups).filter(([k])=>!usedSportKeys.has(k)).forEach(([k,grp])=>{
     const label=grp.sport.charAt(0).toUpperCase()+grp.sport.slice(1);
