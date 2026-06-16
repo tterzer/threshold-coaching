@@ -244,6 +244,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
             <button class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
             <button class="tab" data-tab="calendar" onclick="switchTab('calendar')">Calendar</button>
             <button class="tab" data-tab="chat" onclick="switchTab('chat')">AI Coach Chat</button>
+            <button class="tab" data-tab="nutrition" onclick="switchTab('nutrition')">Nutrition</button>
             <button class="tab" data-tab="profile" onclick="switchTab('profile')">Profile</button>
           </div>
 
@@ -302,6 +303,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
                   <button onclick="sendChat()" id="chatSendBtn">Send</button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-nutrition">
+            <div id="coachNutrContent" style="max-width:720px">
+              <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3);padding:20px 0">Loading nutrition data...</div>
             </div>
           </div>
 
@@ -678,6 +685,7 @@ function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
   if(name==='profile'&&selectedAthlete&&selectedAthlete.id) loadCoachProfile();
+  if(name==='nutrition'&&selectedAthlete&&selectedAthlete.id) loadCoachNutrition();
 }
 
 // ========== COACH PROFILE TAB ==========
@@ -2198,6 +2206,139 @@ async function sendChat(){
   }finally{
     btn.disabled=false;
     document.getElementById('chatMsgs').scrollTop=document.getElementById('chatMsgs').scrollHeight;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COACH NUTRITION TAB
+// ═══════════════════════════════════════════════════════════════════
+let coachNutrWeightChart=null;
+
+async function loadCoachNutrition(){
+  const el=document.getElementById('coachNutrContent');
+  if(!el||!selectedAthlete)return;
+  el.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--tc3);padding:20px 0">Loading...</div>';
+
+  const aid=selectedAthlete.id;
+  const [profResp, logsResp, weightsResp] = await Promise.all([
+    fetch('/api/nutrition-data?type=profile&athlete_id='+encodeURIComponent(aid)).then(r=>r.json()).catch(()=>({})),
+    fetch('/api/nutrition-data?type=log&athlete_id='+encodeURIComponent(aid)).then(r=>r.json()).catch(()=>[]),
+    fetch('/api/nutrition-data?type=weight&athlete_id='+encodeURIComponent(aid)).then(r=>r.json()).catch(()=>[]),
+  ]);
+
+  const profile=profResp.profile||profResp||{};
+  const logs=Array.isArray(logsResp)?logsResp:[];
+  const weights=Array.isArray(weightsResp)?weightsResp:[];
+
+  // ── Mode ──────────────────────────────────────────────────────
+  const mode=Number(profile.mode)||0;
+  const modeLabel=mode===1?'CUT':mode===2?'BUILD':'MAINTAIN';
+  const modeColor=mode===1?'#E24B4A':mode===2?'#378ADD':'#639922';
+  const weeklyLoss=parseFloat(profile.weekly_loss_target)||0.5;
+  const goalWeight=parseFloat(profile.goal_weight_lbs)||null;
+  const goalDate=profile.goal_date||null;
+
+  // ── Weight trend ──────────────────────────────────────────────
+  const wSorted=[...weights].sort((a,b)=>(a.log_date||a.logged_at||'').localeCompare(b.log_date||b.logged_at||''));
+  const currentW=wSorted.length?parseFloat(wSorted[wSorted.length-1].weight_lbs):null;
+  const startW=wSorted.length?parseFloat(wSorted[0].weight_lbs):null;
+  const wChange=currentW!=null&&startW!=null?Math.round((currentW-startW)*10)/10:null;
+  const wLabels=wSorted.map(w=>{const d=w.log_date||w.logged_at||'';return d.slice(5,10);});
+  const wData=wSorted.map(w=>parseFloat(w.weight_lbs));
+
+  // ── Compliance ────────────────────────────────────────────────
+  const macroOk=(actual,target)=>{
+    if(actual==null||target==null||target===0)return null;
+    return actual>=target*0.90&&actual<=target*1.10;
+  };
+  const logsWithData=logs.filter(l=>l.target_carbs||l.target_protein||l.target_fat);
+  let compliantDays=0,streak=0,streakBroken=false;
+  const dayMap={};
+  logsWithData.forEach(l=>{
+    const checks=[macroOk(l.actual_carbs,l.target_carbs),macroOk(l.actual_protein,l.target_protein),macroOk(l.actual_fat,l.target_fat)].filter(v=>v!==null);
+    const hit=checks.length>0&&checks.every(Boolean);
+    dayMap[l.log_date]={hit,partial:checks.some(Boolean)&&!checks.every(Boolean)};
+    if(hit)compliantDays++;
+  });
+  const compPct=logsWithData.length?Math.round(compliantDays/logsWithData.length*100):null;
+  const compColor=compPct==null?'var(--tc3)':compPct>=80?'#639922':compPct>=60?'#c8f036':'#E24B4A';
+
+  // Streak: walk backwards from today
+  for(let i=0;i<30;i++){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const key=d.toISOString().slice(0,10);
+    if(dayMap[key]?.hit){if(!streakBroken)streak++;}
+    else{streakBroken=true;}
+  }
+
+  // 30-day heatmap grid
+  const heatDays=[];
+  for(let i=29;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);heatDays.push(d.toISOString().slice(0,10));}
+  const heatHtml=heatDays.map(key=>{
+    const entry=dayMap[key];
+    const bg=!entry?'#1a1a1a':entry.hit?'#639922':entry.partial?'#c8f036':'#E24B4A';
+    const d=new Date(key+'T12:00:00');
+    const label=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    return`<div title="${label}" style="width:18px;height:18px;background:${bg};border-radius:2px"></div>`;
+  }).join('');
+
+  // ── Render ─────────────────────────────────────────────────────
+  el.innerHTML=`
+    <!-- Mode -->
+    <div style="background:var(--bc2);border:1px solid var(--border);padding:16px 20px;margin-bottom:12px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:0.1em;color:var(--tc3);text-transform:uppercase;margin-bottom:10px">Nutrition Mode</div>
+      <div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap">
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:${modeColor}">${modeLabel}</span>
+        ${mode===1?`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">${weeklyLoss} lbs/week target</span>`:''}
+        ${goalWeight?`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Goal: ${goalWeight} lbs${currentW!=null?' · '+(Math.round((currentW-goalWeight)*10)/10)+' lbs to go':''}</span>`:''}
+        ${goalDate?`<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">By ${goalDate}</span>`:''}
+      </div>
+    </div>
+
+    <!-- Weight trend -->
+    <div style="background:var(--bc2);border:1px solid var(--border);padding:16px 20px;margin-bottom:12px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:0.1em;color:var(--tc3);text-transform:uppercase;margin-bottom:10px">Weight Trend — Last 30 Entries</div>
+      ${wSorted.length===0?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">No weight data logged yet.</div>`:`
+      <div style="display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap">
+        <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">CURRENT</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;color:var(--acc)">${currentW} lbs</div></div>
+        <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">START</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;color:var(--tc2)">${startW} lbs</div></div>
+        <div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">CHANGE</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;color:${wChange<0?'#639922':wChange>0?'#E24B4A':'var(--tc2)'}">${wChange>0?'+':''}${wChange} lbs</div></div>
+      </div>
+      <div style="position:relative;height:120px"><canvas id="coachNutrWeightChart"></canvas></div>`}
+    </div>
+
+    <!-- Compliance -->
+    <div style="background:var(--bc2);border:1px solid var(--border);padding:16px 20px;margin-bottom:12px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:0.1em;color:var(--tc3);text-transform:uppercase;margin-bottom:10px">Macro Compliance — Last 30 Days</div>
+      ${logsWithData.length===0?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">No nutrition logs found.</div>`:`
+      <div style="display:flex;align-items:center;gap:32px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="text-align:center">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:56px;font-weight:700;color:${compColor};line-height:1">${compPct}%</div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">${compliantDays} of ${logsWithData.length} logged days</div>
+        </div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:4px">CURRENT STREAK</div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:700;color:${streak>=3?'#639922':'var(--tc2)'}">${streak} day${streak===1?'':'s'}</div>
+        </div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:6px">30-DAY HEATMAP · <span style="color:#639922">■</span> on target &nbsp;<span style="color:#c8f036">■</span> partial &nbsp;<span style="color:#E24B4A">■</span> off &nbsp;<span style="color:#333">■</span> no data</div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px">${heatHtml}</div>`}
+    </div>
+  `;
+
+  // Draw weight chart
+  if(wSorted.length>0){
+    if(coachNutrWeightChart)coachNutrWeightChart.destroy();
+    const ctx=document.getElementById('coachNutrWeightChart');
+    if(ctx){
+      coachNutrWeightChart=new Chart(ctx,{
+        type:'line',
+        data:{labels:wLabels,datasets:[{data:wData,borderColor:'#c8f036',backgroundColor:'transparent',pointBackgroundColor:'#c8f036',pointRadius:3,tension:0.3,borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y} lbs`}}},
+          scales:{x:{ticks:{color:'#555',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
+            y:{ticks:{color:'#555',font:{size:9}},grid:{color:'#1a1a1a'}}}}
+      });
+    }
   }
 }
 </script>
