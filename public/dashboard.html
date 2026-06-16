@@ -2983,9 +2983,9 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
   let intentLabel;
   if(mode===2){
     intentLabel={label:'BUILD',cls:'nutr-intent-green'};
-  }else if(totalTSS>100||exerciseKcal>500){
+  }else if(totalTSS>150||exerciseKcal>700){
     intentLabel={label:'FUEL UP',cls:'nutr-intent-yellow'};
-  }else if(mode===1&&totalTSS<50&&exerciseKcal<300){
+  }else if(mode===1&&totalTSS<80&&exerciseKcal<400){
     intentLabel={label:'CUT DAY',cls:'nutr-intent-blue'};
   }else{
     intentLabel={label:'MAINTAIN',cls:'nutr-intent-green'};
@@ -4078,7 +4078,7 @@ function nutrRenderWeek(){
       <span class="nutr-intent ${sr.intent.cls}">${sr.intent.label}</span>
     </div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-bottom:10px;line-height:1.5">
-      BMR: ${sr.bmr} + NEAT: ${sr.neat} + Exercise: ${sr.exercise} = ${sr.tdee}${weekMode===1?` − ${Math.round(weekWkly*500)} (cut)`:weekMode===3?' + 300 (build)':''}
+      BMR: ${sr.bmr} + NEAT: ${sr.neat} + Exercise: ${sr.exercise} = ${sr.tdee}${sr.intent.label==='CUT DAY'?` − ${Math.round(weekWkly*500)} (cut day)`:weekMode===2?' + 300 (build)':''}
       = <span style="color:#c8f036;font-weight:700">${sr.tdeeTarget} kcal target</span>
     </div>
     ${sessRows}
