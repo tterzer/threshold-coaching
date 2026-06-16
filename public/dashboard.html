@@ -2980,9 +2980,16 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
 
   const source=isFuture?'predicted':isToday?'live':'actual';
 
-  const intentMode=mode===1?'cut':mode===2?'build':'maintain';
-  const intentLabel=intentMode==='cut'?{label:'CUT DAY',cls:'nutr-intent-blue'}:
-    (exerciseKcal>300?{label:'FUEL UP',cls:'nutr-intent-yellow'}:{label:'MAINTAIN',cls:'nutr-intent-green'});
+  let intentLabel;
+  if(mode===2){
+    intentLabel={label:'BUILD',cls:'nutr-intent-green'};
+  }else if(totalTSS>100||exerciseKcal>500){
+    intentLabel={label:'FUEL UP',cls:'nutr-intent-yellow'};
+  }else if(mode===1&&totalTSS<50&&exerciseKcal<300){
+    intentLabel={label:'CUT DAY',cls:'nutr-intent-blue'};
+  }else{
+    intentLabel={label:'MAINTAIN',cls:'nutr-intent-green'};
+  }
 
   return{carbs,protein,fat,kcal,tdee,tdeeAdjusted,bmr,neat,exercise:exerciseKcal,tss:totalTSS,source,
     intent:intentLabel,
@@ -4060,7 +4067,7 @@ function nutrRenderWeek(){
   }
 
   const srcLabel=sr.source==='actual'?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#639922;text-transform:uppercase;letter-spacing:0.06em">ACTUAL</span>`:sr.source==='live'?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#c8f036;text-transform:uppercase;letter-spacing:0.06em">LIVE</span>`:`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.06em">PREDICTED</span>`;
-  const weekMode=nutr.profile.mode||1;
+  const weekMode=parseInt(nutr.profile.mode)||0;
   const weekWkly=nutr.profile.weekly_loss_target||0.5;
   const dayDetail=`<div class="nutr-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
