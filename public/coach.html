@@ -1406,6 +1406,7 @@ async function saveWorkout(){
     sport,
     title:document.getElementById('woTitle').value.trim(),
     description:document.getElementById('woDesc').value.trim(),
+    workout_type:intensity||null,
     tss_target:tssRaw!==''?Number(tssRaw):null,
     duration_minutes:durationMin,
     completed:document.getElementById('woCompleted').checked,
