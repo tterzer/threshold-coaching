@@ -786,6 +786,7 @@ async function loadDashboard(){
     document.getElementById('subEl').textContent=[a2.city,a2.country].filter(Boolean).join(', ')||'intervals.icu athlete';
     const sorted=[...activities].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
     allActivities=sorted;
+    window.allActivities=sorted;
 
     // Compute CTL/ATL/TSB from scratch (Banister impulse-response model) using
     // icu_training_load as TSS, rather than trusting the API's icu_ctl/icu_atl.
@@ -2888,135 +2889,106 @@ const NUTR_SESSION_TYPES = {
 const NEAT_LEVELS={
   'desk':0.20,'light':0.30,'active':0.40,'manual':0.60
 };
-function calcBMR(){
-  const wt=((nutr.weightLogs||[])[0]?.weight_lbs)||nutr.profile?.weight_lbs||currentAthlete?.weight_lbs||168;
-  const hf=Number(currentAthlete?.height_feet||0);
-  const hi=Number(currentAthlete?.height_inches||0);
-  const age=Number(currentAthlete?.age||0);
-  const wt_kg=wt*0.453592;
-  const ht_cm=(hf*12+hi)*2.54;
-  if(!age||!ht_cm){console.log('[calcBMR] missing age or height — age:',age,'ht_cm:',ht_cm,'→ fallback 1800');return 1800;}
-  const base=Math.round((10*wt_kg)+(6.25*ht_cm)-(5*age)+5);
-  const expMult={'beginner':1.02,'intermediate':1.05,'advanced':1.08,'elite':1.10};
-  const exp=currentAthlete?.experience_level||'intermediate';
-  const expM=expMult[exp]??1.05;
-  const withExp=Math.round(base*expM);
-  const ctl=window.currentCTL||0;
-  const ctlMult=ctl>80?1.03:ctl>=60?1.02:1.00;
-  const final=Math.round(withExp*ctlMult);
-  console.log('[calcBMR] wt_kg:',wt_kg.toFixed(1),'ht_cm:',ht_cm.toFixed(1),'age:',age,'base:',base,'exp:',exp,'×'+expM,'=',withExp,'CTL:',ctl,'×'+ctlMult,'→ final:',final);
-  return final;
-}
-function calcExerciseCalories(activities){
-  const wt=((nutr.weightLogs||[])[0]?.weight_lbs)||nutr.profile?.weight_lbs||currentAthlete?.weight_lbs||168;
-  const wt_kg=wt*0.453592;
-  const ftp=Number(currentAthlete?.ftp_watts||200);
-  return (activities||[]).reduce((sum,a)=>{
-    const t=(a.type||a.sport_type||'').toLowerCase();
-    const secs=Number(a.moving_time||a.elapsed_time||0);
-    const hrs=secs/3600;
-    if(!hrs)return sum;
-    if(/ride|cycling|virtualride/.test(t)){
-      const kj=Number(a.work||a.kilojoules||0);
-      if(kj>0)return sum+Math.round(kj/0.238);
-      const watts=Number(a.average_watts||ftp);
-      return sum+Math.round(hrs*watts*3.6/0.238);
-    }
-    if(/run|virtualrun/.test(t)){
-      const dist_m=Number(a.distance||0);
-      return sum+Math.round(wt_kg*(dist_m/1000)*1.04);
-    }
-    if(/swim/.test(t)){
-      const met=10;
-      return sum+Math.round(met*wt_kg*hrs);
-    }
-    return sum+Math.round(5*wt_kg*hrs);
-  },0);
-}
-function calcTDEE(activities){
-  const bmr=calcBMR();
-  const level=currentAthlete?.activity_level||'light';
-  const neatMult=NEAT_LEVELS[level]??0.30;
-  const neat=Math.round(bmr*neatMult);
-  const exercise=calcExerciseCalories(activities||[]);
-  return{tdee:bmr+neat+exercise,bmr,neat,exercise};
-}
-function calcDayTargets(date,profile){
-  const today=nutrTodayStr();
-  const isPast=date<today,isToday=date===today;
-  const wt=((nutr.weightLogs||[])[0]?.weight_lbs)||profile?.weight_lbs||currentAthlete?.weight_lbs||168;
-  const ftp=Number(currentAthlete?.ftp_watts||200);
-  let activities,sessions,source;
-  if(isPast||isToday){
-    activities=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(date));
-    sessions=activities.map(a=>({
-      typeNum:nutrMapWorkoutToTypeNum(a.type||a.sport_type,Math.round((a.moving_time||0)/60)||30),
-      durationMins:Math.round((a.moving_time||0)/60)||30,
-      startTime:(a.start_date_local||'').slice(11,16),
-    }));
-    source=isToday?'live':'actual';
-  }else{
-    const planned=(nutr.weekWorkouts||[]).filter(w=>w.date===date);
-    activities=planned.map(w=>({
-      type:w.sport||'',
-      moving_time:(w.duration_minutes||60)*60,
-      average_watts:ftp*0.75,
-      distance:(w.duration_minutes||60)/9*1609,
-    }));
-    sessions=planned.map(w=>({
-      typeNum:w.fuelpro_type||nutrMapWorkoutToTypeNum(w.sport,w.duration_minutes),
-      durationMins:w.duration_minutes||60,
-      startTime:w.start_time||'',
-    }));
-    source='predicted';
-  }
-  const tdeeResult=calcTDEE(activities);
-  const mode=profile.mode||1;
-  const wkly=profile.weekly_loss_target||0.5;
-  let tdeeTarget=tdeeResult.tdee;
-  if(mode===1) tdeeTarget=Math.round(tdeeResult.tdee-(wkly*500));
-  else if(mode===3) tdeeTarget=tdeeResult.tdee+300;
-  const adjTss=nutrCalcAdjTss(sessions);
-  const pf=profile.protein_factor||1.09;
-  const ff=profile.fat_floor||85;
-  const fc=profile.fat_ceiling||110;
-  const protein=Math.round(wt*pf);
-  let fat;
-  if(adjTss<50) fat=fc;
-  else if(adjTss<100) fat=Math.round(ff+(fc-ff)*0.65);
-  else if(adjTss<160) fat=Math.round(ff+(fc-ff)*0.30);
-  else fat=ff;
-  const carbs=Math.max(0,Math.round((tdeeTarget-protein*4-fat*9)/4));
-  const kcal=Math.round(carbs*4+protein*4+fat*9);
-  const active=sessions.filter(s=>s.typeNum&&s.durationMins);
-  const intra=active.reduce((s,x)=>s+nutrCalcIntra(x.typeNum,x.durationMins),0);
-  const top=active.length?active.reduce((a,b)=>(NUTR_SESSION_TYPES[a.typeNum]?.tssPerHour||0)>(NUTR_SESSION_TYPES[b.typeNum]?.tssPerHour||0)?a:b):null;
-  const pre=top?nutrCalcPre(top.typeNum,carbs):0;
-  const post=Math.round(wt/2.20462*1.2);
-  return{
-    carbs,protein,fat,kcal,intra,pre,post,
-    foodCarbs:Math.max(0,carbs-intra),
-    tdee:tdeeResult.tdee,bmr:tdeeResult.bmr,neat:tdeeResult.neat,exercise:tdeeResult.exercise,
-    tdeeTarget,intent:nutrEnergyIntent(mode,adjTss,mode===1),source,
-    sessions:active,rawTss:0,adjTss:Math.round(adjTss),
-  };
-}
-// ─────────────────────────────────────────────────────────────────
+function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
+  const today=new Date();
+  const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const isPast=dateStr<todayStr;
+  const isToday=dateStr===todayStr;
+  const isFuture=dateStr>todayStr;
 
-function nutrCalcAdjTss(sessions){
-  return (sessions||[]).filter(s=>s.typeNum&&s.durationMins).reduce((sum,s)=>{
-    const t=NUTR_SESSION_TYPES[s.typeNum]||{tssPerHour:40,glycogenCoeff:0.85};
-    return sum+t.tssPerHour*(s.durationMins/60)*t.glycogenCoeff;
-  },0);
-}
-function nutrCalcRawTss(sessions){
-  return (sessions||[]).filter(s=>s.typeNum&&s.durationMins).reduce((sum,s)=>{
-    const t=NUTR_SESSION_TYPES[s.typeNum]||{tssPerHour:40};
-    return sum+t.tssPerHour*(s.durationMins/60);
-  },0);
-}
-function nutrTssToGPerLb(adj){
-  return Math.min(3.40,Math.max(1.36, 1.36+(adj/300)*2.04));
+  const weight_lbs=parseFloat(profile.weight_lbs)||165;
+  const weight_kg=weight_lbs*0.453592;
+  const height_ft=parseFloat(profile.height_feet)||5;
+  const height_in=parseFloat(profile.height_inches)||10;
+  const height_cm=((height_ft*12)+height_in)*2.54;
+  const age=parseFloat(profile.age)||35;
+  const experience=profile.experience_level||'intermediate';
+  const activityLevel=profile.activity_level||'light';
+  const mode=parseInt(profile.mode)||0;
+  const weeklyLoss=parseFloat(profile.weekly_loss_target)||0.5;
+  const goalWeight=parseFloat(profile.goal_weight_lbs)||weight_lbs;
+
+  const bmrRaw=(10*weight_kg)+(6.25*height_cm)-(5*age)+5;
+  const expMultiplier={beginner:1.02,intermediate:1.05,advanced:1.08,elite:1.10}[experience]||1.05;
+  const ctl=parseFloat(window.currentCTL)||0;
+  const ctlMultiplier=ctl>80?1.03:ctl>60?1.02:1.0;
+  const bmr=Math.round(bmrRaw*expMultiplier*ctlMultiplier);
+
+  const neatMultiplier={sedentary:0.20,light:0.30,active:0.40,manual:0.60}[activityLevel]||0.30;
+  const neat=Math.round(bmr*neatMultiplier);
+
+  let exerciseKcal=0;
+  let totalTSS=0;
+
+  if(isPast||isToday){
+    const dayActivities=(completedActivities||[]).filter(a=>(a.start_date_local||'').slice(0,10)===dateStr);
+    dayActivities.forEach(a=>{
+      const mins=(a.moving_time||0)/60;
+      const type=(a.type||'').toLowerCase();
+      if(type.includes('ride')||type.includes('virtual')){
+        const kj=parseFloat(a.work)||0;
+        exerciseKcal+=kj>0?Math.round(kj/0.238):Math.round(mins*10);
+      }else if(type.includes('run')){
+        const dist_km=(a.distance||0)/1000;
+        exerciseKcal+=Math.round(weight_kg*dist_km*1.04);
+      }else if(type.includes('swim')){
+        exerciseKcal+=Math.round(7*weight_kg*(mins/60));
+      }else{
+        exerciseKcal+=Math.round(5*weight_kg*(mins/60));
+      }
+      totalTSS+=parseFloat(a.icu_training_load)||0;
+    });
+  }else{
+    const dayPlanned=(plannedWorkouts||[]).filter(w=>w.date===dateStr);
+    dayPlanned.forEach(w=>{
+      const mins=parseFloat(w.duration_minutes)||0;
+      const sport=(w.sport||'').toLowerCase();
+      if(sport.includes('bike')||sport.includes('cycl')||sport.includes('ride')){
+        exerciseKcal+=Math.round(mins*10);
+        totalTSS+=Math.round(mins*0.8);
+      }else if(sport.includes('run')){
+        exerciseKcal+=Math.round(weight_kg*(mins/60)*10);
+        totalTSS+=Math.round(mins*0.7);
+      }else if(sport.includes('swim')){
+        exerciseKcal+=Math.round(7*weight_kg*(mins/60));
+        totalTSS+=Math.round(mins*0.5);
+      }else{
+        exerciseKcal+=Math.round(5*weight_kg*(mins/60));
+        totalTSS+=Math.round(mins*0.3);
+      }
+    });
+  }
+
+  const tdee=bmr+neat+exerciseKcal;
+
+  let tdeeAdjusted=tdee;
+  if(mode===1&&weight_lbs>goalWeight){
+    tdeeAdjusted=tdee-Math.round(weeklyLoss*500);
+  }else if(mode===2){
+    tdeeAdjusted=tdee+300;
+  }
+  tdeeAdjusted=Math.max(tdeeAdjusted,1200);
+
+  const protein=Math.round(weight_lbs*1.09);
+
+  const fatFloor=85,fatCeiling=110;
+  const tssNorm=Math.min(totalTSS/200,1);
+  const fat=Math.round(fatCeiling-(tssNorm*(fatCeiling-fatFloor)));
+
+  const carbs=Math.max(0,Math.round((tdeeAdjusted-protein*4-fat*9)/4));
+  const kcal=Math.round(carbs*4+protein*4+fat*9);
+
+  const source=isFuture?'predicted':isToday?'live':'actual';
+
+  const intentMode=mode===1?'cut':mode===2?'build':'maintain';
+  const intentLabel=intentMode==='cut'?{label:'CUT DAY',cls:'nutr-intent-blue'}:
+    (exerciseKcal>300?{label:'FUEL UP',cls:'nutr-intent-yellow'}:{label:'MAINTAIN',cls:'nutr-intent-green'});
+
+  return{carbs,protein,fat,kcal,tdee,tdeeAdjusted,bmr,neat,exercise:exerciseKcal,tss:totalTSS,source,
+    intent:intentLabel,
+    // legacy fields used by fuelling window and save logic
+    tdeeTarget:tdeeAdjusted,intra:0,pre:0,post:Math.round(weight_kg*1.2),foodCarbs:carbs,
+  };
 }
 function nutrCalcIntra(typeNum,durationMins){
   if(!typeNum||!durationMins) return 0;
@@ -3034,102 +3006,7 @@ function nutrCalcIntra(typeNum,durationMins){
   }
 }
 function nutrCalcPre(typeNum,dailyCarbs){
-  return [7,9,10,13,14,15,16].includes(Number(typeNum)) ? Math.round(dailyCarbs*0.20) : 0;
-}
-function nutrTsbScale(tsb){
-  if(tsb==null) return 1.00;
-  if(tsb>15)  return 0.92;
-  if(tsb>5)   return 0.96;
-  if(tsb>=-5) return 1.00;
-  if(tsb>=-15)return 1.06;
-  if(tsb>=-30)return 1.12;
-  return 1.15;
-}
-function nutrPreFactor(nextAdj,twoAdj){
-  if(nextAdj==null) return 1.0;
-  const one=Math.min(1.20,1+(nextAdj/1500));
-  const two=twoAdj!=null?Math.min(1.10,1+(twoAdj/3000)):1.0;
-  return Math.min(1.28,one*two);
-}
-function nutrPostFactor(prevAdj){
-  if(prevAdj==null) return 1.0;
-  return Math.min(1.15,1+(prevAdj/1500));
-}
-function nutrEnergyIntent(mode,adjTss,isCut){
-  if(mode===2) return {label:'MAINTAIN',cls:'nutr-intent-green'};
-  if(mode===3) return adjTss<60?{label:'MAINTAIN',cls:'nutr-intent-green'}:{label:'FUEL UP',cls:'nutr-intent-yellow'};
-  if(isCut)    return {label:'CUT DAY', cls:'nutr-intent-blue'};
-  if(adjTss<110) return {label:'MAINTAIN',cls:'nutr-intent-green'};
-  return {label:'FUEL UP',cls:'nutr-intent-yellow'};
-}
-function nutrIdentifyCutDays(weekRawTss,weekSessions){
-  if(!weekRawTss||!weekRawTss.length) return [];
-  const avg=weekRawTss.reduce((s,t)=>s+t,0)/weekRawTss.length;
-  const max=Math.max(...weekRawTss);
-  const maxIdx=weekRawTss.indexOf(max);
-  return weekRawTss
-    .map((tss,i)=>({i,tss}))
-    .sort((a,b)=>a.tss-b.tss)
-    .filter(d=>{
-      const belowAvg=d.tss<avg*0.75;
-      const adjToMax=Math.abs(d.i-maxIdx)<=1;
-      const types=(weekSessions[d.i]?.sessions||[]).map(s=>s.typeNum).filter(Boolean);
-      const hasQual=types.some(t=>NUTR_SESSION_TYPES[t]?.qualitySession);
-      return belowAvg&&!adjToMax&&!hasQual;
-    })
-    .slice(0,2).map(d=>d.i);
-}
-function nutrCalcDay(profile,sessions,tsb,prevAdj,nextAdj,twoAdj,isCut){
-  const wt=profile.weight_lbs||168;
-  const pf=profile.protein_factor||1.09;
-  const ff=profile.fat_floor||85;
-  const fc=profile.fat_ceiling||110;
-  const mode=profile.mode||1;
-  const active=(sessions||[]).filter(s=>s.typeNum&&s.durationMins);
-  if(!active.length){
-    const rc=Math.round(wt*1.36);
-    const rp=Math.round(wt*pf);
-    return{carbs:rc,protein:rp,fat:fc,kcal:Math.round(rc*4+rp*4+fc*9),pre:0,intra:0,
-      post:Math.round(wt/2.20462*1.2),foodCarbs:rc,rawTss:0,adjTss:0,
-      intent:nutrEnergyIntent(mode,0,false),sessions:[]};
-  }
-  const rawTss=nutrCalcRawTss(active);
-  const adjTss=nutrCalcAdjTss(active);
-  const scale=nutrTsbScale(tsb);
-  const base=nutrTssToGPerLb(adjTss);
-  const cLoad=Math.min(1.30,nutrPreFactor(nextAdj,twoAdj)*nutrPostFactor(prevAdj));
-  let carbs=Math.round(wt*base*scale*cLoad);
-  carbs=Math.max(Math.round(wt*1.36),carbs);
-  console.log('[nutrCalcDay] sessions:',active.map(s=>({type:s.typeNum,dur:s.durationMins})),'adjTss:',Math.round(adjTss),'base g/lb:',base.toFixed(2),'scale:',scale.toFixed(2),'cLoad:',cLoad.toFixed(2),'carbs:',carbs);
-  const pfAdj=(prevAdj!=null&&prevAdj>120)?Math.max(pf,1.14):pf;
-  const protein=Math.round(wt*pfAdj);
-  let fat;
-  if(adjTss<50) fat=fc;
-  else if(adjTss<100) fat=Math.round(ff+(fc-ff)*0.65);
-  else if(adjTss<160) fat=Math.round(ff+(fc-ff)*0.30);
-  else fat=ff;
-  const intra=active.reduce((s,x)=>s+nutrCalcIntra(x.typeNum,x.durationMins),0);
-  const top=active.reduce((a,b)=>(NUTR_SESSION_TYPES[a.typeNum]?.tssPerHour||0)>(NUTR_SESSION_TYPES[b.typeNum]?.tssPerHour||0)?a:b);
-  const pre=nutrCalcPre(top.typeNum,carbs);
-  const post=Math.round(wt/2.20462*1.2);
-  return{carbs,protein,fat,kcal:Math.round(carbs*4+protein*4+fat*9),pre,intra,post,
-    foodCarbs:Math.max(0,carbs-intra),rawTss:Math.round(rawTss),adjTss:Math.round(adjTss),
-    intent:nutrEnergyIntent(mode,adjTss,isCut&&mode===1&&adjTss<130),
-    sessions:active.map(s=>({...s,name:NUTR_SESSION_TYPES[s.typeNum]?.name||'Unknown',
-      intra:nutrCalcIntra(s.typeNum,s.durationMins),
-      estTss:Math.round((NUTR_SESSION_TYPES[s.typeNum]?.tssPerHour||40)*s.durationMins/60)}))};
-}
-function nutrCalcWeek(profile,weekSessions,tsb){
-  const rawTss=weekSessions.map(d=>nutrCalcRawTss(d.sessions||[]));
-  const adjTss=weekSessions.map(d=>nutrCalcAdjTss(d.sessions||[]));
-  const cuts=profile.mode===1?nutrIdentifyCutDays(rawTss,weekSessions):[];
-  return weekSessions.map((d,i)=>nutrCalcDay(
-    profile,d.sessions||[],tsb,
-    i>0?adjTss[i-1]:null,
-    i<6?adjTss[i+1]:null,
-    i<5?adjTss[i+2]:null,
-    cuts.includes(i)
-  ));
+  return [7,9,10,13,14,15,16].includes(Number(typeNum))?Math.round(dailyCarbs*0.20):0;
 }
 function nutrCalcWindows(sessions,targets,foodEntries){
   const active=(sessions||[]).filter(s=>s.typeNum&&s.startTime);
@@ -3457,7 +3334,7 @@ function nutrRender(){
 // ═══════════════════════════════════════════════════════════════════
 function nutrRenderToday(){
   const el=document.getElementById('nutr-today');
-  const dayResult=calcDayTargets(nutrTodayStr(),nutr.profile);
+  const dayResult=calcDayTargets(nutrTodayStr(),nutr.profile,nutr.weekWorkouts,allActivities);
   const mode=nutr.profile.mode||1;
   const wkly=nutr.profile.weekly_loss_target||0.5;
   const tdeeResult={tdee:dayResult.tdee,bmr:dayResult.bmr,neat:dayResult.neat,exercise:dayResult.exercise};
@@ -3988,7 +3865,7 @@ function nutrRemoveFood(id){
 async function nutrSaveTodayLog(){
   if(!currentAthlete?.id)return;
   const today=nutrTodayStr();
-  const _dayResult=calcDayTargets(today,nutr.profile);
+  const _dayResult=calcDayTargets(today,nutr.profile,nutr.weekWorkouts,allActivities);
   const adjCarbs=Math.max(_dayResult.carbs,_dayResult.carbs+nutrAdjTotal());
   const adjKcal=adjCarbs*4+_dayResult.protein*4+_dayResult.fat*9;
   const _eC=nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0);
@@ -4106,7 +3983,7 @@ function nutrRenderWeek(){
     if(pc==='other'||ac==='other') return pc===ac; // don't cross-match unknowns
     return pc===ac;
   }
-  const weekResults=wb.dates.map(date=>calcDayTargets(date,nutr.profile));
+  const weekResults=wb.dates.map(date=>calcDayTargets(date,nutr.profile,nutr.weekWorkouts,allActivities));
   const maxCarbs=Math.max(1,...weekResults.map(r=>r.carbs+r.intra));
   const sel=nutr.weekSelectedDay;
 
