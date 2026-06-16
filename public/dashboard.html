@@ -820,8 +820,9 @@ async function loadDashboard(){
     monday.setDate(monday.getDate()-diffToMonday);
     monday.setHours(0,0,0,0);
     const lastMonday=new Date(monday);lastMonday.setDate(monday.getDate()-7);
-    const thisWeekLoad=Math.round(sorted.filter(a=>{const d=new Date(a.start_date_local);return d>=monday&&d<=now;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
-    const lastWeekLoad=Math.round(sorted.filter(a=>{const d=new Date(a.start_date_local);return d>=lastMonday&&d<monday;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
+    const nowStr=toYMD(now);const mondayStr=toYMD(monday);const lastMondayStr=toYMD(lastMonday);
+    const thisWeekLoad=Math.round(sorted.filter(a=>{const ds=(a.start_date_local||'').slice(0,10);return ds>=mondayStr&&ds<=nowStr;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
+    const lastWeekLoad=Math.round(sorted.filter(a=>{const ds=(a.start_date_local||'').slice(0,10);return ds>=lastMondayStr&&ds<mondayStr;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
     const weekEl=document.getElementById('mWeek');
     weekEl.textContent=thisWeekLoad;weekEl.style.color='#c8f036';
     const lastWeekEl=document.getElementById('mLastWeek');
@@ -870,6 +871,9 @@ function buildRamp(){
   pillEl.style.background='#7F77DD22';
   pillEl.style.border='1px solid #7F77DD44';
 }
+
+// Format a Date as YYYY-MM-DD in local time (avoids UTC-shift from toISOString).
+function toYMD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 
 // Monday 00:00 of the calendar week containing `d`.
 function mondayOf(d){
@@ -1041,7 +1045,7 @@ function buildSportLoad(acts){
   const datasets=sports.map(sp=>({
     label:sportLabels[sp],
     backgroundColor:sportColors[sp],
-    data:weeks.map(w=>Math.round(acts.filter(a=>{const d=new Date(a.start_date_local);return d>=w.start&&d<=w.end&&sportClass(a.type)===sp;}).reduce((s,a)=>s+(a.icu_training_load||0),0))),
+    data:weeks.map(w=>Math.round(acts.filter(a=>{const ds=(a.start_date_local||'').slice(0,10);return ds>=toYMD(w.start)&&ds<=toYMD(w.end)&&sportClass(a.type)===sp;}).reduce((s,a)=>s+(a.icu_training_load||0),0))),
     stack:'load'
   })).filter(ds=>ds.data.some(v=>v>0));
   if(sportLoadInst)sportLoadInst.destroy();
@@ -1079,7 +1083,7 @@ function buildLoad(acts){
   });
 
   const vals=buckets.map(b=>{
-    const bucket=filtered.filter(a=>{const d=new Date(a.start_date_local);return d>=b.start&&d<=b.end;});
+    const bucket=filtered.filter(a=>{const ds=(a.start_date_local||'').slice(0,10);return ds>=toYMD(b.start)&&ds<=toYMD(b.end);});
     if(metric==='load')   return Math.round(bucket.reduce((s,a)=>s+(a.icu_training_load||0),0));
     if(metric==='duration')return Math.round(bucket.reduce((s,a)=>s+(a.moving_time||0),0)/360)/10; // seconds→hours, 1dp
     if(metric==='distance')return Math.round(bucket.reduce((s,a)=>s+(a.distance||0),0)/1609.34*10)/10; // m→mi, 1dp
@@ -1376,7 +1380,7 @@ async function onZoneDistControlChange(){
 
   el.innerHTML='<div class="empty-note">Loading zones...</div>';
   const cutoff=new Date();cutoff.setDate(cutoff.getDate()-win);
-  const acts=allActivities.filter(a=>sportClass(a.type)===sport&&new Date(a.start_date_local)>=cutoff).slice(0,20);
+  const cutoffStr=toYMD(cutoff);const acts=allActivities.filter(a=>sportClass(a.type)===sport&&(a.start_date_local||'').slice(0,10)>=cutoffStr).slice(0,20);
   if(!acts.length){el.innerHTML='<div class="empty-note">No '+sport+' activities in this window</div>';return;}
   try{
     // Cycling only: watts streams
@@ -1661,7 +1665,7 @@ async function renderCurve(){
 
       // Last 30 days: stream-based from recent rides
       const recentRides=allActivities.filter(a=>{
-        return sportClass(a.type)==='cycling'&&new Date(a.start_date_local)>=thirtyDaysAgo;
+        return sportClass(a.type)==='cycling'&&(a.start_date_local||'').slice(0,10)>=toYMD(thirtyDaysAgo);
       }).slice(0,10);
       let recentPairs=null;
       if(recentRides.length){
@@ -1978,7 +1982,7 @@ function renderAthCal(){
   for(let i=0;i<42;i++){
     const d=new Date(gridStart);
     d.setDate(gridStart.getDate()+i);
-    const key=d.toISOString().split('T')[0];
+    const key=toYMD(d);
     const otherMonth=d.getMonth()!==athCalMonth.getMonth();
     const wos=woByDate[key]||[];
     const races=raceByDate[key]||[];
