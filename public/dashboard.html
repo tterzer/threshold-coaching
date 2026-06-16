@@ -3029,7 +3029,7 @@ function nutrCalcDay(profile,sessions,tsb,prevAdj,nextAdj,twoAdj,isCut){
   if(!active.length){
     const rc=Math.round(wt*1.36);
     const rp=Math.round(wt*pf);
-    return{carbs:rc,protein:rp,fat:fc,kcal:rc*4+rp*4+fc*9,pre:0,intra:0,
+    return{carbs:rc,protein:rp,fat:fc,kcal:Math.round(rc*4+rp*4+fc*9),pre:0,intra:0,
       post:Math.round(wt/2.20462*1.2),foodCarbs:rc,rawTss:0,adjTss:0,
       intent:nutrEnergyIntent(mode,0,false),sessions:[]};
   }
@@ -3040,7 +3040,8 @@ function nutrCalcDay(profile,sessions,tsb,prevAdj,nextAdj,twoAdj,isCut){
   const cLoad=Math.min(1.30,nutrPreFactor(nextAdj,twoAdj)*nutrPostFactor(prevAdj));
   let carbs=Math.round(wt*base*scale*cLoad);
   if(mode===1&&isCut&&adjTss<130) carbs=Math.round(carbs*0.85);
-  carbs=Math.max(Math.round(wt*1.36),carbs);
+  carbs=Math.min(600,Math.max(Math.round(wt*1.36),carbs));
+  console.log('[nutrCalcDay] sessions:',active.map(s=>({type:s.typeNum,dur:s.durationMins})),'adjTss:',Math.round(adjTss),'base g/lb:',base.toFixed(2),'scale:',scale.toFixed(2),'cLoad:',cLoad.toFixed(2),'carbs:',carbs);
   const pfAdj=(prevAdj!=null&&prevAdj>120)?Math.max(pf,1.14):pf;
   const protein=Math.round(wt*pfAdj);
   let fat;
@@ -3052,7 +3053,7 @@ function nutrCalcDay(profile,sessions,tsb,prevAdj,nextAdj,twoAdj,isCut){
   const top=active.reduce((a,b)=>(NUTR_SESSION_TYPES[a.typeNum]?.tssPerHour||0)>(NUTR_SESSION_TYPES[b.typeNum]?.tssPerHour||0)?a:b);
   const pre=nutrCalcPre(top.typeNum,carbs);
   const post=Math.round(wt/2.20462*1.2);
-  return{carbs,protein,fat,kcal:carbs*4+protein*4+fat*9,pre,intra,post,
+  return{carbs,protein,fat,kcal:Math.round(carbs*4+protein*4+fat*9),pre,intra,post,
     foodCarbs:Math.max(0,carbs-intra),rawTss:Math.round(rawTss),adjTss:Math.round(adjTss),
     intent:nutrEnergyIntent(mode,adjTss,isCut&&mode===1&&adjTss<130),
     sessions:active.map(s=>({...s,name:NUTR_SESSION_TYPES[s.typeNum]?.name||'Unknown',
@@ -3165,10 +3166,7 @@ function nutrMatchActivity(act,planned){
   const aDur=Math.round((act.moving_time||0)/60);
   return planned.find(p=>{
     const ps=(p.sport||'').toLowerCase();
-    const ok=(isBike(aType)&&(isBike(ps)||ps.includes('tri')))||(isRun(aType)&&(isRun(ps)||ps.includes('tri')))||(isSwim(aType)&&isSwim(ps));
-    if(!ok)return false;
-    const pd=p.duration_minutes||0;
-    return !pd||Math.abs(aDur-pd)/pd<=0.6;
+    return (isBike(aType)&&(isBike(ps)||ps.includes('tri')))||(isRun(aType)&&(isRun(ps)||ps.includes('tri')))||(isSwim(aType)&&(isSwim(ps)||ps.includes('tri')));
   });
 }
 
@@ -3316,7 +3314,7 @@ async function nutrRefreshActivities(){
   const iId=currentAthlete.intervals_athlete_id,iKey=currentAthlete.intervals_api_key;
   const today=nutrTodayStr();
   const tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1);
-  const tomStr=tomorrow.toISOString().split('T')[0];
+  const tomStr=_localStr(tomorrow);
   const btn=document.getElementById('nutrRefreshBtn');
   if(btn){btn.textContent='...';btn.disabled=true;}
   const activities=await fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=activities&qs=oldest='+today+'%26newest='+tomStr).then(r=>r.json()).catch(()=>[]);
@@ -3415,6 +3413,7 @@ function nutrRenderToday(){
   const adjCarbs=Math.max(tCarbsFromTdee,tCarbsFromTdee+adjTotal);
   const adjKcal=adjCarbs*4+tProtein*4+tFat*9;
   const adj={...targets,carbs:adjCarbs,kcal:adjKcal};
+  if(!adj.kcal||isNaN(adj.kcal)) adj.kcal=Math.round(adj.carbs*4+adj.protein*4+adj.fat*9);
   const eaten={
     carbs:nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0),
     protein:nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0),
@@ -4049,9 +4048,18 @@ function nutrRenderWeek(){
   const el=document.getElementById('nutr-week');
   const wb=nutrGetWeekBounds();
   const tsb=nutr.wellness?.form??null;
+  function sportClass2(s){
+    s=(s||'').toLowerCase();
+    if(/ride|cycl|virtual|bike/.test(s))return'cycling';
+    if(/run|jog|treadmill|trail/.test(s))return'running';
+    if(/swim|pool|open.?water/.test(s))return'swimming';
+    if(/strength|weight|gym|lift/.test(s))return'strength';
+    return'other';
+  }
   function sameWeekSport(plannedSport,actType){
-    const sc=s=>/ride|cycl|virtual|bike/i.test(s)?'cycling':/run|jog/i.test(s)?'running':/swim/i.test(s)?'swimming':'other';
-    return sc(plannedSport)===sc(actType);
+    const pc=sportClass2(plannedSport),ac=sportClass2(actType);
+    if(pc==='other'||ac==='other') return pc===ac; // don't cross-match unknowns
+    return pc===ac;
   }
   // Build per-day session arrays — use planned workouts AND completed activities
   const daySessions=wb.dates.map(date=>{
@@ -4367,7 +4375,7 @@ function nutrRenderHistory(){
   for(let w=0;w<4;w++){
     const wEnd=new Date(today);wEnd.setDate(wEnd.getDate()-w*7-1);
     const wStart=new Date(wEnd);wStart.setDate(wEnd.getDate()-6);
-    const wS=wStart.toISOString().split('T')[0],wE=wEnd.toISOString().split('T')[0];
+    const wS=_localStr(wStart),wE=_localStr(wEnd);
     const wLogs=sorted.filter(l=>l.log_date>=wS&&l.log_date<=wE);
     const logged=wLogs.length,compliant=wLogs.filter(dayCompliant).length;
     const pct=logged?Math.round(compliant/logged*100):null;
