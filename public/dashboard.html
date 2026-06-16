@@ -2941,6 +2941,66 @@ function calcTDEE(activities){
   const exercise=calcExerciseCalories(activities||[]);
   return{tdee:bmr+neat+exercise,bmr,neat,exercise};
 }
+function calcDayTargets(date,profile){
+  const today=nutrTodayStr();
+  const isPast=date<today,isToday=date===today;
+  const wt=((nutr.weightLogs||[])[0]?.weight_lbs)||profile?.weight_lbs||currentAthlete?.weight_lbs||168;
+  const ftp=Number(currentAthlete?.ftp_watts||200);
+  let activities,sessions,source;
+  if(isPast||isToday){
+    activities=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(date));
+    sessions=activities.map(a=>({
+      typeNum:nutrMapWorkoutToTypeNum(a.type||a.sport_type,Math.round((a.moving_time||0)/60)||30),
+      durationMins:Math.round((a.moving_time||0)/60)||30,
+      startTime:(a.start_date_local||'').slice(11,16),
+    }));
+    source=isToday?'live':'actual';
+  }else{
+    const planned=(nutr.weekWorkouts||[]).filter(w=>w.date===date);
+    activities=planned.map(w=>({
+      type:w.sport||'',
+      moving_time:(w.duration_minutes||60)*60,
+      average_watts:ftp*0.75,
+      distance:(w.duration_minutes||60)/9*1609,
+    }));
+    sessions=planned.map(w=>({
+      typeNum:w.fuelpro_type||nutrMapWorkoutToTypeNum(w.sport,w.duration_minutes),
+      durationMins:w.duration_minutes||60,
+      startTime:w.start_time||'',
+    }));
+    source='predicted';
+  }
+  const tdeeResult=calcTDEE(activities);
+  const mode=profile.mode||1;
+  const wkly=profile.weekly_loss_target||0.5;
+  let tdeeTarget=tdeeResult.tdee;
+  if(mode===1) tdeeTarget=Math.round(tdeeResult.tdee-(wkly*500));
+  else if(mode===3) tdeeTarget=tdeeResult.tdee+300;
+  const adjTss=nutrCalcAdjTss(sessions);
+  const pf=profile.protein_factor||1.09;
+  const ff=profile.fat_floor||85;
+  const fc=profile.fat_ceiling||110;
+  const protein=Math.round(wt*pf);
+  let fat;
+  if(adjTss<50) fat=fc;
+  else if(adjTss<100) fat=Math.round(ff+(fc-ff)*0.65);
+  else if(adjTss<160) fat=Math.round(ff+(fc-ff)*0.30);
+  else fat=ff;
+  const carbs=Math.max(0,Math.round((tdeeTarget-protein*4-fat*9)/4));
+  const kcal=Math.round(carbs*4+protein*4+fat*9);
+  const active=sessions.filter(s=>s.typeNum&&s.durationMins);
+  const intra=active.reduce((s,x)=>s+nutrCalcIntra(x.typeNum,x.durationMins),0);
+  const top=active.length?active.reduce((a,b)=>(NUTR_SESSION_TYPES[a.typeNum]?.tssPerHour||0)>(NUTR_SESSION_TYPES[b.typeNum]?.tssPerHour||0)?a:b):null;
+  const pre=top?nutrCalcPre(top.typeNum,carbs):0;
+  const post=Math.round(wt/2.20462*1.2);
+  return{
+    carbs,protein,fat,kcal,intra,pre,post,
+    foodCarbs:Math.max(0,carbs-intra),
+    tdee:tdeeResult.tdee,bmr:tdeeResult.bmr,neat:tdeeResult.neat,exercise:tdeeResult.exercise,
+    tdeeTarget,intent:nutrEnergyIntent(mode,adjTss,mode===1),source,
+    sessions:active,rawTss:0,adjTss:Math.round(adjTss),
+  };
+}
 // ─────────────────────────────────────────────────────────────────
 
 function nutrCalcAdjTss(sessions){
@@ -3397,22 +3457,15 @@ function nutrRender(){
 // ═══════════════════════════════════════════════════════════════════
 function nutrRenderToday(){
   const el=document.getElementById('nutr-today');
-  const tsb=nutr.wellness?.form??null;
-  const targets=nutrCalcDay(nutr.profile,nutr.todaySessions,tsb);
-  const tdeeResult=calcTDEE(nutr.completedActivities);
+  const dayResult=calcDayTargets(nutrTodayStr(),nutr.profile);
   const mode=nutr.profile.mode||1;
   const wkly=nutr.profile.weekly_loss_target||0.5;
-  let tdeeTarget=tdeeResult.tdee;
-  if(mode===1) tdeeTarget=Math.round(tdeeResult.tdee-(wkly*500));
-  else if(mode===3) tdeeTarget=tdeeResult.tdee+300;
-  const tProtein=targets.protein;
-  const tFat=targets.fat;
-  const tCarbsFromTdee=Math.max(0,Math.round((tdeeTarget-tProtein*4-tFat*9)/4));
+  const tdeeResult={tdee:dayResult.tdee,bmr:dayResult.bmr,neat:dayResult.neat,exercise:dayResult.exercise};
+  const tdeeTarget=dayResult.tdeeTarget;
   const adjTotal=nutrAdjTotal();
-  const adjCarbs=Math.max(tCarbsFromTdee,tCarbsFromTdee+adjTotal);
-  const adjKcal=adjCarbs*4+tProtein*4+tFat*9;
-  const adj={...targets,carbs:adjCarbs,kcal:adjKcal};
-  if(!adj.kcal||isNaN(adj.kcal)) adj.kcal=Math.round(adj.carbs*4+adj.protein*4+adj.fat*9);
+  const adjCarbs=Math.max(dayResult.carbs,dayResult.carbs+adjTotal);
+  const adjKcal=adjCarbs*4+dayResult.protein*4+dayResult.fat*9;
+  const adj={...dayResult,carbs:adjCarbs,kcal:adjKcal};
   const eaten={
     carbs:nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0),
     protein:nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0),
@@ -3935,17 +3988,9 @@ function nutrRemoveFood(id){
 async function nutrSaveTodayLog(){
   if(!currentAthlete?.id)return;
   const today=nutrTodayStr();
-  const tsb=nutr.wellness?.form??null;
-  const targets=nutrCalcDay(nutr.profile,nutr.todaySessions,tsb);
-  const tdeeResult=calcTDEE(nutr.completedActivities);
-  const _mode=nutr.profile.mode||1;
-  const _wkly=nutr.profile.weekly_loss_target||0.5;
-  let _tdeeTarget=tdeeResult.tdee;
-  if(_mode===1) _tdeeTarget=Math.round(tdeeResult.tdee-(_wkly*500));
-  else if(_mode===3) _tdeeTarget=tdeeResult.tdee+300;
-  const _tCarbsFromTdee=Math.max(0,Math.round((_tdeeTarget-targets.protein*4-targets.fat*9)/4));
-  const adjCarbs=Math.max(_tCarbsFromTdee,_tCarbsFromTdee+nutrAdjTotal());
-  const adjKcal=adjCarbs*4+targets.protein*4+targets.fat*9;
+  const _dayResult=calcDayTargets(today,nutr.profile);
+  const adjCarbs=Math.max(_dayResult.carbs,_dayResult.carbs+nutrAdjTotal());
+  const adjKcal=adjCarbs*4+_dayResult.protein*4+_dayResult.fat*9;
   const _eC=nutr.foodEntries.reduce((s,e)=>s+(e.carbs||0),0);
   const _eP=nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0);
   const _eF=nutr.foodEntries.reduce((s,e)=>s+(e.fat||0),0);
@@ -3954,9 +3999,9 @@ async function nutrSaveTodayLog(){
     athlete_id:currentAthlete.id,log_date:today,
     food_entries:nutr.foodEntries,
     sessions:nutr.foodEntries,
-    target_carbs:adjCarbs,target_protein:targets.protein,target_fat:targets.fat,target_kcal:adjKcal,
+    target_carbs:adjCarbs,target_protein:_dayResult.protein,target_fat:_dayResult.fat,target_kcal:adjKcal,
     actual_carbs:eaten.carbs||null,actual_protein:eaten.protein||null,actual_fat:eaten.fat||null,actual_kcal:eaten.kcal||null,
-    intent:targets.intent.label,
+    intent:_dayResult.intent.label,
   };
   console.log('[FuelPro SAVE] athlete_id:', currentAthlete.id);
   console.log('[FuelPro SAVE] payload:', JSON.parse(JSON.stringify(payload)));
@@ -4061,23 +4106,7 @@ function nutrRenderWeek(){
     if(pc==='other'||ac==='other') return pc===ac; // don't cross-match unknowns
     return pc===ac;
   }
-  // Build per-day session arrays — use planned workouts AND completed activities
-  const daySessions=wb.dates.map(date=>{
-    const wos=(nutr.weekWorkouts||[]).filter(w=>w.date===date);
-    const acts=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(date));
-    if(wos.length){
-      // Planned workouts drive the algorithm; completed activities are attached for display
-      return wos.map(w=>{
-        const matched=acts.find(a=>sameWeekSport(w.sport||'',a.sport_type||a.type||''));
-        const actualMins=matched?Math.round((matched.moving_time||0)/60)||null:null;
-        return{typeNum:w.fuelpro_type||nutrMapWorkoutToTypeNum(w.sport,w.duration_minutes),durationMins:w.duration_minutes||60,startTime:w.start_time||'',title:w.title||w.sport||'Workout',sport:w.sport||'',planned:true,matchedAct:matched||null,actualMins};
-      });
-    }
-    if(acts.length) return acts.map(a=>{const mins=Math.round((a.moving_time||0)/60)||30;return{typeNum:nutrMapWorkoutToTypeNum(a.sport_type||a.type,mins),durationMins:mins,startTime:'',title:a.name||a.sport_type||'Activity',sport:a.sport_type||a.type||'',planned:false,matchedAct:a,actualMins:mins};});
-    return [{typeNum:null,durationMins:null,planned:false}];
-  });
-  const weekDayData=wb.dates.map((date,i)=>({day:NUTR_DAYS[i],date,sessions:daySessions[i]}));
-  const weekResults=nutrCalcWeek(nutr.profile,weekDayData,tsb);
+  const weekResults=wb.dates.map(date=>calcDayTargets(date,nutr.profile));
   const maxCarbs=Math.max(1,...weekResults.map(r=>r.carbs+r.intra));
   const sel=nutr.weekSelectedDay;
 
@@ -4107,7 +4136,6 @@ function nutrRenderWeek(){
 
   // Selected day detail
   const sr=weekResults[sel];
-  const sd=weekDayData[sel];
   const selDate=wb.dates[sel];
   const wos=(nutr.weekWorkouts||[]).filter(w=>w.date===selDate);
   const selActs=(allActivities||[]).filter(a=>(a.start_date_local||'').startsWith(selDate));
@@ -4154,10 +4182,20 @@ function nutrRenderWeek(){
     sessRows=`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">Rest day</div>`;
   }
 
+  const srcLabel=sr.source==='actual'?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#639922;text-transform:uppercase;letter-spacing:0.06em">ACTUAL</span>`:sr.source==='live'?`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#c8f036;text-transform:uppercase;letter-spacing:0.06em">LIVE</span>`:`<span style="font-family:'DM Mono',monospace;font-size:9px;color:#555;text-transform:uppercase;letter-spacing:0.06em">PREDICTED</span>`;
+  const weekMode=nutr.profile.mode||1;
+  const weekWkly=nutr.profile.weekly_loss_target||0.5;
   const dayDetail=`<div class="nutr-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase">${NUTR_DAYS[sel]} — ${wb.dates[sel]}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase">${NUTR_DAYS[sel]} — ${wb.dates[sel]}</div>
+        ${srcLabel}
+      </div>
       <span class="nutr-intent ${sr.intent.cls}">${sr.intent.label}</span>
+    </div>
+    <div style="font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-bottom:10px;line-height:1.5">
+      BMR: ${sr.bmr} + NEAT: ${sr.neat} + Exercise: ${sr.exercise} = ${sr.tdee}${weekMode===1?` − ${Math.round(weekWkly*500)} (cut)`:weekMode===3?' + 300 (build)':''}
+      = <span style="color:#c8f036;font-weight:700">${sr.tdeeTarget} kcal target</span>
     </div>
     ${sessRows}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:14px">
