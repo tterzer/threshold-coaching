@@ -3236,12 +3236,10 @@ function nutrBuildSessionPillsHtml(planned,completed){
   const usedPlanIds=new Set();
   const usedSportKeys=new Set();
 
-  console.log('sportGroups:', JSON.stringify(Object.keys(sportGroups)));
   // Pass 1: for each planned workout, check for a completed match
   (planned||[]).forEach(w=>{
     const k=nutrSportKey(w.sport);
     const grp=sportGroups[k];
-    console.log('processing planned:', w.sport, w.title, 'matched:', !!grp);
     if(grp&&!usedSportKeys.has(k)){
       usedSportKeys.add(k);
       usedPlanIds.add(w.id);
@@ -3277,8 +3275,6 @@ function nutrBuildSessionPillsHtml(planned,completed){
     }
   });
 
-  console.log('completedList:', completedList.map(x=>x.pill).join('|'));
-  console.log('plannedList:', plannedList.map(x=>x.pill).join('|'));
   // Pass 2: unplanned completed sport groups (no matching planned workout)
   Object.entries(sportGroups).filter(([k])=>!usedSportKeys.has(k)).forEach(([k,grp])=>{
     const label=grp.sport.charAt(0).toUpperCase()+grp.sport.slice(1);
@@ -3414,6 +3410,7 @@ async function loadNutritionTab(){
     nutr.completedActivities=Array.isArray(activities)?activities:[];
     nutr.wellness=Array.isArray(wellnessArr)?(wellnessArr.find(w=>w.id===today)||null):null;
     nutr.workoutAdjustments=nutrComputeAdjustments(nutr.completedActivities,nutr.plannedWorkouts);
+    nutr.sessionsRendered=false;
     nutr.loaded=true;
   }catch(e){console.error('loadNutritionTab',e);nutr.loaded=true;}
   nutr.loading=false;
@@ -3431,6 +3428,7 @@ async function nutrRefreshActivities(){
   const activities=await fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=activities&qs=oldest='+today+'%26newest='+tomStr).then(r=>r.json()).catch(()=>[]);
   nutr.completedActivities=Array.isArray(activities)?activities:[];
   nutr.workoutAdjustments=nutrComputeAdjustments(nutr.completedActivities,nutr.plannedWorkouts);
+  nutr.sessionsRendered=false;
   if(btn){btn.textContent='↻';btn.disabled=false;}
   nutrRenderToday();
 }
@@ -3525,6 +3523,7 @@ async function nutrFetchForDate(dateStr){
   const allActs=Array.isArray(acts)?acts:[];
   nutr.completedActivities=allActs.filter(a=>(a.start_date_local||'').slice(0,10)===dateStr);
   nutr.workoutAdjustments=nutrComputeAdjustments(nutr.completedActivities,nutr.plannedWorkouts);
+  nutr.sessionsRendered=false;
 }
 async function nutrSetViewDate(offset){
   const d=new Date((nutr.viewDate||nutrTodayStr())+'T00:00:00');
@@ -3539,7 +3538,10 @@ async function nutrSetViewDate(offset){
 // FUELPRO — TODAY TAB
 // ═══════════════════════════════════════════════════════════════════
 function nutrRenderToday(){
+  if(nutr.sessionsRendered)return;
+  nutr.sessionsRendered=true;
   const el=document.getElementById('nutr-today');
+  if(el)el.innerHTML='';
   const viewDate=nutr.viewDate||nutrTodayStr();
   const todayStr=nutrTodayStr();
   const isToday=viewDate===todayStr;
@@ -3760,7 +3762,7 @@ function nutrCloseFoodModal(){
   document.getElementById('nutrFoodModalOverlay').classList.remove('show');
   document.body.style.overflow='';
   if(nutr.sub==='weightlog') nutrRenderWeightLog();
-  else nutrRenderToday();
+  else{nutr.sessionsRendered=false;nutrRenderToday();}
 }
 
 function nutrFoodItemHtml(item,opts={}){
@@ -4069,10 +4071,9 @@ async function nutrAddCombo(comboId){
 
 function nutrRemoveFood(id){
   nutr.foodEntries=nutr.foodEntries.filter(e=>e.id!==id);
-  console.log('SAVE CALLED FROM:', new Error().stack);
   nutrSaveTodayLog();
   if(nutr.sub==='weightlog') nutrRenderWeightLog();
-  else nutrRenderToday();
+  else{nutr.sessionsRendered=false;nutrRenderToday();}
 }
 
 async function nutrSaveTodayLog(){
