@@ -699,7 +699,7 @@ const CTL_REF_KEY='hm2l_ctl_ref';       // localStorage: TP reference CTL entere
 const CTL_OFFSET_KEY='hm2l_ctl_offset'; // localStorage: computed offset (ref - calculated)
 let fitnessSeries=[],fitnessByDate={};
 
-function dayKey(d){return new Date(d).toISOString().split('T')[0];}
+function dayKey(d){const dt=d instanceof Date?d:new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 
 // Banister/TrainingPeaks impulse-response model.
 // Iterates over all FITNESS_DAYS starting at CTL=ATL=0. For the first
