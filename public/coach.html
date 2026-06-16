@@ -605,6 +605,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('portal').style.display='block';
   loadAthletes();
 });
+window.addEventListener('beforeunload',()=>{ saveChatSession(); });
 
 async function intervalsCall(athleteId,apiKey,path,qs,base){
   const params=new URLSearchParams({athleteId,apiKey,path});
@@ -647,6 +648,7 @@ function renderAthleteList(){
 }
 
 async function selectAthlete(id){
+  await saveChatSession();
   selectedAthlete=athletes.find(a=>String(a.id)===String(id));
   if(!selectedAthlete)return;
   renderAthleteList();
@@ -1961,6 +1963,12 @@ async function loadChatHistory(){
     const r=await fetch('/api/ai-conversations?athlete_id='+encodeURIComponent(selectedAthlete.id));
     const d=await r.json();
     allChatSessions=d.conversations||[];
+    const todayStr=new Date().toISOString().split('T')[0];
+    const todaySession=allChatSessions.find(s=>s.session_date===todayStr||(s.created_at||'').slice(0,10)===todayStr);
+    if(todaySession&&Array.isArray(todaySession.messages)&&todaySession.messages.length>0){
+      chatHistory=todaySession.messages.map(m=>({role:m.role,content:m.content}));
+      viewTodaySession();
+    }
     renderChatHistorySidebar();
   }catch(e){
     console.error('loadChatHistory error',e);
