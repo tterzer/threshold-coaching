@@ -1124,6 +1124,16 @@ async function openBlockModal(evt, mode, woId, icuId){
     +'</div>';
   }
 
+  if(wo&&(wo.workout_type||wo.fuelpro_type)){
+    const FUELPRO_NAMES={1:'Rest Day',2:'Active Recovery',3:'Zone 2 / Base Aerobic',4:'Steady State',5:'Sweetspot',6:'Threshold (FTP)',7:'VO2max',8:'Anaerobic Capacity',9:'Sprint / Neuromuscular',10:'Race Simulation',11:'Easy Run',12:'Long Run',13:'Tempo Run',14:'Interval Run',15:'Hill Repeats (Run)',16:'Race Simulation (Run)',17:'Easy Swim',18:'Threshold Swim',19:'Interval Swim',20:'Brick (Bike+Run)',21:'Triathlon Race Sim',22:'Strength — Lower Body',23:'Strength — Upper Body',24:'Strength — Full Body',25:'Power / Olympic Lifting',26:'HIIT Circuit',27:'CrossFit / Functional',28:'Yoga / Mobility',29:'Pilates',30:'Core & Stability',31:'MTB / Trail Riding',32:'Gravel / Adventure',33:'E-Bike Ride',34:'Indoor Cycling (Free)',35:'Track Cycling',36:'Nordic Ski',37:'Rowing',38:'Kayak / Paddle',39:'Climbing / Bouldering',40:'Team Sport',41:'Martial Arts / Boxing',42:'Other Aerobic'};
+    const fpName=wo.fuelpro_type?FUELPRO_NAMES[wo.fuelpro_type]||('Type '+wo.fuelpro_type):'';
+    const intensity=wo.workout_type?wo.workout_type.charAt(0).toUpperCase()+wo.workout_type.slice(1):'';
+    if(fpName||intensity){
+      html+='<div class="modal-section-label">FuelPro</div>';
+      if(fpName) html+='<div class="modal-coach-notes" style="margin-bottom:4px">Type: '+escHtml(fpName)+'</div>';
+      if(intensity) html+='<div class="modal-coach-notes">Intensity: '+escHtml(intensity)+'</div>';
+    }
+  }
   const coachNotes=wo?(wo.coach_notes||wo.description||''):'';
   if(coachNotes){
     html+='<div class="modal-section-label">Coach Notes</div><div class="modal-coach-notes">'+escHtml(coachNotes)+'</div>';
@@ -1300,6 +1310,7 @@ function openDayModal(dateStr){
 }
 
 function openWoEdit(id){
+  document.getElementById('blockModal').classList.remove('show');
   const w=workoutsCache.find(x=>String(x.id)===String(id));
   if(!w)return;
   pendingDate=w.date;

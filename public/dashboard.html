@@ -2121,8 +2121,18 @@ async function openAthBlockModal(mode, woId, icuId){
     +'</div>';
   }
 
-  if(wo&&wo.coach_notes){
-    html+='<div class="modal-section-label">Coach Notes</div><div class="modal-coach-notes">'+athEscHtml(wo.coach_notes)+'</div>';
+  if(wo&&(wo.workout_type||wo.fuelpro_type)){
+    const fpType=wo.fuelpro_type?SESSION_TYPES.find(t=>t.id===Number(wo.fuelpro_type)):null;
+    const fpName=fpType?fpType.name:'';
+    const intensity=wo.workout_type?wo.workout_type.charAt(0).toUpperCase()+wo.workout_type.slice(1):'';
+    if(fpName||intensity){
+      html+='<div class="modal-section-label">FuelPro</div>';
+      if(fpName) html+='<div class="modal-coach-notes" style="margin-bottom:4px">Type: '+athEscHtml(fpName)+'</div>';
+      if(intensity) html+='<div class="modal-coach-notes">Intensity: '+athEscHtml(intensity)+'</div>';
+    }
+  }
+  if(wo&&(wo.description||wo.coach_notes)){
+    html+='<div class="modal-section-label">Coach Notes</div><div class="modal-coach-notes">'+athEscHtml(wo.description||wo.coach_notes)+'</div>';
   }
 
   // "View planned" toggle for matched mode (completed activity + planned workout)
@@ -3254,6 +3264,7 @@ const nutr={
   // week view
   weekSelectedDay:Math.max(0,new Date().getDay()-1),
   sub:'today',
+  viewDate:null,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3310,6 +3321,7 @@ async function loadNutritionTab(){
     ];
     const[prof,todayWoResp,weekWoResp,todayLog,allLogs,weights,foodHist,activities,wellnessArr]=await Promise.all(fetches);
     if(prof&&!prof.error)nutr.profile=prof;
+    nutr.viewDate=today;
     // Today's planned workouts → sessions for algorithm
     const todayPlanned=(todayWoResp?.workouts||[]).filter(w=>w.date===today);
     nutr.plannedWorkouts=todayPlanned;
@@ -3437,11 +3449,45 @@ function nutrRender(){
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// FUELPRO — DAY NAVIGATION
+// ═══════════════════════════════════════════════════════════════════
+async function nutrFetchForDate(dateStr){
+  const aid=currentAthlete?.id; if(!aid)return;
+  const iId=currentAthlete.intervals_athlete_id,iKey=currentAthlete.intervals_api_key;
+  const next=new Date(dateStr+'T00:00:00'); next.setDate(next.getDate()+1);
+  const nextStr=_localStr(next);
+  const[woResp,logResp,acts]=await Promise.all([
+    fetch('/api/workouts?athlete_id='+encodeURIComponent(aid)+'&start='+dateStr+'&end='+dateStr).then(r=>r.json()).catch(()=>({})),
+    fetch('/api/nutrition-data?type=log&athlete_id='+aid+'&date='+dateStr).then(r=>r.json()).catch(()=>({})),
+    iId&&iKey?fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=activities&qs=oldest='+dateStr+'%26newest='+nextStr).then(r=>r.json()).catch(()=>[]):Promise.resolve([]),
+  ]);
+  nutr.plannedWorkouts=(woResp?.workouts||[]).filter(w=>w.date===dateStr);
+  const rawFE=logResp?.food_entries,rawSess=logResp?.sessions;
+  nutr.foodEntries=Array.isArray(rawFE)?rawFE:(Array.isArray(rawSess)?rawSess:[]);
+  nutr.todayLogId=logResp?.id||null;
+  nutr.completedActivities=Array.isArray(acts)?acts:[];
+  nutr.workoutAdjustments=nutrComputeAdjustments(nutr.completedActivities,nutr.plannedWorkouts);
+}
+async function nutrSetViewDate(offset){
+  const d=new Date((nutr.viewDate||nutrTodayStr())+'T00:00:00');
+  if(offset==='today') nutr.viewDate=nutrTodayStr();
+  else{ d.setDate(d.getDate()+offset); nutr.viewDate=_localStr(d); }
+  const el=document.getElementById('nutr-today');
+  if(el) el.innerHTML='<div style="padding:2rem;font-family:\'DM Mono\',monospace;font-size:12px;color:var(--tc3)">Loading...</div>';
+  await nutrFetchForDate(nutr.viewDate);
+  nutrRenderToday();
+}
+
 // FUELPRO — TODAY TAB
 // ═══════════════════════════════════════════════════════════════════
 function nutrRenderToday(){
   const el=document.getElementById('nutr-today');
-  const dayResult=calcDayTargets(nutrTodayStr(),nutr.profile,nutr.weekWorkouts,allActivities);
+  const viewDate=nutr.viewDate||nutrTodayStr();
+  const todayStr=nutrTodayStr();
+  const isToday=viewDate===todayStr;
+  const isPast=viewDate<todayStr;
+  const dayResult=calcDayTargets(viewDate,nutr.profile,nutr.weekWorkouts,allActivities);
   const mode=nutr.profile.mode||1;
   const wkly=nutr.profile.weekly_loss_target||0.5;
   const tdeeResult={tdee:dayResult.tdee,bmr:dayResult.bmr,neat:dayResult.neat,exercise:dayResult.exercise};
@@ -3513,7 +3559,7 @@ function nutrRenderToday(){
 
   const sessSection=`<div class="nutr-card" style="padding:10px 12px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-      <div class="section-label" style="margin:0;font-size:10px">Today's sessions</div>
+      <div class="section-label" style="margin:0;font-size:10px">Sessions</div>
       ${hasIntervals?`<button id="nutrRefreshBtn" onclick="nutrRefreshActivities()" title="Refresh from intervals.icu" style="background:none;border:1px solid var(--border);color:var(--tc3);padding:2px 8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px">↻</button>`:''}
     </div>
     <div class="nutr-pills-row" style="gap:4px">${pills}</div>
@@ -3531,7 +3577,7 @@ function nutrRenderToday(){
       const eHtml=entries.map(e=>`<div class="nutr-food-row">
         <div class="nutr-food-name">${e.name} <span style="opacity:0.5">${e.qty}${e.unit}</span></div>
         <div class="nutr-food-macros"><span style="color:#639922">${e.protein}P</span><span style="color:#378ADD">${e.fat}F</span><span style="color:#E24B4A">${e.carbs}C</span>
-          <button onclick="nutrRemoveFood('${e.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;padding:0 0 0 6px;font-size:13px">✕</button>
+          ${isToday?`<button onclick="nutrRemoveFood('${e.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;padding:0 0 0 6px;font-size:13px">✕</button>`:''}
         </div>
       </div>`).join('');
       return `<div class="nutr-window">
@@ -3542,7 +3588,7 @@ function nutrRenderToday(){
         <div class="nutr-progress"><div class="nutr-progress-fill" style="width:${pct}%;background:${bc}"></div></div>
         ${w.type!=='intra'?`<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">P: ${w.proteinEaten}/${w.proteinTarget}g &nbsp; F: ${w.fatEaten}/${w.fatTarget}g</div>`:''}
         ${eHtml}
-        <button onclick="nutrOpenFoodModal('${w.id}')" style="margin-top:8px;width:100%;background:var(--bc);border:1px dashed var(--border);color:var(--acc);padding:6px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;text-transform:uppercase;letter-spacing:0.08em">+ Add Food</button>
+        ${isToday?`<button onclick="nutrOpenFoodModal('${w.id}')" style="margin-top:8px;width:100%;background:var(--bc);border:1px dashed var(--border);color:var(--acc);padding:6px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;text-transform:uppercase;letter-spacing:0.08em">+ Add Food</button>`:''}
       </div>`;
     }).join('');
   }else{
@@ -3563,19 +3609,30 @@ function nutrRenderToday(){
     foodLogRows=nutr.foodEntries.map(e=>`<div class="nutr-food-row">
       <div class="nutr-food-name">${e.name} <span style="opacity:0.5">${e.qty}${e.unit}</span></div>
       <div class="nutr-food-macros"><span style="color:#639922">${e.protein}P</span><span style="color:#378ADD">${e.fat}F</span><span style="color:#E24B4A">${e.carbs}C</span><span style="color:var(--tc3);margin-left:4px">${e.calories}kcal</span>
-        <button onclick="nutrRemoveFood('${e.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;padding:0 0 0 6px;font-size:13px">✕</button>
+        ${isToday?`<button onclick="nutrRemoveFood('${e.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;padding:0 0 0 6px;font-size:13px">✕</button>`:''}
       </div>
     </div>`).join('');
   }else{
-    foodLogRows=`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3);padding:12px 0">Nothing logged yet today.</div>`;
+    const emptyMsg=isPast?'No food logged for this day.':'Nothing logged yet today.';
+    foodLogRows=`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3);padding:12px 0">${emptyMsg}</div>`;
   }
+  const logLabel=isToday?"Today's food log":viewDate;
   const foodLogHtml=`<div class="nutr-card">
-    <div class="section-label" style="margin-top:0;margin-bottom:10px">Today's food log</div>
+    <div class="section-label" style="margin-top:0;margin-bottom:10px">${logLabel}</div>
     ${foodLogRows}
-    <button onclick="nutrOpenFoodModal('unassigned')" class="nutr-fab" style="margin-top:10px">+ Add Food</button>
+    ${isToday?`<button onclick="nutrOpenFoodModal('unassigned')" class="nutr-fab" style="margin-top:10px">+ Add Food</button>`:''}
   </div>`;
 
-  el.innerHTML=macroStrip+sessSection+fuelHtml+foodLogHtml;
+  // Nav header
+  const fmtViewDate=(()=>{const d=new Date(viewDate+'T00:00:00');return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});})();
+  const navHtml=`<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px">
+    <button onclick="nutrSetViewDate(-1)" style="background:none;border:1px solid var(--border);color:var(--tc2);width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1">‹</button>
+    <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);min-width:120px;text-align:center">${fmtViewDate}</span>
+    <button onclick="nutrSetViewDate(1)" ${isToday?'disabled style="opacity:0.3;cursor:default;':'style="'}background:none;border:1px solid var(--border);color:var(--tc2);width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1">›</button>
+    ${!isToday?`<button onclick="nutrSetViewDate('today')" style="background:none;border:1px solid var(--border);color:var(--acc);font-family:'DM Mono',monospace;font-size:10px;padding:3px 8px;cursor:pointer;text-transform:uppercase;letter-spacing:0.06em">Today</button>`:''}
+  </div>`;
+
+  el.innerHTML=navHtml+macroStrip+sessSection+fuelHtml+foodLogHtml;
 }
 
 // ═══════════════════════════════════════════════════════════════════
