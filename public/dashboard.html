@@ -3039,7 +3039,6 @@ function nutrCalcDay(profile,sessions,tsb,prevAdj,nextAdj,twoAdj,isCut){
   const base=nutrTssToGPerLb(adjTss);
   const cLoad=Math.min(1.30,nutrPreFactor(nextAdj,twoAdj)*nutrPostFactor(prevAdj));
   let carbs=Math.round(wt*base*scale*cLoad);
-  if(mode===1&&isCut&&adjTss<130) carbs=Math.round(carbs*0.85);
   carbs=Math.max(Math.round(wt*1.36),carbs);
   console.log('[nutrCalcDay] sessions:',active.map(s=>({type:s.typeNum,dur:s.durationMins})),'adjTss:',Math.round(adjTss),'base g/lb:',base.toFixed(2),'scale:',scale.toFixed(2),'cLoad:',cLoad.toFixed(2),'carbs:',carbs);
   const pfAdj=(prevAdj!=null&&prevAdj>120)?Math.max(pf,1.14):pf;
@@ -3419,6 +3418,7 @@ function nutrRenderToday(){
     protein:nutr.foodEntries.reduce((s,e)=>s+(e.protein||0),0),
     fat:nutr.foodEntries.reduce((s,e)=>s+(e.fat||0),0),
   };
+  eaten.kcal=Math.round(eaten.carbs*4+eaten.protein*4+eaten.fat*9);
   const rem={
     carbs:Math.max(0,adj.carbs-eaten.carbs),
     protein:Math.max(0,adj.protein-eaten.protein),
