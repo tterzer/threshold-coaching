@@ -13,14 +13,14 @@
 :root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#aaa;--tc3:#777;--border:#2a2a2a;}
 .chart-box{background:var(--bc2);padding:1.75rem;min-width:0;overflow:hidden;border:1px solid #333}
 .chart-title{font-family:'DM Mono',monospace;font-size:12px;font-weight:400;text-transform:uppercase;letter-spacing:0.15em;color:#c8f036;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
-body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;height:100vh;overflow:hidden}
+body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;height:100vh;overflow:hidden;display:flex;flex-direction:column}
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
 .nav-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
 .nav-logo img{height:52px;width:auto;display:block}
 .nav-back{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase}
 .nav-back:hover{color:var(--tc2)}
-.page{max-width:1400px;margin:0 auto;padding:0 2rem}
+.page{max-width:1400px;margin:0 auto;padding:0 2rem;flex:1;min-height:0;overflow:hidden;width:100%;display:flex;flex-direction:column}
 .gate-box{background:var(--bc2);border:1px solid var(--border);padding:2.5rem;max-width:420px;margin:5rem auto}
 .gate-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
 .gate-label::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
@@ -39,10 +39,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .error-msg{font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;margin-top:0.75rem;display:none}
 .section-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
 .section-label::before{content:'';display:block;width:24px;height:1px;background:var(--acc)}
-.portal{display:none}
-.layout{display:grid;grid-template-columns:280px 1fr;gap:1px;background:var(--border)}
-.panel{background:var(--bc2);padding:0;overflow-x:hidden}
-.athlete-list{display:flex;flex-direction:column;gap:6px;height:calc(100vh - 57px);overflow-y:auto}
+.portal{display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden}
+.layout{display:grid;grid-template-columns:280px 1fr;gap:1px;background:var(--border);flex:1;min-height:0;overflow:hidden}
+.panel{background:var(--bc2);padding:0;overflow:hidden;display:flex;flex-direction:column}
+.athlete-list{display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;overflow-y:auto}
+#athleteMain{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.athlete-bar{flex-shrink:0}
 .athlete-item{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border:1px solid transparent;transition:all 0.15s}
 .athlete-item:hover{background:var(--bc3)}
 .athlete-item.active{border-color:var(--acc);background:var(--bc3)}
@@ -67,14 +69,13 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .zone-bg-d{background:var(--bc3);height:6px}
 .zone-fill-d{height:100%}
 .zone-pct-d{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:right}
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;flex-shrink:0}
 .tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 18px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
 .tab.active{color:var(--acc);border-bottom-color:var(--acc)}
 .tab-panel{display:none}
-.tab-panel.active{display:block;height:calc(100vh - 119px);overflow-y:auto;padding:1.5rem;box-sizing:border-box}
-#tab-calendar.active{overflow:hidden;display:flex;flex-direction:column}
+.tab-panel.active{display:block;flex:1;min-height:0;overflow-y:auto;padding:1.5rem;box-sizing:border-box}
 /* Calendar */
-#tab-calendar.active{overflow:hidden;display:flex;flex-direction:column}
+#tab-calendar.active{overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;flex-shrink:0}
 .cal-wrap{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 #calHeadRow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);flex-shrink:0}
@@ -632,7 +633,7 @@ let editingRace=null;
 let pendingDate=null;
 
 window.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('portal').style.display='block';
+  document.getElementById('portal').style.display='flex';
   loadAthletes();
 });
 window.addEventListener('beforeunload',()=>{ saveChatSession(); });
@@ -683,7 +684,7 @@ async function selectAthlete(id){
   if(!selectedAthlete)return;
   renderAthleteList();
   document.getElementById('noAthlete').style.display='none';
-  document.getElementById('athleteMain').style.display='block';
+  document.getElementById('athleteMain').style.display='flex';
   const initials=(selectedAthlete.name||selectedAthlete.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('mainAvatar').textContent=initials;
   document.getElementById('mainName').textContent=selectedAthlete.name||'Unnamed athlete';
