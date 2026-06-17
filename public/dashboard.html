@@ -3705,7 +3705,7 @@ function nutrRenderToday(){
       <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.06em">${label}</span>
     </div>`;
   }
-  const macroStrip=`<div class="nutr-card" style="padding:10px 8px 8px;margin-bottom:8px">
+  const macroStrip=`<div class="nutr-card" style="padding:8px;margin-bottom:6px">
     <div style="display:flex;justify-content:space-around;align-items:flex-start">
       ${donut('Protein',eaten.protein,adj.protein,'#639922')}
       ${donut('Fat',eaten.fat,adj.fat,'#378ADD')}
@@ -3731,7 +3731,7 @@ function nutrRenderToday(){
     :`<div class="nutr-adjust-banner"><strong>${a.name}</strong>: Partial — ${a.actualMins}min of ${a.plannedMins}min planned. ${a.carbAdjust<0?`${Math.abs(a.carbAdjust)}g carbs removed.`:`+${a.carbAdjust}g carbs added.`}</div>`
   ).join('');
 
-  const sessSection=`<div class="nutr-card" style="padding:10px 12px;margin-bottom:8px">
+  const sessSection=`<div class="nutr-card" style="padding:8px 10px;margin-bottom:6px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
       <div class="section-label" style="margin:0;font-size:10px">Sessions</div>
       ${hasIntervals?`<button id="nutrRefreshBtn" onclick="nutrRefreshActivities()" title="Refresh from intervals.icu" style="background:none;border:1px solid var(--border);color:var(--tc3);padding:2px 8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px">↻</button>`:''}
@@ -3767,13 +3767,12 @@ function nutrRenderToday(){
     }).join('');
   }else{
     const hasSess=nutr.todaySessions.some(s=>s.typeNum);
-    fuelHtml=`<div class="nutr-card" style="padding:10px 12px;margin-bottom:8px">
-      <div class="section-label" style="margin-top:0;margin-bottom:7px;font-size:10px">Fuelling breakdown</div>
-      ${hasSess?`<p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:7px">Add session start times on the calendar to see time-based windows</p>`:''}
-      <div class="nutr-row" style="padding:4px 0"><span style="color:var(--tc2);font-size:12px">Pre-session</span><span style="color:#c8f036;font-weight:700;font-size:12px">${adj.pre}g carbs</span></div>
-      <div class="nutr-row" style="padding:4px 0"><span style="color:var(--tc2);font-size:12px">Intra (during)</span><span style="color:#c8f036;font-weight:700;font-size:12px">${adj.intra}g carbs</span></div>
-      <div class="nutr-row" style="padding:4px 0"><span style="color:var(--tc2);font-size:12px">Post-session recovery</span><span style="color:#639922;font-weight:700;font-size:12px">${adj.post}g protein</span></div>
-      <div class="nutr-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span style="font-weight:600;font-size:12px">From meals</span><span style="color:#E24B4A;font-size:16px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${adj.foodCarbs}g carbs</span></div>
+    fuelHtml=`<div class="nutr-card" style="padding:8px 10px;margin-bottom:6px">
+      <div class="section-label" style="margin-top:0;margin-bottom:5px;font-size:10px">Fuelling breakdown</div>
+      <div class="nutr-row" style="padding:2px 0"><span style="color:var(--tc2);font-size:11px">Pre-session</span><span style="color:#c8f036;font-weight:700;font-size:11px">${adj.pre}g carbs</span></div>
+      <div class="nutr-row" style="padding:2px 0"><span style="color:var(--tc2);font-size:11px">Intra (during)</span><span style="color:#c8f036;font-weight:700;font-size:11px">${adj.intra}g carbs</span></div>
+      <div class="nutr-row" style="padding:2px 0"><span style="color:var(--tc2);font-size:11px">Post-session recovery</span><span style="color:#639922;font-weight:700;font-size:11px">${adj.post}g protein</span></div>
+      <div class="nutr-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:4px"><span style="font-weight:600;font-size:11px">From meals</span><span style="color:#E24B4A;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif">${adj.foodCarbs}g carbs</span></div>
     </div>`;
   }
 
