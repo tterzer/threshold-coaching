@@ -1648,6 +1648,8 @@ async function fetchStream(activityId,type){
 const HM2L_RUN_SWIM_START='2026-06-08';
 const CURVE_DURATIONS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
 const CURVE_LABELS=['5s','10s','30s','1m','2m','5m','10m','20m','30m','1h','90m','2h'];
+const SWIM_CURVE_DISTANCES=[25,50,100,200,400,500,1000,1500];
+const SWIM_CURVE_LABELS=['25y','50y','100y','200y','400y','500y','1000y','1500y'];
 
 // Rolling max average over a sliding window — used for cycling watts.
 function rollingMax(arr,windowSecs){
@@ -1712,6 +1714,45 @@ async function buildStreamCurve(acts, streamType, progressId){
 function mpsToSecsPerMile(v){return v>0?1609.34/v:null;}
 function mpsToSecsPer100m(v){return v>0?100/v:null;}
 function fmtPace(secs){if(!secs||secs<=0)return'—';const m=Math.floor(secs/60),s=Math.round(secs%60);return m+':'+(s<10?'0':'')+s;}
+
+// Lap-based swim curve. Returns array aligned to SWIM_CURVE_DISTANCES.
+// Each element is best pace in sec/100yd (null if no data).
+async function buildSwimCurve(swims){
+  const best=SWIM_CURVE_DISTANCES.map(()=>null);
+  let done=0;
+  const progEl=()=>document.getElementById('curveProg');
+  await Promise.all(swims.map(async a=>{
+    try{
+      const data=await apiCall(curId,curKey,a.id,'fields=laps','activity');
+      const laps=(data&&data.laps)||[];
+      done++;const el=progEl();if(el)el.style.width=Math.round(done/swims.length*100)+'%';
+      if(!laps.length)return;
+      // Build array of {t, d} cumulative from lap elapsed_time and distance
+      const lapSegs=laps.map(l=>({t:l.elapsed_time||0,d:l.distance||0})).filter(l=>l.t>0&&l.d>0);
+      if(!lapSegs.length)return;
+      SWIM_CURVE_DISTANCES.forEach((targetYards,di)=>{
+        const targetMeters=targetYards*0.9144;
+        // Sliding window over consecutive laps: find min time to cover >= targetMeters
+        for(let i=0;i<lapSegs.length;i++){
+          let cumDist=0,cumTime=0;
+          for(let j=i;j<lapSegs.length;j++){
+            cumDist+=lapSegs[j].d;
+            cumTime+=lapSegs[j].t;
+            if(cumDist>=targetMeters){
+              // Scale time to exact target distance
+              const pace=(cumTime/cumDist)*targetMeters/targetYards*100;
+              if(best[di]===null||pace<best[di])best[di]=pace;
+              break;
+            }
+          }
+        }
+      });
+    }catch(e){
+      done++;const el=progEl();if(el)el.style.width=Math.round(done/swims.length*100)+'%';
+    }
+  }));
+  return best;
+}
 
 // Render the dual-dataset power/pace chart.
 // allTimePairs: [{s,v}] — raw stream units (watts or m/s)
@@ -1837,6 +1878,68 @@ function drawCurveChart(box, allTimePairs, recentPairs, isRun, note, allTimeLabe
     +(note?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:0.6rem">'+note+'</div>':'');
 }
 
+function drawSwimCurveChart(box,allPairs,recentPairs,note){
+  // allPairs/recentPairs: [{d: yards, v: sec/100yd}]
+  const lookup=(pairs,targetD)=>{
+    if(!pairs||!pairs.length)return null;
+    const p=pairs.find(x=>x.d===targetD);
+    return p?p.v:null;
+  };
+  const validDists=SWIM_CURVE_DISTANCES.filter(d=>lookup(allPairs,d)!=null||lookup(recentPairs||[],d)!=null);
+  if(!validDists.length){box.innerHTML='<div class="empty-note">No swim lap data for these distances.</div>';return;}
+  const labels=validDists.map(d=>SWIM_CURVE_LABELS[SWIM_CURVE_DISTANCES.indexOf(d)]);
+  const allData=validDists.map(d=>lookup(allPairs,d));
+  const recData=recentPairs?validDists.map(d=>lookup(recentPairs,d)):null;
+  const isNewPeak=i=>{
+    if(!recData)return false;
+    const a=allData[i],r=recData[i];
+    return a!=null&&r!=null&&r<a;
+  };
+  if(curveInst)curveInst.destroy();
+  box.style.overflow='hidden';
+  box.innerHTML='<div style="position:relative;height:230px;width:100%;max-width:100%;overflow:hidden"><canvas id="curveChart" style="max-width:100%;width:100%"></canvas></div><div id="curveTableWrap"></div>';
+  const datasets=[{
+    label:'All-time best',
+    data:allData,
+    borderColor:'#c8f036',backgroundColor:'rgba(200,240,54,0.13)',
+    fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#c8f036',order:2
+  }];
+  if(recData){
+    datasets.push({
+      label:'Last 30 days',
+      data:recData,
+      borderColor:'#378ADD',backgroundColor:'transparent',
+      fill:false,tension:0.3,pointRadius:4,order:1,
+      pointBackgroundColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
+      pointBorderColor:ctx=>isNewPeak(ctx.dataIndex)?'#00ff88':'#378ADD',
+      segment:{borderColor:ctx=>isNewPeak(ctx.p0DataIndex)?'#00ff88':'#378ADD'}
+    });
+  }
+  curveInst=new Chart(document.getElementById('curveChart'),{
+    type:'line',
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#aaa',font:{size:11}}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmtPace(ctx.raw)+'/100y'}}},
+      scales:{
+        x:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}},
+        y:{reverse:true,min:60,max:200,ticks:{color:'#666',font:{size:10},stepSize:20,callback:v=>fmtPace(v)+'/100y'},grid:{color:'#1a1a1a'}}
+      }
+    }
+  });
+  // Table
+  const rows=validDists.map((d,i)=>{
+    const a=allData[i],r=recData?recData[i]:null;
+    const pk=r!=null&&a!=null&&r<a;
+    return`<tr><td>${SWIM_CURVE_LABELS[SWIM_CURVE_DISTANCES.indexOf(d)]}</td><td>${a!=null?fmtPace(a)+'/100y':'—'}</td><td style="${pk?'color:#00ff88;font-weight:600':''}">${r!=null?fmtPace(r)+'/100y'+(pk?' ★':''):'—'}</td></tr>`;
+  }).join('');
+  document.getElementById('curveTableWrap').innerHTML=
+    '<table style="width:100%;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--tc2);border-collapse:collapse;margin-top:0.75rem">'
+    +'<thead><tr style="color:var(--tc3);font-size:10px"><th style="text-align:left;padding:4px 8px">Distance</th><th style="text-align:right;padding:4px 8px">All-time</th><th style="text-align:right;padding:4px 8px">Last 30d</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>'
+    +(note?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:0.6rem">'+note+'</div>':'');
+}
+
 async function renderCurve(){
   const sport=document.getElementById('curveSport').value;
   const box=document.getElementById('curveBox');
@@ -1901,17 +2004,17 @@ async function renderCurve(){
       if(!swims.length){box.innerHTML='<div class="empty-note">No swim data available — complete a swim synced from intervals.icu</div>';return;}
       const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
       const recentSwims=swims.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
-      const allBest=await buildStreamCurve(swims,'velocity_smooth','curveProg');
-      const allPairs=CURVE_DURATIONS.map((s,i)=>allBest[i]!=null?{s,v:allBest[i]}:null).filter(Boolean);
+      const allBest=await buildSwimCurve(swims);
+      const allPairs=SWIM_CURVE_DISTANCES.map((d,i)=>allBest[i]!=null?{d,v:allBest[i]}:null).filter(Boolean);
       let recentPairs=null;
       if(recentSwims.length){
-        const recentBest=await buildStreamCurve(recentSwims,'velocity_smooth','curveProg');
-        const rp=CURVE_DURATIONS.map((s,i)=>recentBest[i]!=null?{s,v:recentBest[i]}:null).filter(Boolean);
+        const recentBest=await buildSwimCurve(recentSwims);
+        const rp=SWIM_CURVE_DISTANCES.map((d,i)=>recentBest[i]!=null?{d,v:recentBest[i]}:null).filter(Boolean);
         if(rp.length)recentPairs=rp;
       }
-      if(!allPairs.length){box.innerHTML='<div class="empty-note">No swim velocity stream data available — streams may not be cached yet</div>';return;}
-      const note='All swims: velocity_smooth streams'+(recentPairs?' | 30 days: '+recentSwims.length+' swims':'');
-      drawCurveChart(box,allPairs,recentPairs,false,note,null,true);
+      if(!allPairs.length){box.innerHTML='<div class="empty-note">No swim lap data available — swims may not have lap data in intervals.icu</div>';return;}
+      const note='All swims: lap-based'+(recentPairs?' | 30 days: '+recentSwims.length+' swims':'');
+      drawSwimCurveChart(box,allPairs,recentPairs,note);
     }catch(e){
       box.innerHTML='<div class="empty-note">Could not load swim pace curve: '+(e.message||'error')+'</div>';
     }
