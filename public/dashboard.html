@@ -1736,10 +1736,9 @@ async function buildSwimCurve(swims){
     try{
       const data=await fetchSwimActivity(a.id);
       done++;const el=progEl();if(el)el.style.width=Math.round(done/swims.length*100)+'%';
-      const summary=(data&&data.interval_summary)||'';
-      if(!summary)return;
-      // Each entry separated by ', ' e.g. "2x 200y 1:34, 1x 100y 1:28"
-      summary.split(/,\s*/).forEach(entry=>{
+      const summary=(data&&data.interval_summary)||[];
+      if(!summary.length)return;
+      (Array.isArray(summary)?summary:[summary]).forEach(entry=>{
         // match: {count}x {dist}{unit} {MM:SS}
         const m=entry.trim().match(/^(\d+)x\s+(\d+(?:\.\d+)?)(y|m|yd|km)?\s+(\d+:\d+)/i);
         if(!m)return;
