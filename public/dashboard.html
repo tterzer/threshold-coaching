@@ -1436,32 +1436,55 @@ async function onZoneDistControlChange(){
   const el=document.getElementById('zoneRows');
 
   if(sport==='running'){
+    if(metric==='power'){el.innerHTML='<div class="empty-note">No running power data available</div>';return;}
     el.innerHTML='<div class="empty-note">Loading run zones…</div>';
     const cutoff=new Date();cutoff.setDate(cutoff.getDate()-win);
     const cutoffStr=toYMD(cutoff);
     const acts=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.start_date_local||'').slice(0,10)>=cutoffStr).slice(0,20);
     if(!acts.length){el.innerHTML='<div class="empty-note">No running activities in this window</div>';return;}
     try{
-      const lthr=zs.running.lthr||165;
       const totals=new Array(5).fill(0);
       let any=false;
-      const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'heartrate')));
-      streams.forEach(stream=>{
-        if(!stream||!stream.length)return;
-        any=true;
-        stream.forEach(v=>{
-          if(v==null||v<=0)return;
-          const pct=v/lthr*100;
-          if(pct<68)totals[0]++;
-          else if(pct<83)totals[1]++;
-          else if(pct<94)totals[2]++;
-          else if(pct<105)totals[3]++;
-          else totals[4]++;
+      if(metric==='hr'){
+        const lthr=zs.running.lthr||165;
+        const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'heartrate')));
+        streams.forEach(stream=>{
+          if(!stream||!stream.length)return;
+          any=true;
+          stream.forEach(v=>{
+            if(v==null||v<=0)return;
+            const pct=v/lthr*100;
+            if(pct<68)totals[0]++;
+            else if(pct<83)totals[1]++;
+            else if(pct<94)totals[2]++;
+            else if(pct<105)totals[3]++;
+            else totals[4]++;
+          });
         });
-      });
-      if(!any){el.innerHTML='<div class="empty-note">No HR stream data for running activities in this window</div>';return;}
+        if(!any){el.innerHTML='<div class="empty-note">No HR stream data for running activities in this window</div>';return;}
+      } else {
+        // pace: velocity_smooth → sec/mile, compare against threshold_pace
+        const threshSec=parsePace(zs.running.threshold_pace||'6:00');
+        const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'velocity_smooth')));
+        streams.forEach(stream=>{
+          if(!stream||!stream.length)return;
+          any=true;
+          stream.forEach(v=>{
+            if(v==null||v<=0)return;
+            const pace=1609.34/v; // sec/mile
+            const pct=pace/threshSec*100;
+            // slower pace = higher pct = easier zone
+            if(pct>120)totals[0]++;
+            else if(pct>110)totals[1]++;
+            else if(pct>100)totals[2]++;
+            else if(pct>90)totals[3]++;
+            else totals[4]++;
+          });
+        });
+        if(!any){el.innerHTML='<div class="empty-note">No velocity stream data for running activities in this window</div>';return;}
+      }
       const total=totals.reduce((s,v)=>s+v,0);
-      if(!total){el.innerHTML='<div class="empty-note">No HR samples in zone range</div>';return;}
+      if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
       el.innerHTML=totals.map((t,i)=>{
         const pct=Math.round((t/total)*100);
         const color=ZC_COLORS[i]||'#7F77DD';
@@ -1472,37 +1495,57 @@ async function onZoneDistControlChange(){
   }
 
   if(sport==='swimming'){
+    if(metric==='power'){el.innerHTML='<div class="empty-note">No swimming power data available</div>';return;}
     el.innerHTML='<div class="empty-note">Loading swim zones…</div>';
     const cutoff=new Date();cutoff.setDate(cutoff.getDate()-win);
     const cutoffStr=toYMD(cutoff);
     const acts=allActivities.filter(a=>sportClass(a.type)==='swimming'&&(a.start_date_local||'').slice(0,10)>=cutoffStr).slice(0,20);
     if(!acts.length){el.innerHTML='<div class="empty-note">No swimming activities in this window</div>';return;}
     try{
-      const cssParts=(zs.swimming.css||'1:45').split(':');
-      const cssSec=(parseInt(cssParts[0])||1)*60+(parseInt(cssParts[1])||45);
-      const cssUnit=zs.swimming.css_unit||'100m';
-      const distFactor=cssUnit==='100yd'?91.44:100;
       const totals=new Array(5).fill(0);
       let any=false;
-      const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'velocity_smooth')));
-      streams.forEach(stream=>{
-        if(!stream||!stream.length)return;
-        any=true;
-        stream.forEach(v=>{
-          if(v==null||v<=0)return;
-          const pace=distFactor/v; // sec per 100m or 100yd
-          const pct=pace/cssSec*100;
-          // slower pace = higher pct = easier zone
-          if(pct>120)totals[0]++;      // Z1: easy
-          else if(pct>110)totals[1]++; // Z2
-          else if(pct>100)totals[2]++; // Z3: at CSS
-          else if(pct>90)totals[3]++;  // Z4: faster than CSS
-          else totals[4]++;             // Z5: hard
+      if(metric==='hr'){
+        const lthr=zs.swimming.lthr||zs.running.lthr||165;
+        const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'heartrate')));
+        streams.forEach(stream=>{
+          if(!stream||!stream.length)return;
+          any=true;
+          stream.forEach(v=>{
+            if(v==null||v<=0)return;
+            const pct=v/lthr*100;
+            if(pct<68)totals[0]++;
+            else if(pct<83)totals[1]++;
+            else if(pct<94)totals[2]++;
+            else if(pct<105)totals[3]++;
+            else totals[4]++;
+          });
         });
-      });
-      if(!any){el.innerHTML='<div class="empty-note">No velocity stream data for swim activities in this window</div>';return;}
+        if(!any){el.innerHTML='<div class="empty-note">No HR stream data for swim activities in this window</div>';return;}
+      } else {
+        // pace: velocity_smooth → sec/100m or 100yd, compare against CSS
+        const cssParts=(zs.swimming.css||'1:45').split(':');
+        const cssSec=(parseInt(cssParts[0])||1)*60+(parseInt(cssParts[1])||45);
+        const cssUnit=zs.swimming.css_unit||'100m';
+        const distFactor=cssUnit==='100yd'?91.44:100;
+        const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'velocity_smooth')));
+        streams.forEach(stream=>{
+          if(!stream||!stream.length)return;
+          any=true;
+          stream.forEach(v=>{
+            if(v==null||v<=0)return;
+            const pace=distFactor/v;
+            const pct=pace/cssSec*100;
+            if(pct>120)totals[0]++;
+            else if(pct>110)totals[1]++;
+            else if(pct>100)totals[2]++;
+            else if(pct>90)totals[3]++;
+            else totals[4]++;
+          });
+        });
+        if(!any){el.innerHTML='<div class="empty-note">No velocity stream data for swim activities in this window</div>';return;}
+      }
       const total=totals.reduce((s,v)=>s+v,0);
-      if(!total){el.innerHTML='<div class="empty-note">No velocity samples in zone range</div>';return;}
+      if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
       el.innerHTML=totals.map((t,i)=>{
         const pct=Math.round((t/total)*100);
         const color=ZC_COLORS[i]||'#7F77DD';
@@ -1789,52 +1832,23 @@ async function renderCurve(){
   const thirtyDaysAgo=new Date();thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
 
   if(sport==='cycling'){
-    // ── CYCLING ──────────────────────────────────────────────────────────
     box.innerHTML='<div class="curve-loading">Loading power curve…'
       +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
     try{
-      // All-time: intervals.icu power-curves API
-      const data=await apiCall(curId,curKey,'power-curves','type=Ride');
-      const list=(data&&data.list)||[];
-      document.getElementById('curveProg').style.width='30%';
-
-      let allTimePairs=null;
-      if(list.length){
-        const best=list.reduce((a,c)=>windowScore(c.label)>=windowScore(a.label)?c:a,list[0]);
-        const secsArr=best.secs||[];
-        const wattArr=best.watts||best.values||best.value||[];
-        const pairs=[];
-        for(let i=0;i<Math.min(secsArr.length,wattArr.length);i++){
-          if(secsArr[i]>0&&wattArr[i]>0)pairs.push({s:secsArr[i],v:wattArr[i]});
-        }
-        if(pairs.length)allTimePairs={pairs,label:best.label};
-      }
-
-      // Last 30 days: stream-based from recent rides
-      const recentRides=allActivities.filter(a=>{
-        return sportClass(a.type)==='cycling'&&(a.start_date_local||'').slice(0,10)>=toYMD(thirtyDaysAgo);
-      }).slice(0,10);
+      const rides=allActivities.filter(a=>sportClass(a.type)==='cycling').slice(0,30);
+      if(!rides.length){box.innerHTML='<div class="empty-note">No cycling activities available.</div>';return;}
+      const recentRides=rides.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyDaysAgo));
+      const allBest=await buildStreamCurve(rides,'watts','curveProg');
+      const allPairs=CURVE_DURATIONS.map((s,i)=>allBest[i]!=null?{s,v:allBest[i]}:null).filter(Boolean);
       let recentPairs=null;
       if(recentRides.length){
-        document.getElementById('curveProg').style.width='40%';
         const recentBest=await buildStreamCurve(recentRides,'watts','curveProg');
         const rp=CURVE_DURATIONS.map((s,i)=>recentBest[i]!=null?{s,v:recentBest[i]}:null).filter(Boolean);
         if(rp.length)recentPairs=rp;
       }
-
-      if(!allTimePairs&&!recentPairs){
-        box.innerHTML='<div class="empty-note">No cycling power data available.</div>';return;
-      }
-      // If no API all-time, fall back to streams for all rides
-      if(!allTimePairs){
-        const allRides=allActivities.filter(a=>sportClass(a.type)==='cycling').slice(0,20);
-        const atBest=await buildStreamCurve(allRides,'watts','curveProg');
-        const atp=CURVE_DURATIONS.map((s,i)=>atBest[i]!=null?{s,v:atBest[i]}:null).filter(Boolean);
-        allTimePairs={pairs:atp,label:'streams'};
-      }
-
-      const note='All-time: intervals.icu ('+allTimePairs.label+')'+(recentPairs?' | 30 days: '+recentRides.length+' rides via streams':'');
-      drawCurveChart(box,allTimePairs.pairs,recentPairs,false,note);
+      if(!allPairs.length){box.innerHTML='<div class="empty-note">No cycling power stream data available — ride with a power meter to build the curve</div>';return;}
+      const note='All rides: watts streams'+(recentPairs?' | 30 days: '+recentRides.length+' rides':'');
+      drawCurveChart(box,allPairs,recentPairs,false,note);
     }catch(e){
       box.innerHTML='<div class="empty-note">Could not load cycling curve: '+(e.message||'error')+'</div>';
     }
