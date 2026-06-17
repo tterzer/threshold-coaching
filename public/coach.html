@@ -50,7 +50,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-name{font-size:13px;color:var(--tc)}
 .ath-email{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)}
 .empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#777}
-.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);margin-bottom:1px}
+.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);margin-bottom:1px}
+.risk-pill{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px;margin-top:6px}
+.metric-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:4px}
 .metric{background:var(--bc2);padding:1.2rem}
 .metric-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
 .metric-val{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:700;line-height:1;color:var(--acc)}
@@ -251,9 +253,23 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 
           <div class="tab-panel active" id="tab-overview">
             <div class="metrics">
-              <div class="metric"><div class="metric-label">Fitness (CTL)</div><div class="metric-val" id="ovCTL">—</div></div>
-              <div class="metric"><div class="metric-label">Fatigue (ATL)</div><div class="metric-val" id="ovATL">—</div></div>
-              <div class="metric"><div class="metric-label">Form (TSB)</div><div class="metric-val" id="ovTSB">—</div></div>
+              <div class="metric"><div class="metric-label">Fitness (CTL)</div><div class="metric-val" id="ovCTL">—</div><div class="metric-sub">Chronic load</div></div>
+              <div class="metric"><div class="metric-label">Fatigue (ATL)</div><div class="metric-val" id="ovATL">—</div><div class="metric-sub">Acute load</div></div>
+              <div class="metric"><div class="metric-label">Form (TSB)</div><div class="metric-val" id="ovTSB">—</div><div class="metric-sub">CTL minus ATL</div></div>
+              <div class="metric"><div class="metric-label">Ramp rate</div><div class="metric-val" id="ovRamp">—</div><div class="metric-sub">7-day CTL change</div><span class="risk-pill" id="ovRampPill">—</span></div>
+              <div class="metric"><div class="metric-label">This week</div><div class="metric-val" id="ovWeek">—</div><div class="metric-sub">Training load</div></div>
+              <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="ovLastWeek">—</div><div class="metric-sub">Training load</div></div>
+            </div>
+            <div style="margin-top:1.5rem">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+                <div class="section-label" style="margin-bottom:0">Performance management chart</div>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-sm btn-ghost" id="cpmc-6W" onclick="setCoachPmcRange(42,this)" style="padding:4px 10px;font-size:10px">6W</button>
+                  <button class="btn btn-sm btn-ghost" id="cpmc-3M" onclick="setCoachPmcRange(90,this)" style="padding:4px 10px;font-size:10px">3M</button>
+                  <button class="btn btn-sm btn-ghost active" id="cpmc-6M" onclick="setCoachPmcRange(180,this)" style="padding:4px 10px;font-size:10px">6M</button>
+                </div>
+              </div>
+              <div style="position:relative;height:200px"><canvas id="coachPmcChart"></canvas></div>
             </div>
             <div style="margin-top:1.5rem">
               <div class="section-label">Sport-specific fitness (CTL)</div>
@@ -852,21 +868,31 @@ async function loadAthleteOverview(){
     const oldestStr=oldest.toISOString().split('T')[0];
     const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-185);
     const fitOldestStr=fitOldest.toISOString().split('T')[0];
-    const[acts,fitActs,wellnessRes]=await Promise.all([
+    const wk7ago=new Date(today);wk7ago.setDate(today.getDate()-7);
+    const wk7agoStr=wk7ago.toISOString().split('T')[0];
+    const[acts,fitActs,wellnessRes,wellness7Res]=await Promise.all([
       intervalsCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts'),
       intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type'),
-      fetch('/api/intervals?athleteId='+encodeURIComponent(id)+'&apiKey='+encodeURIComponent(key)+'&path=wellness/'+todayStr).then(r=>r.ok?r.json():null).catch(()=>null)
+      fetch('/api/intervals?athleteId='+encodeURIComponent(id)+'&apiKey='+encodeURIComponent(key)+'&path=wellness/'+todayStr).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch('/api/intervals?athleteId='+encodeURIComponent(id)+'&apiKey='+encodeURIComponent(key)+'&path=wellness/'+wk7agoStr).then(r=>r.ok?r.json():null).catch(()=>null)
     ]);
     const sorted=[...acts].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
     athleteIcuActivities=sorted; // store for calendar ICU overlay
+
+    // Build fitness series for PMC (always computed for chart)
+    const fitSeries=computeFitnessSimple(fitActs);
+    const fitByDate={};
+    fitSeries.forEach(e=>{fitByDate[e.date]=e;});
+    coachFitSeries=fitSeries;
+    coachFitByDate=fitByDate;
+
     let ctl,atl,tsb;
     if(wellnessRes&&wellnessRes.ctl!=null){
       ctl=Math.round(wellnessRes.ctl);
       atl=Math.round(wellnessRes.atl??0);
       tsb=Math.round(wellnessRes.tsb??(ctl-atl));
     }else{
-      const fit=computeFitnessSimple(fitActs);
-      const last=fit[fit.length-1]||{ctl:0,atl:0};
+      const last=fitSeries[fitSeries.length-1]||{ctl:0,atl:0};
       ctl=Math.round(last.ctl); atl=Math.round(last.atl); tsb=ctl-atl;
     }
     const ctlEl=document.getElementById('ovCTL');
@@ -878,12 +904,48 @@ async function loadAthleteOverview(){
     tsbEl.textContent=(tsb>=0?'+':'')+tsb;
     tsbEl.style.color='#c8f036';
 
+    // Ramp rate
+    const rampEl=document.getElementById('ovRamp');
+    const pillEl=document.getElementById('ovRampPill');
+    let ctl7=null;
+    if(wellness7Res&&wellness7Res.ctl!=null) ctl7=wellness7Res.ctl;
+    else{const e7=fitByDate[wk7agoStr];if(e7)ctl7=e7.ctl;}
+    if(ctl7!=null){
+      const ramp=Math.round(ctl-ctl7);
+      rampEl.textContent=(ramp>=0?'+':'')+ramp;
+      rampEl.className='metric-val';
+      rampEl.style.color='#7F77DD';
+      let label='Low risk';
+      if(ramp>8)label='High risk';
+      else if(ramp>5)label='Moderate';
+      pillEl.textContent=label;
+      pillEl.style.background=ramp>8?'rgba(226,75,74,0.15)':ramp>5?'rgba(186,117,23,0.15)':'rgba(99,153,34,0.15)';
+      pillEl.style.color=ramp>8?'#E24B4A':ramp>5?'#BA7517':'#639922';
+    }else{rampEl.textContent='—';pillEl.textContent='—';}
+
+    // This week / last week
+    const now2=new Date();
+    const dow=now2.getDay();
+    const diffToMon=dow===0?6:dow-1;
+    const monday=new Date(now2);monday.setDate(now2.getDate()-diffToMon);monday.setHours(0,0,0,0);
+    const lastMonday=new Date(monday);lastMonday.setDate(monday.getDate()-7);
+    const nowStr2=today.toISOString().split('T')[0];
+    const mondayStr=monday.toISOString().split('T')[0];
+    const lastMondayStr=lastMonday.toISOString().split('T')[0];
+    const thisWeekLoad=Math.round(sorted.filter(a=>{const ds=(a.start_date_local||'').slice(0,10);return ds>=mondayStr&&ds<=nowStr2;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
+    const lastWeekLoad=Math.round(sorted.filter(a=>{const ds=(a.start_date_local||'').slice(0,10);return ds>=lastMondayStr&&ds<mondayStr;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
+    const weekEl=document.getElementById('ovWeek');
+    weekEl.textContent=thisWeekLoad;weekEl.style.color='#c8f036';
+    const lastWeekEl=document.getElementById('ovLastWeek');
+    lastWeekEl.textContent=lastWeekLoad;lastWeekEl.style.color='#c8f036';
+
     document.getElementById('ovActs').innerHTML=sorted.slice(0,6).map(act=>{
       const d=new Date(act.start_date_local).toLocaleDateString('en-US',{month:'short',day:'numeric'});
       return '<div class="act-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span>'+(act.name||act.type||'Activity')+'</span><span style="color:var(--tc3);font-family:\'DM Mono\',monospace;font-size:11px">'+d+' · load '+Math.round(act.icu_training_load||0)+'</span></div>';
     }).join('')||'<div class="empty-note">No recent activities.</div>';
 
     athleteData[a.id]={ctl,atl,tsb,recentActs:sorted.slice(0,8)};
+    buildCoachPMC();
     buildCoachSportCTL(fitActs);
   }catch(err){
     document.getElementById('ovActs').innerHTML='<div class="empty-note">Could not load intervals.icu data: '+(err.message||'error')+'</div>';
@@ -1524,6 +1586,53 @@ async function deleteRace(){
 
 
 // ── Coach per-sport CTL chart ────────────────────────────────────────
+// ── Coach PMC chart ──────────────────────────────────────────────────
+let coachFitSeries = [];
+let coachFitByDate = {};
+let coachPmcInst = null;
+let coachPmcRangeDays = 180;
+
+function setCoachPmcRange(days, btn){
+  coachPmcRangeDays = days;
+  document.querySelectorAll('[id^="cpmc-"]').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  buildCoachPMC();
+}
+
+function buildCoachPMC(){
+  const canvas = document.getElementById('coachPmcChart');
+  if(!canvas) return;
+  const n = coachPmcRangeDays;
+  const days = Array.from({length:n},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(n-1-i));return d;});
+  const fmtD = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  const toKey = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const ctlData=[],atlData=[],tsbData=[];
+  days.forEach(d=>{
+    const e=coachFitByDate[toKey(d)];
+    if(e){ctlData.push(Math.round(e.ctl));atlData.push(Math.round(e.atl));tsbData.push(Math.round(e.ctl)-Math.round(e.atl));}
+    else{ctlData.push(null);atlData.push(null);tsbData.push(null);}
+  });
+  if(coachPmcInst) coachPmcInst.destroy();
+  const tsbZonePlugin={id:'coachTsbZones',beforeDraw(chart){
+    const{ctx,chartArea,scales}=chart;if(!chartArea)return;
+    const y=scales.y;ctx.save();
+    const{top,bottom,left,right}=chartArea;
+    const yFresh=Math.max(top,Math.min(bottom,y.getPixelForValue(5)));
+    const yRisk=Math.max(top,Math.min(bottom,y.getPixelForValue(-20)));
+    ctx.fillStyle='rgba(99,153,34,0.07)';ctx.fillRect(left,top,right-left,Math.max(0,yFresh-top));
+    ctx.fillStyle='rgba(226,75,74,0.07)';ctx.fillRect(left,yRisk,right-left,Math.max(0,bottom-yRisk));
+    ctx.restore();
+  }};
+  coachPmcInst = new Chart(canvas,{type:'line',data:{labels:days.map(fmtD),datasets:[
+    {label:'CTL',data:ctlData,borderColor:'#378ADD',backgroundColor:'transparent',tension:0.25,pointRadius:0,borderWidth:2,yAxisID:'y'},
+    {label:'ATL',data:atlData,borderColor:'#E24B4A',backgroundColor:'transparent',tension:0,pointRadius:0,borderWidth:1.5,yAxisID:'y'},
+    {label:'TSB',data:tsbData,borderColor:'#c8f036',backgroundColor:'transparent',borderDash:[4,3],tension:0.25,pointRadius:0,borderWidth:1.5,yAxisID:'y'}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{ticks:{color:'#666',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
+    y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}}},
+  plugins:[tsbZonePlugin]});
+}
+
 let coachSportCtlInst = null;
 let coachSportCtlRangeDays = 42;
 let coachFitActs = [];
