@@ -634,6 +634,16 @@ let pendingDate=null;
 window.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('portal').style.display='block';
   loadAthletes();
+  setTimeout(function(){
+    const nav=document.querySelector('nav');
+    const tabs=document.querySelector('.tabs');
+    const panel=document.querySelector('.tab-panel.active');
+    console.log('nav offsetHeight:',nav?nav.offsetHeight:'not found');
+    console.log('tabs offsetHeight:',tabs?tabs.offsetHeight:'not found');
+    console.log('panel offsetHeight:',panel?panel.offsetHeight:'not found');
+    console.log('window.innerHeight:',window.innerHeight);
+    console.log('needed calc:',window.innerHeight-(nav?nav.offsetHeight:0)-(tabs?tabs.offsetHeight:0));
+  },1000);
 });
 window.addEventListener('beforeunload',()=>{ saveChatSession(); });
 
