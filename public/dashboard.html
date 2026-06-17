@@ -1467,7 +1467,7 @@ async function onZoneDistControlChange(){
     el.innerHTML='<div class="empty-note">Loading run zones…</div>';
     const cutoff=new Date();cutoff.setDate(cutoff.getDate()-win);
     const cutoffStr=toYMD(cutoff);
-    const acts=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.start_date_local||'').slice(0,10)>=cutoffStr).slice(0,20);
+    const acts=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.start_date_local||'').slice(0,10)>=cutoffStr&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START).slice(0,20);
     if(!acts.length){el.innerHTML='<div class="empty-note">No running activities in this window</div>';return;}
     try{
       const totals=new Array(5).fill(0);
@@ -1526,7 +1526,7 @@ async function onZoneDistControlChange(){
     el.innerHTML='<div class="empty-note">Loading swim zones…</div>';
     const cutoff=new Date();cutoff.setDate(cutoff.getDate()-win);
     const cutoffStr=toYMD(cutoff);
-    const acts=allActivities.filter(a=>sportClass(a.type)==='swimming'&&(a.start_date_local||'').slice(0,10)>=cutoffStr).slice(0,20);
+    const acts=allActivities.filter(a=>sportClass(a.type)==='swimming'&&(a.start_date_local||'').slice(0,10)>=cutoffStr&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START).slice(0,20);
     if(!acts.length){el.innerHTML='<div class="empty-note">No swimming activities in this window</div>';return;}
     try{
       const cssParts=(zs.swimming.css||'1:45').split(':');
@@ -1645,6 +1645,7 @@ async function fetchStream(activityId,type){
 }
 
 /* ---------- Peak power / pace duration curve ---------- */
+const HM2L_RUN_SWIM_START='2026-06-08';
 const CURVE_DURATIONS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
 const CURVE_LABELS=['5s','10s','30s','1m','2m','5m','10m','20m','30m','1h','90m','2h'];
 
@@ -1871,7 +1872,7 @@ async function renderCurve(){
     box.innerHTML='<div class="curve-loading">Loading run pace curve…'
       +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
     try{
-      const runs=allActivities.filter(a=>sportClass(a.type)==='running').slice(0,30);
+      const runs=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START).slice(0,30);
       if(!runs.length){box.innerHTML='<div class="empty-note">No run data available — complete a run synced from intervals.icu</div>';return;}
       const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
       const recentRuns=runs.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
@@ -1896,7 +1897,7 @@ async function renderCurve(){
     box.innerHTML='<div class="curve-loading">Loading swim pace curve…'
       +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
     try{
-      const swims=allActivities.filter(a=>sportClass(a.type)==='swimming').slice(0,30);
+      const swims=allActivities.filter(a=>sportClass(a.type)==='swimming'&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START).slice(0,30);
       if(!swims.length){box.innerHTML='<div class="empty-note">No swim data available — complete a swim synced from intervals.icu</div>';return;}
       const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
       const recentSwims=swims.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
