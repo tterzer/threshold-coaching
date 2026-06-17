@@ -582,6 +582,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 })();
 
 let pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=false; // default imperial (mi/yd)
+let _snapshotRamp=null;
 let allActivities=[];
 let allTimeActivities=[];
 let zoneStreamCache={};
@@ -837,6 +838,7 @@ async function loadDashboard(){
     localStorage.setItem('hm2l_snap_pmc_data',JSON.stringify(fitnessSeries));
     buildPMC();
     buildSportCTL();
+    upsertAthleteSnapshot(ctl,atl,tsb,thisWeekLoad,lastWeekLoad);
     buildSportLoad(sorted);
     buildLoad(sorted);
     buildZones(sorted);
@@ -867,6 +869,7 @@ function buildRamp(){
   const pillEl=document.getElementById('mRampPill');
   if(!now||!then){rampEl.textContent='—';pillEl.textContent='—';pillEl.className='risk-pill';return;}
   const ramp=Math.round(now.ctl-then.ctl);
+  _snapshotRamp=ramp;
   rampEl.textContent=(ramp>=0?'+':'')+ramp;
   rampEl.className='metric-val';
   rampEl.style.color='#7F77DD';
@@ -879,6 +882,54 @@ function buildRamp(){
   pillEl.style.color='#7F77DD';
   pillEl.style.background='#7F77DD22';
   pillEl.style.border='1px solid #7F77DD44';
+}
+
+function upsertAthleteSnapshot(ctl,atl,tsb,thisWeek,lastWeek){
+  if(!window.currentAthlete||!window.currentAthlete.id)return;
+  // Build 180-day PMC series from fitnessByDate
+  const n=180;
+  const pmcDays=Array.from({length:n},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(n-1-i));return d;});
+  const pmcCtl=[],pmcAtl=[],pmcTsb=[];
+  pmcDays.forEach(d=>{
+    const e=fitnessByDate[dayKey(d)];
+    if(e){pmcCtl.push(Math.round(e.ctl));pmcAtl.push(Math.round(e.atl));pmcTsb.push(Math.round(e.ctl)-Math.round(e.atl));}
+    else{pmcCtl.push(null);pmcAtl.push(null);pmcTsb.push(null);}
+  });
+  const pmcLabels=pmcDays.map(d=>fmtDate(d));
+  // Build 180-day sport CTL from window._fitnessFetchedActs
+  const acts=window._fitnessFetchedActs||[];
+  const storedOffset=Number(localStorage.getItem(CTL_OFFSET_KEY)||0)||0;
+  const sportOffset=storedOffset/3;
+  const cycByDate=calcSportCTL(acts,'cycling');
+  const runByDate=calcSportCTL(acts,'running');
+  const swimByDate=calcSportCTL(acts,'swimming');
+  const sportCyc=[],sportRun=[],sportSwim=[];
+  pmcDays.forEach(d=>{
+    const k=dayKey(d);
+    sportCyc.push(cycByDate[k]!=null?Math.round(cycByDate[k]+sportOffset):null);
+    sportRun.push(runByDate[k]!=null?Math.round(runByDate[k]+sportOffset):null);
+    sportSwim.push(swimByDate[k]!=null?Math.round(swimByDate[k]+sportOffset):null);
+  });
+  const body={
+    athlete_id:window.currentAthlete.id,
+    ctl,atl,tsb,
+    ramp_rate:_snapshotRamp,
+    this_week:thisWeek,
+    last_week:lastWeek,
+    pmc_data:{labels:pmcLabels,ctl:pmcCtl,atl:pmcAtl,tsb:pmcTsb},
+    sport_ctl_data:{labels:pmcLabels,cycling:sportCyc,running:sportRun,swimming:sportSwim},
+    updated_at:new Date().toISOString()
+  };
+  fetch('https://jrgyfokygizsxtupbisg.supabase.co/rest/v1/athlete_snapshots',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'apikey':'sb_publishable_LcoHaks3xpZW4Om8IOT5Ng_6nwMYxbe',
+      'Authorization':'Bearer sb_publishable_LcoHaks3xpZW4Om8IOT5Ng_6nwMYxbe',
+      'Prefer':'resolution=merge-duplicates'
+    },
+    body:JSON.stringify(body)
+  }).catch(()=>{});
 }
 
 // Format a Date as YYYY-MM-DD in local time (avoids UTC-shift from toISOString).

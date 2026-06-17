@@ -863,26 +863,28 @@ async function loadAthleteOverview(){
   }
   try{
     const id=a.intervals_athlete_id, key=a.intervals_api_key;
+    const SUPA_URL='https://jrgyfokygizsxtupbisg.supabase.co/rest/v1';
+    const SUPA_KEY='sb_publishable_LcoHaks3xpZW4Om8IOT5Ng_6nwMYxbe';
+    const supaHeaders={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY};
+
+    // Fetch recent activities + snapshot in parallel
     const today=new Date();
     const oldest=new Date(today);oldest.setDate(today.getDate()-35);
     const oldestStr=oldest.toISOString().split('T')[0];
-    const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-185);
-    const fitOldestStr=fitOldest.toISOString().split('T')[0];
-    const[acts,fitActs]=await Promise.all([
+    const[acts,snapRes]=await Promise.all([
       intervalsCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts'),
-      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
+      fetch(SUPA_URL+'/athlete_snapshots?athlete_id=eq.'+encodeURIComponent(a.id)+'&select=*',{headers:supaHeaders}).then(r=>r.ok?r.json():null).catch(()=>null)
     ]);
     const sorted=[...acts].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
     athleteIcuActivities=sorted;
 
-    // All metrics read from localStorage (written by athlete portal on load)
-    const ctl=Number(localStorage.getItem('hm2l_snap_ctl'))||0;
-    const atl=Number(localStorage.getItem('hm2l_snap_atl'))||0;
-    const tsb=Number(localStorage.getItem('hm2l_snap_tsb'))||0;
-    const rampStored=localStorage.getItem('hm2l_snap_ramp');
-    const rampRaw=rampStored!==null?Number(rampStored):null;
-    const thisWeekLoad=Number(localStorage.getItem('hm2l_snap_this_week'))||0;
-    const lastWeekLoad=Number(localStorage.getItem('hm2l_snap_last_week'))||0;
+    const snap=(Array.isArray(snapRes)&&snapRes.length)?snapRes[0]:null;
+    const ctl=snap?Math.round(snap.ctl||0):0;
+    const atl=snap?Math.round(snap.atl||0):0;
+    const tsb=snap?Math.round(snap.tsb||0):0;
+    const rampRaw=snap&&snap.ramp_rate!=null?snap.ramp_rate:null;
+    const thisWeekLoad=snap?Math.round(snap.this_week||0):0;
+    const lastWeekLoad=snap?Math.round(snap.last_week||0):0;
 
     const ctlEl=document.getElementById('ovCTL');
     ctlEl.textContent=ctl||'—';ctlEl.style.color='#378ADD';
@@ -896,7 +898,7 @@ async function loadAthleteOverview(){
     const rampEl=document.getElementById('ovRamp');
     const pillEl=document.getElementById('ovRampPill');
     if(rampRaw!==null){
-      const ramp=rampRaw;
+      const ramp=Math.round(rampRaw);
       rampEl.textContent=(ramp>=0?'+':'')+ramp;
       rampEl.className='metric-val';rampEl.style.color='#7F77DD';
       let label='Low risk';
@@ -911,26 +913,41 @@ async function loadAthleteOverview(){
     const lastWeekEl=document.getElementById('ovLastWeek');
     lastWeekEl.textContent=lastWeekLoad;lastWeekEl.style.color='#c8f036';
 
-    // PMC chart data from localStorage
-    const storedPmc=localStorage.getItem('hm2l_snap_pmc_data');
-    if(storedPmc){
-      try{
-        const series=JSON.parse(storedPmc);
-        coachFitByDate={};
-        series.forEach(e=>{coachFitByDate[e.date]=e;});
-      }catch(e){}
+    // PMC chart: rebuild byDate map from stored series
+    if(snap&&snap.pmc_data){
+      const pd=snap.pmc_data;
+      coachFitByDate={};
+      if(Array.isArray(pd.labels)){
+        pd.labels.forEach((lbl,i)=>{
+          // reconstruct a date key from the label by parsing chart label back isn't reliable
+          // store by index offset from today instead
+        });
+        // Rebuild using index offset: labels are newest-last (index 0 = 179 days ago)
+        const n=pd.labels.length;
+        const base=new Date();base.setHours(0,0,0,0);
+        for(let i=0;i<n;i++){
+          const d=new Date(base);d.setDate(base.getDate()-(n-1-i));
+          const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+          coachFitByDate[k]={ctl:pd.ctl[i]??null,atl:pd.atl[i]??null};
+        }
+      }
     }
+
+    // Sport CTL data from snapshot
+    coachSportCtlSnap=snap&&snap.sport_ctl_data?snap.sport_ctl_data:null;
 
     document.getElementById('ovActs').innerHTML=sorted.slice(0,6).map(act=>{
       const d=new Date(act.start_date_local).toLocaleDateString('en-US',{month:'short',day:'numeric'});
       return '<div class="act-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span>'+(act.name||act.type||'Activity')+'</span><span style="color:var(--tc3);font-family:\'DM Mono\',monospace;font-size:11px">'+d+' · load '+Math.round(act.icu_training_load||0)+'</span></div>';
     }).join('')||'<div class="empty-note">No recent activities.</div>';
 
+    if(!snap){document.getElementById('ovActs').innerHTML+='<div class="empty-note" style="margin-top:8px">No snapshot data — athlete must load their dashboard first.</div>';}
+
     athleteData[a.id]={ctl,atl,tsb,recentActs:sorted.slice(0,8)};
     buildCoachPMC();
-    buildCoachSportCTL(fitActs);
+    buildCoachSportCTL();
   }catch(err){
-    document.getElementById('ovActs').innerHTML='<div class="empty-note">Could not load intervals.icu data: '+(err.message||'error')+'</div>';
+    document.getElementById('ovActs').innerHTML='<div class="empty-note">Could not load data: '+(err.message||'error')+'</div>';
     athleteData[a.id]=null;
   }
 }
@@ -1616,6 +1633,7 @@ function buildCoachPMC(){
 }
 
 let coachSportCtlInst = null;
+let coachSportCtlSnap = null;
 let coachSportCtlRangeDays = 42;
 let coachFitActs = [];
 
@@ -1662,32 +1680,29 @@ function setCoachSportCtlRange(label, btn) {
   coachSportCtlRangeDays = map[label] || 42;
   document.querySelectorAll('[id^="csctl-"]').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  buildCoachSportCTL(coachFitActs);
+  buildCoachSportCTL();
 }
 
-function buildCoachSportCTL(acts) {
-  coachFitActs = acts || coachFitActs;
-  if (!coachFitActs.length) return;
-  const cyclingByDate = calcCoachSportCTL(coachFitActs, 'cycling');
-  const runningByDate = calcCoachSportCTL(coachFitActs, 'running');
-  const swimmingByDate = calcCoachSportCTL(coachFitActs, 'swimming');
-  const n = coachSportCtlRangeDays;
-  const days = Array.from({length:n}, (_,i) => { const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return d; });
-  const fmtD = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-  const cycData=[], runData=[], swimData=[];
-  days.forEach(d => {
-    const k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    cycData.push(cyclingByDate[k] != null ? Math.round(cyclingByDate[k]) : null);
-    runData.push(runningByDate[k] != null ? Math.round(runningByDate[k]) : null);
-    swimData.push(swimmingByDate[k] != null ? Math.round(swimmingByDate[k]) : null);
-  });
-  if (coachSportCtlInst) coachSportCtlInst.destroy();
+function buildCoachSportCTL() {
   const canvas = document.getElementById('coachSportCtlChart');
   if (!canvas) return;
+  if (!coachSportCtlSnap) {
+    if (coachSportCtlInst) { coachSportCtlInst.destroy(); coachSportCtlInst=null; }
+    return;
+  }
+  const sd = coachSportCtlSnap;
+  const total = Array.isArray(sd.labels) ? sd.labels.length : 0;
+  if (!total) return;
+  const n = Math.min(coachSportCtlRangeDays, total);
+  const labels = sd.labels.slice(total - n);
+  const cycData = (sd.cycling||[]).slice(total - n);
+  const runData = (sd.running||[]).slice(total - n);
+  const swimData = (sd.swimming||[]).slice(total - n);
+  if (coachSportCtlInst) coachSportCtlInst.destroy();
   coachSportCtlInst = new Chart(canvas, {
     type: 'line',
     data: {
-      labels: days.map(fmtD),
+      labels: labels,
       datasets: [
         {label:'Cycling CTL', data:cycData, borderColor:'#378ADD', backgroundColor:'#378ADD22', tension:0.25, pointRadius:0, borderWidth:2},
         {label:'Running CTL', data:runData, borderColor:'#639922', backgroundColor:'#63992222', tension:0.25, pointRadius:0, borderWidth:2},
