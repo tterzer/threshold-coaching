@@ -256,10 +256,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               <div class="metric"><div class="metric-label">Form (TSB)</div><div class="metric-val" id="ovTSB">—</div></div>
             </div>
             <div style="margin-top:1.5rem">
-              <div class="section-label">Zone distribution (last 28 days, cycling HR)</div>
-              <div class="zone-rows" id="ovZones"><div class="empty-note">Select an athlete with intervals.icu connected to view zone data.</div></div>
-            </div>
-            <div style="margin-top:1.5rem">
               <div class="section-label">Sport-specific fitness (CTL)</div>
               <div style="display:flex;gap:4px;margin-bottom:0.75rem">
                 <button class="btn btn-sm btn-ghost" id="csctl-6W" onclick="setCoachSportCtlRange('6W',this)" style="padding:4px 10px;font-size:10px">6W</button>
@@ -842,10 +838,8 @@ async function loadAthleteOverview(){
   document.getElementById('ovCTL').textContent='—';
   document.getElementById('ovATL').textContent='—';
   document.getElementById('ovTSB').textContent='—';
-  document.getElementById('ovZones').innerHTML='<div class="empty-note">Loading...</div>';
   document.getElementById('ovActs').innerHTML='<div class="empty-note">Loading...</div>';
   if(!a.intervals_athlete_id||!a.intervals_api_key){
-    document.getElementById('ovZones').innerHTML='<div class="empty-note">This athlete has not connected intervals.icu yet.</div>';
     document.getElementById('ovActs').innerHTML='<div class="empty-note">—</div>';
     athleteData[a.id]=null;
     return;
@@ -873,40 +867,17 @@ async function loadAthleteOverview(){
     const tsbEl=document.getElementById('ovTSB');
     tsbEl.textContent=(tsb>=0?'+':'')+tsb;
     tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
-    tsbEl.style.color=tsb>0?'#639922':tsb<0?'#E24B4A':'#999';
-
-    const zoneTotals=[0,0,0,0,0,0,0];
-    let zoneCount=0;
-    sorted.filter(act=>{
-      const t=(act.type||'').toLowerCase();
-      const d=new Date(act.start_date_local);
-      const cutoff=new Date();cutoff.setDate(cutoff.getDate()-28);
-      return (t.includes('ride')||t.includes('cycl')||t.includes('bike'))&&d>=cutoff&&Array.isArray(act.icu_zone_times);
-    }).forEach(act=>{
-      act.icu_zone_times.forEach((z,i)=>{ if(i<7) zoneTotals[i]+=(z.secs||z.seconds||0); });
-      zoneCount++;
-    });
-    const zTotal=zoneTotals.reduce((s,v)=>s+v,0);
-    const zColors=['#378ADD','#1D9E75','#639922','#c8f036','#BA7517','#E24B4A','#9b3fd1'];
-    if(zTotal>0){
-      document.getElementById('ovZones').innerHTML=zoneTotals.map((v,i)=>{
-        const pct=zTotal?Math.round(v/zTotal*100):0;
-        return '<div class="zone-row-d"><div class="zone-name-d">Z'+(i+1)+'</div><div class="zone-bg-d"><div class="zone-fill-d" style="width:'+pct+'%;background:'+zColors[i]+'"></div></div><div class="zone-pct-d">'+pct+'%</div></div>';
-      }).join('');
-    }else{
-      document.getElementById('ovZones').innerHTML='<div class="empty-note">No cycling zone data in the last 28 days.</div>';
-    }
+    tsbEl.style.color='#c8f036';
 
     document.getElementById('ovActs').innerHTML=sorted.slice(0,6).map(act=>{
       const d=new Date(act.start_date_local).toLocaleDateString('en-US',{month:'short',day:'numeric'});
       return '<div class="act-row" style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span>'+(act.name||act.type||'Activity')+'</span><span style="color:var(--tc3);font-family:\'DM Mono\',monospace;font-size:11px">'+d+' · load '+Math.round(act.icu_training_load||0)+'</span></div>';
     }).join('')||'<div class="empty-note">No recent activities.</div>';
 
-    athleteData[a.id]={ctl,atl,tsb,zoneTotals,zTotal,recentActs:sorted.slice(0,8)};
+    athleteData[a.id]={ctl,atl,tsb,recentActs:sorted.slice(0,8)};
     buildCoachSportCTL(fitActs);
   }catch(err){
-    document.getElementById('ovZones').innerHTML='<div class="empty-note">Could not load intervals.icu data: '+(err.message||'error')+'</div>';
-    document.getElementById('ovActs').innerHTML='<div class="empty-note">—</div>';
+    document.getElementById('ovActs').innerHTML='<div class="empty-note">Could not load intervals.icu data: '+(err.message||'error')+'</div>';
     athleteData[a.id]=null;
   }
 }
@@ -2003,12 +1974,6 @@ async function loadChatHistory(){
     const r=await fetch('/api/ai-conversations?athlete_id='+encodeURIComponent(selectedAthlete.id));
     const d=await r.json();
     allChatSessions=d.conversations||[];
-    const todayStr=new Date().toISOString().split('T')[0];
-    const todaySession=allChatSessions.find(s=>s.session_date===todayStr||(s.created_at||'').slice(0,10)===todayStr);
-    if(todaySession&&Array.isArray(todaySession.messages)&&todaySession.messages.length>0){
-      chatHistory=todaySession.messages.map(m=>({role:m.role,content:m.content}));
-      viewTodaySession();
-    }
     renderChatHistorySidebar();
   }catch(e){
     console.error('loadChatHistory error',e);
@@ -2143,10 +2108,6 @@ function buildCoachSystemPrompt(){
   context+='Athlete: '+(a.name||a.email)+'\n';
   if(d){
     context+='Current fitness: CTL (fitness) = '+d.ctl+', ATL (fatigue) = '+d.atl+', TSB (form) = '+d.tsb+'.\n';
-    if(d.zTotal){
-      const zPcts=d.zoneTotals.map((v,i)=>'Z'+(i+1)+': '+Math.round(v/d.zTotal*100)+'%').join(', ');
-      context+='Cycling HR zone distribution (last 28 days): '+zPcts+'.\n';
-    }
     if(d.recentActs&&d.recentActs.length){
       context+='Recent activities: '+d.recentActs.map(act=>(act.name||act.type)+' on '+(act.start_date_local||'').slice(0,10)+' (load '+Math.round(act.icu_training_load||0)+')').join('; ')+'.\n';
     }

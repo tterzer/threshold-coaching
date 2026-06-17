@@ -149,8 +149,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .dash-panel.active{display:block}
 /* Athlete calendar (dashboard) */
 .ath-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
-.ath-cal-head{background:var(--bc3);padding:8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.ath-cal-cell{background:var(--bc2);min-height:90px;padding:6px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
+.ath-cal-head{background:var(--bc3);padding:5px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
+.ath-cal-cell{background:var(--bc2);min-height:80px;padding:4px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
 .ath-cal-cell:hover{background:var(--bc3)}
 .ath-cal-cell.other-month{opacity:0.35}
 .ath-cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
@@ -1369,14 +1369,21 @@ async function onZoneDistControlChange(){
   const win=Number(document.getElementById('zdWindow').value);
   const el=document.getElementById('zoneRows');
 
-  // Stream fetching is only enabled for cycling. Run and swim velocity/HR streams
-  // are disabled while data collection builds up.
-  if(sport==='running'){
-    el.innerHTML='<div class="empty-note">Zone data collecting — will populate after your next run</div>';
-    return;
-  }
-  if(sport==='swimming'){
-    el.innerHTML='<div class="empty-note">Zone data collecting — will populate after your next swim</div>';
+  // Run and swim: use icu_zone_times from fetched activities (no stream fetch needed)
+  if(sport==='running'||sport==='swimming'){
+    const cutoff=new Date();cutoff.setDate(cutoff.getDate()-win);
+    const cutoffStr=toYMD(cutoff);
+    const acts=allActivities.filter(a=>sportClass(a.type)===sport&&(a.start_date_local||'').slice(0,10)>=cutoffStr&&Array.isArray(a.icu_zone_times)&&a.icu_zone_times.length>0);
+    if(!acts.length){el.innerHTML='<div class="empty-note">No '+sport+' zone data in this window — complete a '+sport+' activity synced from intervals.icu</div>';return;}
+    const totals=new Array(7).fill(0);
+    acts.forEach(a=>{a.icu_zone_times.forEach((z,i)=>{if(i<7)totals[i]+=(z.secs||z.seconds||0);});});
+    const total=totals.reduce((s,v)=>s+v,0);
+    if(!total){el.innerHTML='<div class="empty-note">No zone time data found in recent '+sport+' activities</div>';return;}
+    el.innerHTML=totals.map((t,i)=>{
+      const pct=Math.round((t/total)*100);
+      const color=ZC_COLORS[i]||'#7F77DD';
+      return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}"></div><span class="zone-pct-d">${pct}%</span></div></div>`;
+    }).join('');
     return;
   }
 
@@ -1697,16 +1704,43 @@ async function renderCurve(){
   }
 
   if(sport==='running'){
-    // ── RUNNING ─────────────────────────────────────────────────────────
-    // Stream-based curve temporarily disabled while data is being collected.
-    box.innerHTML='<div class="empty-note">Run pace curve collecting data — will populate after your next run is synced from intervals.icu</div>';
+    // Build pace curve from activity average_speed — best pace for each duration range
+    const runs=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.average_speed||0)>0&&(a.moving_time||0)>0);
+    if(!runs.length){box.innerHTML='<div class="empty-note">No run data available — complete a run synced from intervals.icu</div>';return;}
+    const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
+    const recentRuns=runs.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
+    const buildRunPairs=actList=>{
+      return CURVE_DURATIONS.map(d=>{
+        const candidates=actList.filter(a=>(a.moving_time||0)>=d);
+        if(!candidates.length)return null;
+        const best=Math.max(...candidates.map(a=>a.average_speed||0));
+        return best>0?{s:d,v:best}:null;
+      }).filter(Boolean);
+    };
+    const allPairs=buildRunPairs(runs);
+    const recentPairs=recentRuns.length?buildRunPairs(recentRuns):null;
+    if(!allPairs.length){box.innerHTML='<div class="empty-note">Not enough run data to build pace curve</div>';return;}
+    drawCurveChart(box,allPairs,recentPairs,true,'Best average pace from activities (not stream-based)');
     return;
   }
 
   if(sport==='swimming'){
-    // ── SWIMMING ─────────────────────────────────────────────────────────
-    // Stream fetching disabled — collecting data.
-    box.innerHTML='<div class="empty-note">Swim pace curve collecting data — will populate after your next swim is synced from intervals.icu</div>';
+    const swims=allActivities.filter(a=>sportClass(a.type)==='swimming'&&(a.average_speed||0)>0&&(a.moving_time||0)>0);
+    if(!swims.length){box.innerHTML='<div class="empty-note">No swim data available — complete a swim synced from intervals.icu</div>';return;}
+    const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
+    const recentSwims=swims.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
+    const buildSwimPairs=actList=>{
+      return CURVE_DURATIONS.map(d=>{
+        const candidates=actList.filter(a=>(a.moving_time||0)>=d);
+        if(!candidates.length)return null;
+        const best=Math.max(...candidates.map(a=>a.average_speed||0));
+        return best>0?{s:d,v:best}:null;
+      }).filter(Boolean);
+    };
+    const allPairs=buildSwimPairs(swims);
+    const recentPairs=recentSwims.length?buildSwimPairs(recentSwims):null;
+    if(!allPairs.length){box.innerHTML='<div class="empty-note">Not enough swim data to build pace curve</div>';return;}
+    drawCurveChart(box,allPairs,recentPairs,true,'Best average pace from activities (not stream-based)');
     return;
   }
 }
@@ -2880,7 +2914,7 @@ function _applyFitnessToUI(){
 .nutr-food-name{color:var(--tc);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nutr-food-macros{display:flex;align-items:center;gap:6px;flex-shrink:0}
 /* Floating add button */
-.nutr-fab{position:sticky;bottom:20px;display:block;margin:16px 0 0 auto;background:var(--acc);color:#000;border:none;padding:12px 24px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.4)}
+.nutr-fab{display:block;margin:16px 0 0;background:var(--acc);color:#000;border:none;padding:12px 24px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;width:100%;box-sizing:border-box}
 /* Food entry modal */
 #nutrFoodModalOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000}
 #nutrFoodModalOverlay.show{display:block}
