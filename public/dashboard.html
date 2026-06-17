@@ -146,11 +146,15 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .dash-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:7px 16px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
 .dash-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
 .dash-panel{display:none}
-.dash-panel.active{display:block}
+.dash-panel.active{display:block;height:calc(100vh - 152px);overflow-y:auto}
 /* Athlete calendar (dashboard) */
-.ath-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
-.ath-cal-head{background:var(--bc3);padding:6px 4px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.ath-cal-cell{background:var(--bc2);min-height:85px;padding:4px 5px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
+#dtp-calendar.active{overflow:hidden;display:flex;flex-direction:column}
+.ath-cal-nav{flex-shrink:0}
+.ath-cal-wrap{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#athCalHeadRow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);flex-shrink:0}
+.ath-cal-grid{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-top:none;min-height:0}
+.ath-cal-head{background:var(--bc3);padding:clamp(4px,1vh,8px) 4px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
+.ath-cal-cell{background:var(--bc2);min-height:0;padding:4px 5px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
 .ath-cal-cell:hover{background:var(--bc3)}
 .ath-cal-cell.other-month{opacity:0.35}
 .ath-cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
@@ -429,8 +433,11 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         <div class="ath-cal-title" id="athCalTitle">—</div>
         <button class="btn btn-sm btn-ghost" onclick="athCalShift(1)">Next &#8250;</button>
       </div>
-      <div class="ath-cal-grid" id="athCalGrid"></div>
-      <p style="font-size:11px;color:var(--tc3);margin-top:1rem">Tap a workout or race for details. Tap an empty day to add a session. <span class="ath-badge-a">A</span> = added by you.</p>
+      <div class="ath-cal-wrap">
+        <div id="athCalHeadRow"></div>
+        <div class="ath-cal-grid" id="athCalGrid"></div>
+      </div>
+      <p style="font-size:11px;color:var(--tc3);margin-top:0.5rem;flex-shrink:0">Tap a workout or race for details. Tap an empty day to add a session. <span class="ath-badge-a">A</span> = added by you.</p>
     </div>
 
     <div class="dash-panel" id="dtp-profile">
@@ -2046,11 +2053,13 @@ function athIcuTypeToSport(type){
 
 function renderAthCal(){
   const grid=document.getElementById('athCalGrid');
+  const headRow=document.getElementById('athCalHeadRow');
   const title=document.getElementById('athCalTitle');
   if(!grid)return;
   title.textContent=athCalMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  let html=days.map(d=>'<div class="ath-cal-head">'+d+'</div>').join('');
+  if(headRow)headRow.innerHTML=days.map(d=>'<div class="ath-cal-head">'+d+'</div>').join('');
+  let html='';
 
   const firstOfMonth=new Date(athCalMonth);
   const firstDow=(firstOfMonth.getDay()+6)%7;
