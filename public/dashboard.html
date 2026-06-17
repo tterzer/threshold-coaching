@@ -2073,7 +2073,9 @@ function renderAthCal(){
     icuByDate[d].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
   }
 
-  for(let i=0;i<42;i++){
+  const _dim=new Date(athCalMonth.getFullYear(),athCalMonth.getMonth()+1,0).getDate();
+  const _cellCount=Math.ceil((firstDow+_dim)/7)*7;
+  for(let i=0;i<_cellCount;i++){
     const d=new Date(gridStart);
     d.setDate(gridStart.getDate()+i);
     const key=toYMD(d);
