@@ -379,7 +379,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
             </select>
             <select class="zd-select" id="zdMetric" onchange="onZoneDistControlChange()">
               <option value="hr">Heart rate</option>
-              <option value="power" selected>Power / pace</option>
+              <option value="power" selected>Power</option>
+              <option value="pace">Pace</option>
             </select>
             <select class="zd-select" id="zdWindow" onchange="onZoneDistControlChange()">
               <option value="7">Last 7 days</option>
@@ -1427,11 +1428,23 @@ function updateZdMetricOptions(){
   const sport=document.getElementById('zdSport').value;
   const sel=document.getElementById('zdMetric');
   const hrOpt=sel.querySelector('option[value="hr"]');
-  if(sport==='swimming'){
-    if(hrOpt)hrOpt.style.display='none';
-    if(sel.value==='hr')sel.value='power';
-  }else{
+  const powerOpt=sel.querySelector('option[value="power"]');
+  const paceOpt=sel.querySelector('option[value="pace"]');
+  if(sport==='cycling'){
     if(hrOpt)hrOpt.style.display='';
+    if(powerOpt)powerOpt.style.display='';
+    if(paceOpt)paceOpt.style.display='none';
+    if(sel.value==='pace')sel.value='power';
+  }else if(sport==='running'){
+    if(hrOpt)hrOpt.style.display='';
+    if(powerOpt)powerOpt.style.display='none';
+    if(paceOpt)paceOpt.style.display='';
+    if(sel.value==='power')sel.value='pace';
+  }else if(sport==='swimming'){
+    if(hrOpt)hrOpt.style.display='none';
+    if(powerOpt)powerOpt.style.display='none';
+    if(paceOpt)paceOpt.style.display='';
+    sel.value='pace';
   }
 }
 
@@ -1448,7 +1461,7 @@ async function onZoneDistControlChange(){
   const el=document.getElementById('zoneRows');
 
   if(sport==='running'){
-    if(metric==='power'){el.innerHTML='<div class="empty-note">No running power data available</div>';return;}
+    if(metric!=='hr'&&metric!=='pace'){el.innerHTML='<div class="empty-note">No running power data available</div>';return;}
     el.innerHTML='<div class="empty-note">Loading run zones…</div>';
     const cutoff=new Date();cutoff.setDate(cutoff.getDate()-win);
     const cutoffStr=toYMD(cutoff);
@@ -1474,7 +1487,7 @@ async function onZoneDistControlChange(){
           });
         });
         if(!any){el.innerHTML='<div class="empty-note">No HR stream data for running activities in this window</div>';return;}
-      } else {
+      } else if(metric==='pace'){
         // pace: velocity_smooth → sec/mile, compare against threshold_pace
         const threshSec=parsePace(zs.running.threshold_pace||'6:00');
         const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'velocity_smooth')));
