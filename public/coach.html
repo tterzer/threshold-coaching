@@ -847,26 +847,35 @@ async function loadAthleteOverview(){
   try{
     const id=a.intervals_athlete_id, key=a.intervals_api_key;
     const today=new Date();
+    const todayStr=today.toISOString().split('T')[0];
     const oldest=new Date(today);oldest.setDate(today.getDate()-35);
     const oldestStr=oldest.toISOString().split('T')[0];
     const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-185);
     const fitOldestStr=fitOldest.toISOString().split('T')[0];
-    const[acts,fitActs]=await Promise.all([
+    const[acts,fitActs,wellnessRes]=await Promise.all([
       intervalsCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts'),
-      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
+      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type'),
+      fetch('/api/intervals?athleteId='+encodeURIComponent(id)+'&apiKey='+encodeURIComponent(key)+'&path=wellness/'+todayStr).then(r=>r.ok?r.json():null).catch(()=>null)
     ]);
     const sorted=[...acts].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
     athleteIcuActivities=sorted; // store for calendar ICU overlay
-    const fit=computeFitnessSimple(fitActs);
-    const last=fit[fit.length-1]||{ctl:0,atl:0};
-    const ctl=Math.round(last.ctl), atl=Math.round(last.atl), tsb=ctl-atl;
+    let ctl,atl,tsb;
+    if(wellnessRes&&wellnessRes.ctl!=null){
+      ctl=Math.round(wellnessRes.ctl);
+      atl=Math.round(wellnessRes.atl??0);
+      tsb=Math.round(wellnessRes.tsb??(ctl-atl));
+    }else{
+      const fit=computeFitnessSimple(fitActs);
+      const last=fit[fit.length-1]||{ctl:0,atl:0};
+      ctl=Math.round(last.ctl); atl=Math.round(last.atl); tsb=ctl-atl;
+    }
     const ctlEl=document.getElementById('ovCTL');
     ctlEl.textContent=ctl;ctlEl.style.color='#378ADD';
     const atlEl=document.getElementById('ovATL');
     atlEl.textContent=atl;atlEl.style.color='#E24B4A';
     const tsbEl=document.getElementById('ovTSB');
+    tsbEl.className='metric-val';
     tsbEl.textContent=(tsb>=0?'+':'')+tsb;
-    tsbEl.className='metric-val '+(tsb>5?'positive':tsb<-10?'negative':'');
     tsbEl.style.color='#c8f036';
 
     document.getElementById('ovActs').innerHTML=sorted.slice(0,6).map(act=>{
