@@ -812,6 +812,9 @@ async function loadDashboard(){
       tsbEl.textContent=(tsb>=0?'+':'')+tsb;
       tsbEl.className='metric-val';
       tsbEl.style.color='#c8f036';
+      localStorage.setItem('hm2l_snap_ctl',ctl);
+      localStorage.setItem('hm2l_snap_atl',atl);
+      localStorage.setItem('hm2l_snap_tsb',tsb);
     }
     buildRamp();
     // "This week" = Monday of the current calendar week through today (inclusive).
@@ -829,6 +832,9 @@ async function loadDashboard(){
     weekEl.textContent=thisWeekLoad;weekEl.style.color='#c8f036';
     const lastWeekEl=document.getElementById('mLastWeek');
     lastWeekEl.textContent=lastWeekLoad;lastWeekEl.style.color='#c8f036';
+    localStorage.setItem('hm2l_snap_this_week',thisWeekLoad);
+    localStorage.setItem('hm2l_snap_last_week',lastWeekLoad);
+    localStorage.setItem('hm2l_snap_pmc_data',JSON.stringify(fitnessSeries));
     buildPMC();
     buildSportCTL();
     buildSportLoad(sorted);
@@ -864,6 +870,7 @@ function buildRamp(){
   rampEl.textContent=(ramp>=0?'+':'')+ramp;
   rampEl.className='metric-val';
   rampEl.style.color='#7F77DD';
+  localStorage.setItem('hm2l_snap_ramp',ramp);
   let label='Low risk';
   if(ramp>8)label='High risk';
   else if(ramp>5)label='Moderate';

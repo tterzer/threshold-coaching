@@ -864,81 +864,62 @@ async function loadAthleteOverview(){
   try{
     const id=a.intervals_athlete_id, key=a.intervals_api_key;
     const today=new Date();
-    const todayStr=today.toISOString().split('T')[0];
     const oldest=new Date(today);oldest.setDate(today.getDate()-35);
     const oldestStr=oldest.toISOString().split('T')[0];
     const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-185);
     const fitOldestStr=fitOldest.toISOString().split('T')[0];
-    const wk7ago=new Date(today);wk7ago.setDate(today.getDate()-7);
-    const wk7agoStr=wk7ago.toISOString().split('T')[0];
-    const[acts,fitActs,wellnessRes,wellness7Res]=await Promise.all([
+    const[acts,fitActs]=await Promise.all([
       intervalsCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts'),
-      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type'),
-      fetch('/api/intervals?athleteId='+encodeURIComponent(id)+'&apiKey='+encodeURIComponent(key)+'&path=wellness/'+todayStr).then(r=>r.ok?r.json():null).catch(()=>null),
-      fetch('/api/intervals?athleteId='+encodeURIComponent(id)+'&apiKey='+encodeURIComponent(key)+'&path=wellness/'+wk7agoStr).then(r=>r.ok?r.json():null).catch(()=>null)
+      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
     ]);
     const sorted=[...acts].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
-    athleteIcuActivities=sorted; // store for calendar ICU overlay
+    athleteIcuActivities=sorted;
 
-    // Build fitness series for PMC (always computed for chart)
-    const fitSeries=computeFitnessSimple(fitActs);
-    const fitByDate={};
-    fitSeries.forEach(e=>{fitByDate[e.date]=e;});
-    coachFitSeries=fitSeries;
-    coachFitByDate=fitByDate;
+    // All metrics read from localStorage (written by athlete portal on load)
+    const ctl=Number(localStorage.getItem('hm2l_snap_ctl'))||0;
+    const atl=Number(localStorage.getItem('hm2l_snap_atl'))||0;
+    const tsb=Number(localStorage.getItem('hm2l_snap_tsb'))||0;
+    const rampStored=localStorage.getItem('hm2l_snap_ramp');
+    const rampRaw=rampStored!==null?Number(rampStored):null;
+    const thisWeekLoad=Number(localStorage.getItem('hm2l_snap_this_week'))||0;
+    const lastWeekLoad=Number(localStorage.getItem('hm2l_snap_last_week'))||0;
 
-    let ctl,atl,tsb;
-    if(wellnessRes&&wellnessRes.ctl!=null){
-      ctl=Math.round(wellnessRes.ctl);
-      atl=Math.round(wellnessRes.atl??0);
-      tsb=Math.round(wellnessRes.tsb??(ctl-atl));
-    }else{
-      const last=fitSeries[fitSeries.length-1]||{ctl:0,atl:0};
-      ctl=Math.round(last.ctl); atl=Math.round(last.atl); tsb=ctl-atl;
-    }
     const ctlEl=document.getElementById('ovCTL');
-    ctlEl.textContent=ctl;ctlEl.style.color='#378ADD';
+    ctlEl.textContent=ctl||'—';ctlEl.style.color='#378ADD';
     const atlEl=document.getElementById('ovATL');
-    atlEl.textContent=atl;atlEl.style.color='#E24B4A';
+    atlEl.textContent=atl||'—';atlEl.style.color='#E24B4A';
     const tsbEl=document.getElementById('ovTSB');
     tsbEl.className='metric-val';
-    tsbEl.textContent=(tsb>=0?'+':'')+tsb;
+    tsbEl.textContent=ctl?(tsb>=0?'+':'')+tsb:'—';
     tsbEl.style.color='#c8f036';
 
-    // Ramp rate
     const rampEl=document.getElementById('ovRamp');
     const pillEl=document.getElementById('ovRampPill');
-    let ctl7=null;
-    if(wellness7Res&&wellness7Res.ctl!=null) ctl7=wellness7Res.ctl;
-    else{const e7=fitByDate[wk7agoStr];if(e7)ctl7=e7.ctl;}
-    if(ctl7!=null){
-      const ramp=Math.round(ctl-ctl7);
+    if(rampRaw!==null){
+      const ramp=rampRaw;
       rampEl.textContent=(ramp>=0?'+':'')+ramp;
-      rampEl.className='metric-val';
-      rampEl.style.color='#7F77DD';
+      rampEl.className='metric-val';rampEl.style.color='#7F77DD';
       let label='Low risk';
-      if(ramp>8)label='High risk';
-      else if(ramp>5)label='Moderate';
+      if(ramp>8)label='High risk';else if(ramp>5)label='Moderate';
       pillEl.textContent=label;
       pillEl.style.background=ramp>8?'rgba(226,75,74,0.15)':ramp>5?'rgba(186,117,23,0.15)':'rgba(99,153,34,0.15)';
       pillEl.style.color=ramp>8?'#E24B4A':ramp>5?'#BA7517':'#639922';
     }else{rampEl.textContent='—';pillEl.textContent='—';}
 
-    // This week / last week
-    const now2=new Date();
-    const dow=now2.getDay();
-    const diffToMon=dow===0?6:dow-1;
-    const monday=new Date(now2);monday.setDate(now2.getDate()-diffToMon);monday.setHours(0,0,0,0);
-    const lastMonday=new Date(monday);lastMonday.setDate(monday.getDate()-7);
-    const nowStr2=today.toISOString().split('T')[0];
-    const mondayStr=monday.toISOString().split('T')[0];
-    const lastMondayStr=lastMonday.toISOString().split('T')[0];
-    const thisWeekLoad=Math.round(sorted.filter(a=>{const ds=(a.start_date_local||'').slice(0,10);return ds>=mondayStr&&ds<=nowStr2;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
-    const lastWeekLoad=Math.round(sorted.filter(a=>{const ds=(a.start_date_local||'').slice(0,10);return ds>=lastMondayStr&&ds<mondayStr;}).reduce((s,a)=>s+(a.icu_training_load||0),0));
     const weekEl=document.getElementById('ovWeek');
     weekEl.textContent=thisWeekLoad;weekEl.style.color='#c8f036';
     const lastWeekEl=document.getElementById('ovLastWeek');
     lastWeekEl.textContent=lastWeekLoad;lastWeekEl.style.color='#c8f036';
+
+    // PMC chart data from localStorage
+    const storedPmc=localStorage.getItem('hm2l_snap_pmc_data');
+    if(storedPmc){
+      try{
+        const series=JSON.parse(storedPmc);
+        coachFitByDate={};
+        series.forEach(e=>{coachFitByDate[e.date]=e;});
+      }catch(e){}
+    }
 
     document.getElementById('ovActs').innerHTML=sorted.slice(0,6).map(act=>{
       const d=new Date(act.start_date_local).toLocaleDateString('en-US',{month:'short',day:'numeric'});
