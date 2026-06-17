@@ -13,14 +13,14 @@
 :root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#aaa;--tc3:#777;--border:#2a2a2a;}
 .chart-box{background:var(--bc2);padding:1.75rem;min-width:0;overflow:hidden;border:1px solid #333}
 .chart-title{font-family:'DM Mono',monospace;font-size:12px;font-weight:400;text-transform:uppercase;letter-spacing:0.15em;color:#c8f036;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
-body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;overflow-y:auto}
+body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;height:100vh;overflow:hidden}
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
 .nav-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
 .nav-logo img{height:52px;width:auto;display:block}
 .nav-back{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase}
 .nav-back:hover{color:var(--tc2)}
-.page{max-width:1400px;margin:0 auto;padding:2.5rem 2rem}
+.page{max-width:1400px;margin:0 auto;padding:0 2rem}
 .gate-box{background:var(--bc2);border:1px solid var(--border);padding:2.5rem;max-width:420px;margin:5rem auto}
 .gate-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
 .gate-label::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
@@ -42,7 +42,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .portal{display:none}
 .layout{display:grid;grid-template-columns:280px 1fr;gap:1px;background:var(--border)}
 .panel{background:var(--bc2);padding:1.5rem}
-.athlete-list{display:flex;flex-direction:column;gap:6px;max-height:80vh;overflow:auto}
+.athlete-list{display:flex;flex-direction:column;gap:6px;height:calc(100vh - 104px);overflow-y:auto}
 .athlete-item{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border:1px solid transparent;transition:all 0.15s}
 .athlete-item:hover{background:var(--bc3)}
 .athlete-item.active{border-color:var(--acc);background:var(--bc3)}
@@ -71,7 +71,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 18px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
 .tab.active{color:var(--acc);border-bottom-color:var(--acc)}
 .tab-panel{display:none}
-.tab-panel.active{display:block}
+.tab-panel.active{display:block;height:calc(100vh - 138px);overflow-y:auto}
+#tab-calendar.active{overflow:hidden;display:flex;flex-direction:column}
 /* Calendar */
 #tab-calendar.active{overflow:hidden;display:flex;flex-direction:column}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;flex-shrink:0}
