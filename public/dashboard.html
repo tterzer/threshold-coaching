@@ -372,7 +372,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <div class="chart-box">
         <div class="chart-title">Zone distribution
           <div class="zd-controls">
-            <select class="zd-select" id="zdSport" onchange="onZoneDistControlChange()">
+            <select class="zd-select" id="zdSport" onchange="updateZdMetricOptions();onZoneDistControlChange()">
               <option value="cycling">Cycling</option>
               <option value="running">Running</option>
               <option value="swimming">Swimming</option>
@@ -1423,6 +1423,18 @@ async function loadZoneDistribution(){
 }
 
 // Re-classify the (already-cached) stream samples into zones using the current
+function updateZdMetricOptions(){
+  const sport=document.getElementById('zdSport').value;
+  const sel=document.getElementById('zdMetric');
+  const hrOpt=sel.querySelector('option[value="hr"]');
+  if(sport==='swimming'){
+    if(hrOpt)hrOpt.style.display='none';
+    if(sel.value==='hr')sel.value='power';
+  }else{
+    if(hrOpt)hrOpt.style.display='';
+  }
+}
+
 // thresholds/overrides — called whenever a threshold value changes so the
 // distribution reflects the new zone boundaries without re-fetching streams.
 async function buildZoneDistribution(){
@@ -1502,48 +1514,28 @@ async function onZoneDistControlChange(){
     const acts=allActivities.filter(a=>sportClass(a.type)==='swimming'&&(a.start_date_local||'').slice(0,10)>=cutoffStr).slice(0,20);
     if(!acts.length){el.innerHTML='<div class="empty-note">No swimming activities in this window</div>';return;}
     try{
+      const cssParts=(zs.swimming.css||'1:45').split(':');
+      const cssSec=(parseInt(cssParts[0])||1)*60+(parseInt(cssParts[1])||45);
+      const cssUnit=zs.swimming.css_unit||'100m';
+      const distFactor=cssUnit==='100yd'?91.44:100;
       const totals=new Array(5).fill(0);
       let any=false;
-      if(metric==='hr'){
-        const lthr=zs.swimming.lthr||zs.running.lthr||165;
-        const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'heartrate')));
-        streams.forEach(stream=>{
-          if(!stream||!stream.length)return;
-          any=true;
-          stream.forEach(v=>{
-            if(v==null||v<=0)return;
-            const pct=v/lthr*100;
-            if(pct<68)totals[0]++;
-            else if(pct<83)totals[1]++;
-            else if(pct<94)totals[2]++;
-            else if(pct<105)totals[3]++;
-            else totals[4]++;
-          });
+      const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'velocity_smooth')));
+      streams.forEach(stream=>{
+        if(!stream||!stream.length)return;
+        any=true;
+        stream.forEach(v=>{
+          if(v==null||v<=0)return;
+          const pace=distFactor/v;
+          const pct=pace/cssSec*100;
+          if(pct>120)totals[0]++;
+          else if(pct>110)totals[1]++;
+          else if(pct>100)totals[2]++;
+          else if(pct>90)totals[3]++;
+          else totals[4]++;
         });
-        if(!any){el.innerHTML='<div class="empty-note">No HR stream data for swim activities in this window</div>';return;}
-      } else {
-        // pace: velocity_smooth → sec/100m or 100yd, compare against CSS
-        const cssParts=(zs.swimming.css||'1:45').split(':');
-        const cssSec=(parseInt(cssParts[0])||1)*60+(parseInt(cssParts[1])||45);
-        const cssUnit=zs.swimming.css_unit||'100m';
-        const distFactor=cssUnit==='100yd'?91.44:100;
-        const streams=await Promise.all(acts.map(a=>fetchStream(a.id,'velocity_smooth')));
-        streams.forEach(stream=>{
-          if(!stream||!stream.length)return;
-          any=true;
-          stream.forEach(v=>{
-            if(v==null||v<=0)return;
-            const pace=distFactor/v;
-            const pct=pace/cssSec*100;
-            if(pct>120)totals[0]++;
-            else if(pct>110)totals[1]++;
-            else if(pct>100)totals[2]++;
-            else if(pct>90)totals[3]++;
-            else totals[4]++;
-          });
-        });
-        if(!any){el.innerHTML='<div class="empty-note">No velocity stream data for swim activities in this window</div>';return;}
-      }
+      });
+      if(!any){el.innerHTML='<div class="empty-note">No velocity stream data for swim activities in this window</div>';return;}
       const total=totals.reduce((s,v)=>s+v,0);
       if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
       el.innerHTML=totals.map((t,i)=>{
