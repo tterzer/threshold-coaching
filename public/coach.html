@@ -50,10 +50,13 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-name{font-size:13px;color:var(--tc)}
 .ath-email{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)}
 .empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#777}
-.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);margin-bottom:1px}
+.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);margin-bottom:0;width:100%}
+.metric{background:var(--bc2);padding:1rem;min-width:0}
 .risk-pill{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px;margin-top:6px}
 .metric-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:4px}
-.metric{background:var(--bc2);padding:1.2rem}
+.chart-card{background:var(--bc2);border:1px solid var(--border);padding:1rem;margin-top:1px;width:100%;box-sizing:border-box}
+.chart-card-header{display:flex;align-items:center;gap:8px;margin-bottom:0.75rem}
+.chart-card-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase}
 .metric-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
 .metric-val{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:700;line-height:1;color:var(--acc)}
 .metric-val.positive{color:#639922}
@@ -260,25 +263,23 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               <div class="metric"><div class="metric-label">This week</div><div class="metric-val" id="ovWeek">—</div><div class="metric-sub">Training load</div></div>
               <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="ovLastWeek">—</div><div class="metric-sub">Training load</div></div>
             </div>
-            <div style="margin-top:1.5rem">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
-                <div class="section-label" style="margin-bottom:0">Performance management chart</div>
-                <div style="display:flex;gap:4px">
-                  <button class="btn btn-sm btn-ghost" id="cpmc-6W" onclick="setCoachPmcRange(42,this)" style="padding:4px 10px;font-size:10px">6W</button>
-                  <button class="btn btn-sm btn-ghost" id="cpmc-3M" onclick="setCoachPmcRange(90,this)" style="padding:4px 10px;font-size:10px">3M</button>
-                  <button class="btn btn-sm btn-ghost active" id="cpmc-6M" onclick="setCoachPmcRange(180,this)" style="padding:4px 10px;font-size:10px">6M</button>
-                </div>
+            <div class="chart-card">
+              <div class="chart-card-header">
+                <button class="btn btn-sm btn-ghost" id="cpmc-6W" onclick="setCoachPmcRange(42,this)" style="padding:4px 10px;font-size:10px">6W</button>
+                <button class="btn btn-sm btn-ghost" id="cpmc-3M" onclick="setCoachPmcRange(90,this)" style="padding:4px 10px;font-size:10px">3M</button>
+                <button class="btn btn-sm btn-ghost active" id="cpmc-6M" onclick="setCoachPmcRange(180,this)" style="padding:4px 10px;font-size:10px">6M</button>
+                <span class="chart-card-label">Performance management</span>
               </div>
-              <div style="position:relative;height:200px"><canvas id="coachPmcChart"></canvas></div>
+              <div style="position:relative;height:200px;width:100%"><canvas id="coachPmcChart"></canvas></div>
             </div>
-            <div style="margin-top:1.5rem">
-              <div class="section-label">Sport-specific fitness (CTL)</div>
-              <div style="display:flex;gap:4px;margin-bottom:0.75rem">
+            <div class="chart-card">
+              <div class="chart-card-header">
                 <button class="btn btn-sm btn-ghost" id="csctl-6W" onclick="setCoachSportCtlRange('6W',this)" style="padding:4px 10px;font-size:10px">6W</button>
                 <button class="btn btn-sm btn-ghost" id="csctl-3M" onclick="setCoachSportCtlRange('3M',this)" style="padding:4px 10px;font-size:10px">3M</button>
                 <button class="btn btn-sm btn-ghost" id="csctl-6M" onclick="setCoachSportCtlRange('6M',this)" style="padding:4px 10px;font-size:10px">6M</button>
+                <span class="chart-card-label">Sport-specific CTL</span>
               </div>
-              <div style="position:relative;height:160px"><canvas id="coachSportCtlChart"></canvas></div>
+              <div style="position:relative;height:160px;width:100%"><canvas id="coachSportCtlChart"></canvas></div>
             </div>
             <div style="margin-top:1.5rem">
               <div class="section-label">Recent activities</div>
