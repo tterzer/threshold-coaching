@@ -1434,18 +1434,19 @@ function updateZdMetricOptions(){
     if(hrOpt)hrOpt.style.display='';
     if(powerOpt)powerOpt.style.display='';
     if(paceOpt)paceOpt.style.display='none';
-    if(sel.value==='pace')sel.value='power';
+    sel.value='power';
   }else if(sport==='running'){
     if(hrOpt)hrOpt.style.display='';
     if(powerOpt)powerOpt.style.display='none';
     if(paceOpt)paceOpt.style.display='';
-    if(sel.value==='power')sel.value='pace';
+    sel.value='pace';
   }else if(sport==='swimming'){
     if(hrOpt)hrOpt.style.display='none';
     if(powerOpt)powerOpt.style.display='none';
     if(paceOpt)paceOpt.style.display='';
     sel.value='pace';
   }
+  onZoneDistControlChange();
 }
 
 // thresholds/overrides — called whenever a threshold value changes so the
@@ -1693,8 +1694,19 @@ async function buildStreamCurve(acts, streamType, progressId){
     const el=document.getElementById(progressId);
     if(el)el.style.width=Math.round(done/acts.length*100)+'%';
     if(!arr||!arr.length)return;
+    let filtered=arr;
+    if(streamType==='velocity_smooth'){
+      filtered=arr.filter(v=>{
+        if(v==null||v<=0)return false;
+        const spm=1609.34/v;
+        const s100=100/v;
+        return spm>=240&&spm<=900&&s100>=40&&s100<=300;
+      });
+    }else if(streamType==='watts'){
+      filtered=arr.filter(v=>v!=null&&v>=0&&v<=2500);
+    }
     CURVE_DURATIONS.forEach((d,i)=>{
-      const m=rollingMax(arr,d);
+      const m=rollingMax(filtered,d);
       if(m!=null&&(best[i]==null||m>best[i]))best[i]=m;
     });
   }));
