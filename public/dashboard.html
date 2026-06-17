@@ -1686,7 +1686,7 @@ function windowScore(l){
 
 // Fetch watts streams for a list of cycling activities and compute per-duration best values.
 // Returns array aligned to CURVE_DURATIONS in watts.
-async function buildStreamCurve(acts, streamType, progressId, sport){
+async function buildStreamCurve(acts, streamType, progressId){
   const best=CURVE_DURATIONS.map(()=>null);
   let done=0;
   await Promise.all(acts.map(async a=>{
@@ -1695,24 +1695,10 @@ async function buildStreamCurve(acts, streamType, progressId, sport){
     const el=document.getElementById(progressId);
     if(el)el.style.width=Math.round(done/acts.length*100)+'%';
     if(!arr||!arr.length)return;
-    let filtered=arr;
-    if(streamType==='velocity_smooth'){
-      if(sport==='swim'){
-        const dist=(zs.swimming.css_unit||'100m')==='100yd'?91.44:100;
-        filtered=arr.filter(v=>{
-          if(v==null||v<=0)return false;
-          const s=dist/v;
-          return s>=45&&s<=300;
-        });
-      }else{
-        filtered=arr.filter(v=>{
-          if(v==null||v<=0)return false;
-          const spm=1609.34/v;
-          return spm>=240&&spm<=900;
-        });
-      }
-    }else if(streamType==='watts'){
-      filtered=arr.filter(v=>v!=null&&v>=0&&v<=2500);
+    const filtered=arr.filter(v=>v!=null&&v>0);
+    if(streamType==='velocity_smooth'&&filtered.length){
+      const minV=Math.min(...filtered),maxV=Math.max(...filtered);
+      console.log(`[curve] act ${a.id} (${a.name||'?'}) len=${filtered.length} v=${minV.toFixed(3)}-${maxV.toFixed(3)} m/s | pace ${(1609.34/maxV).toFixed(0)}-${(1609.34/minV).toFixed(0)} s/mi | ${(100/maxV).toFixed(1)}-${(100/minV).toFixed(1)} s/100m`);
     }
     CURVE_DURATIONS.forEach((d,i)=>{
       const m=rollingMax(filtered,d);
@@ -1889,7 +1875,7 @@ async function renderCurve(){
       if(!runs.length){box.innerHTML='<div class="empty-note">No run data available — complete a run synced from intervals.icu</div>';return;}
       const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
       const recentRuns=runs.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
-      const allBest=await buildStreamCurve(runs,'velocity_smooth','curveProg','run');
+      const allBest=await buildStreamCurve(runs,'velocity_smooth','curveProg');
       const allPairs=CURVE_DURATIONS.map((s,i)=>allBest[i]!=null?{s,v:allBest[i]}:null).filter(Boolean);
       let recentPairs=null;
       if(recentRuns.length){
@@ -1914,7 +1900,7 @@ async function renderCurve(){
       if(!swims.length){box.innerHTML='<div class="empty-note">No swim data available — complete a swim synced from intervals.icu</div>';return;}
       const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
       const recentSwims=swims.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
-      const allBest=await buildStreamCurve(swims,'velocity_smooth','curveProg','swim');
+      const allBest=await buildStreamCurve(swims,'velocity_smooth','curveProg');
       const allPairs=CURVE_DURATIONS.map((s,i)=>allBest[i]!=null?{s,v:allBest[i]}:null).filter(Boolean);
       let recentPairs=null;
       if(recentSwims.length){
