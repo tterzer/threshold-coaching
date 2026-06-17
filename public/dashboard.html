@@ -1634,6 +1634,7 @@ async function fetchStream(activityId,type){
 }
 
 async function fetchSwimActivity(activityId){
+  console.log('fetchSwimActivity called:',activityId,'curId:',curId,'curKey:',curKey?'set':'missing');
   if(swimActivityCache[activityId])return swimActivityCache[activityId];
   try{
     const raw=await apiCall(curId,curKey,'activities/'+activityId);
