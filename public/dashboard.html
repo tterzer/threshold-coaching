@@ -142,15 +142,15 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .prof-toggle input{accent-color:var(--acc);cursor:pointer;width:14px;height:14px}
 .prof-toggle:has(input:checked){border-color:var(--acc);color:var(--acc)}
 /* Dashboard tab nav */
-.dash-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:2rem}
-.dash-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 20px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.dash-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem}
+.dash-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:7px 16px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
 .dash-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
 .dash-panel{display:none}
 .dash-panel.active{display:block}
 /* Athlete calendar (dashboard) */
 .ath-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border)}
-.ath-cal-head{background:var(--bc3);padding:3px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.ath-cal-cell{background:var(--bc2);min-height:68px;padding:3px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
+.ath-cal-head{background:var(--bc3);padding:2px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
+.ath-cal-cell{background:var(--bc2);min-height:75px;padding:2px 3px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
 .ath-cal-cell:hover{background:var(--bc3)}
 .ath-cal-cell.other-month{opacity:0.35}
 .ath-cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
@@ -178,7 +178,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-race.priority-A{background:#FFD700;color:#1a1000}
 .ath-cal-race.priority-B{background:#C0C0C0;color:#111}
 .ath-cal-race.priority-C{background:#CD7F32;color:#fff}
-.ath-cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.ath-cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem}
 .ath-cal-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase}
 /* Detail modals */
 .ath-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}

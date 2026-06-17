@@ -16,33 +16,33 @@ a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;flex-shrink:0}
 .nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;height:48px}
 .nav-logo img{height:28px;width:auto;display:block}
-.main{flex:1;display:flex;align-items:center;justify-content:center;padding:1rem 2rem;overflow:hidden}
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:0.5rem 2rem;overflow:hidden}
 .content{max-width:600px;width:100%}
-.page-heading{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;margin-bottom:2rem}
-.portal-cards{display:flex;gap:12px;margin-bottom:2rem}
-.portal-card{flex:1;background:#141414;border:1px solid #333;padding:1.75rem;cursor:pointer;transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;position:relative}
+.page-heading{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;margin-bottom:0.6rem}
+.portal-cards{display:flex;gap:8px;margin-bottom:0.6rem}
+.portal-card{flex:1;background:#141414;border:1px solid #333;padding:0.9rem;cursor:pointer;transition:border-color 0.2s,background 0.2s,box-shadow 0.2s;position:relative}
 .portal-card:hover{border-color:#555;background:#1a1a1a;box-shadow:0 4px 24px rgba(0,0,0,0.4)}
 .portal-card.selected{border-color:var(--acc);background:#1a1a1a;box-shadow:0 0 0 1px var(--acc),0 4px 24px rgba(200,240,54,0.08)}
 .portal-card.selected .card-type{color:var(--acc)}
-.card-type{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.5rem}
-.card-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:0.4rem;color:var(--tc)}
-.card-desc{font-size:13px;color:var(--tc2);line-height:1.5}
+.card-type{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.25rem}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:0.2rem;color:var(--tc)}
+.card-desc{font-size:11px;color:var(--tc2);line-height:1.4}
 .login-form{display:none;opacity:0;transition:opacity 0.25s}
 .login-form.visible{opacity:1}
-.login-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.1em;margin-bottom:1.25rem}
-.field{margin-bottom:1rem}
-.field label{display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
-.field input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s}
+.login-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;margin-bottom:0.5rem}
+.field{margin-bottom:0.5rem}
+.field label{display:block;font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px}
+.field input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:7px 12px;font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color 0.2s}
 .field input:focus{border-color:var(--acc)}
 .pw-wrap{position:relative;display:flex;align-items:center}
-.pw-wrap .pw-input{width:100%;padding-right:40px}
+.pw-wrap .pw-input{width:100%;padding-right:36px}
 .pw-toggle{position:absolute;right:10px;background:none;border:none;cursor:pointer;color:var(--tc3);padding:0;display:flex;align-items:center;transition:color 0.2s}
 .pw-toggle:hover{color:var(--tc2)}
-.pw-toggle svg{width:16px;height:16px}
-.login-btn{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:12px 28px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;width:100%;margin-top:0.5rem}
+.pw-toggle svg{width:15px;height:15px}
+.login-btn{font-family:'DM Mono',monospace;font-size:11px;background:var(--acc);color:#000;padding:9px 24px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;width:100%;margin-top:0.4rem}
 .login-btn:disabled{opacity:0.5;cursor:not-allowed}
-.login-error{font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;margin-top:0.75rem;display:none}
-.back-link{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase;display:inline-block;margin-top:2rem}
+.login-error{font-family:'DM Mono',monospace;font-size:10px;color:#E24B4A;margin-top:0.4rem;display:none}
+.back-link{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase;display:inline-block;margin-top:0.4rem}
 .back-link:hover{color:var(--tc2)}
 @media(max-width:540px){
   .portal-cards{flex-direction:column}
@@ -58,7 +58,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 </nav>
 <div class="main">
   <div class="content">
-    <img src="/hm2l_logo_transparent.png" style="height:200px;width:auto;display:block;margin:0 auto 2rem">
+    <img src="/hm2l_logo_transparent.png" style="height:80px;width:auto;display:block;margin:0 auto 0.5rem">
     <div class="page-heading">Welcome back.</div>
     <div id="regSuccess" style="display:none;background:rgba(200,240,54,0.1);border:1px solid var(--acc);color:var(--acc);font-family:'DM Mono',monospace;font-size:11px;padding:10px 14px;margin-bottom:1.5rem;letter-spacing:0.06em">
       Account created — please log in to your athlete portal.
@@ -111,7 +111,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
       <button class="login-btn" id="coachBtn" onclick="doCoachLogin()">Login</button>
     </div>
 
-    <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-top:1rem">
+    <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:0.4rem">
       New athlete? <a href="/register.html" style="color:var(--acc)">Create an account →</a>
     </p>
     <a class="back-link" href="/index.html">&#8592; Back to site</a>
