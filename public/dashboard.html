@@ -2971,8 +2971,7 @@ function _applyFitnessToUI(){
 .nutr-food-row{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bc);border-top:1px solid var(--border);font-family:'DM Mono',monospace;font-size:11px}
 .nutr-food-name{color:var(--tc);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nutr-food-macros{display:flex;align-items:center;gap:6px;flex-shrink:0}
-/* Floating add button */
-.nutr-fab{display:block;margin:16px 0 0;background:var(--acc);color:#000;border:none;padding:12px 24px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;width:100%;box-sizing:border-box}
+.nutr-add-btn{display:block;margin:16px 0 0;background:var(--acc);color:#000;border:none;padding:12px 24px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;width:100%;box-sizing:border-box}
 /* Food entry modal */
 #nutrFoodModalOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000}
 #nutrFoodModalOverlay.show{display:block}
@@ -3783,7 +3782,7 @@ function nutrRenderToday(){
   const foodLogHtml=`<div class="nutr-card">
     <div class="section-label" style="margin-top:0;margin-bottom:10px">${logLabel}</div>
     ${foodLogRows}
-    ${isToday?`<button onclick="nutrOpenFoodModal('unassigned')" class="nutr-fab" style="margin-top:10px">+ Add Food</button>`:''}
+    ${isToday?`<button onclick="nutrOpenFoodModal('unassigned')" class="nutr-add-btn" style="margin-top:10px">+ Add Food</button>`:''}
   </div>`;
 
   // Nav header
