@@ -1638,10 +1638,15 @@ async function fetchSwimActivity(activityId){
   if(swimActivityCache[activityId])return swimActivityCache[activityId];
   try{
     const raw=await apiCall(curId,curKey,'activities/'+activityId);
+    console.log('fetchSwimActivity raw type:',typeof raw,Array.isArray(raw),'length:',raw?.length);
     const data=(Array.isArray(raw)?raw[0]:raw)||{};
+    console.log('fetchSwimActivity data keys:',Object.keys(data).slice(0,10));
+    console.log('pace_zone_times:',data.pace_zone_times);
+    console.log('interval_summary:',data.interval_summary);
     swimActivityCache[activityId]=data;
     return swimActivityCache[activityId];
   }catch(e){
+    console.log('fetchSwimActivity error:',e.message);
     swimActivityCache[activityId]={};
     return {};
   }
