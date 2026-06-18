@@ -347,7 +347,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     <div class="grid-2" id="pmcGrid">
       <div class="chart-box">
         <div class="chart-title">Performance management chart
-          <button onclick="openCtlSeedModal()" title="CTL calibration settings" style="background:none;border:none;cursor:pointer;color:var(--tc3);font-size:14px;padding:0 0 0 6px;line-height:1" aria-label="CTL calibration settings">⚙</button><span id="ctlRefDisplay" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-left:4px;vertical-align:middle"></span>
           <div class="legend" style="margin:0">
             <div class="leg-item"><span class="leg-line" style="background:#378ADD"></span>CTL</div>
             <div class="leg-item"><span class="leg-line" style="background:#E24B4A"></span>ATL</div>
@@ -785,21 +784,18 @@ function sportClass(type){
 }
 
 // Total fetch window: 3 years. First WARMUP_DAYS run the model without
-// storing results so CTL stabilises naturally; the stored series covers
-// the remaining (FITNESS_DAYS - WARMUP_DAYS) days, which is ~30 months.
-const FITNESS_DAYS=1095; // 3 years of activity history to fetch
-const WARMUP_DAYS=180;   // 6-month silent warm-up — model runs but nothing stored
-const CTL_REF_KEY='hm2l_ctl_ref';       // localStorage: TP reference CTL entered by user
-const CTL_OFFSET_KEY='hm2l_ctl_offset'; // localStorage: computed offset (ref - calculated)
-const ATL_OFFSET_KEY='hm2l_atl_offset'; // localStorage: independent ATL offset
+// Seed-based Banister model — starts from a known TP state on SEED_DATE
+// rather than warming up from zero, so CTL/ATL/TSB naturally match TP values.
+const SEED_DATE='2026-01-01';
+const SEED_CTL=75;
+const SEED_ATL=67;
 let fitnessSeries=[],fitnessByDate={};
 
 function dayKey(d){const dt=d instanceof Date?d:new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 
-// Banister/TrainingPeaks impulse-response model.
-// Iterates over all FITNESS_DAYS starting at CTL=ATL=0. For the first
-// WARMUP_DAYS days the values are computed but discarded, letting the model
-// settle. Only days after the warm-up window are stored in series/byDate.
+// Banister/TrainingPeaks impulse-response model seeded from SEED_DATE.
+// Uses exponential moving average: CTL decay τ=42d, ATL decay τ=7d.
+// TSB = previous day's CTL − current day's ATL (TP convention).
 function computeFitness(acts){
   const tssByDay={};
   acts.forEach(a=>{
@@ -807,46 +803,24 @@ function computeFitness(acts){
     if(!day)return;
     tssByDay[day]=(tssByDay[day]||0)+(Number(a.icu_training_load)||0);
   });
-  const totalDays=FITNESS_DAYS;
-  const start=new Date();
-  start.setHours(0,0,0,0);
-  start.setDate(start.getDate()-(totalDays-1));
-  const ctlDecay=1-Math.exp(-1/42);
-  const atlDecay=1-Math.exp(-1/7);
   const series=[];
   const byDate={};
-  let ctlPrev=0,atlPrev=0;
+  const today=new Date();today.setHours(0,0,0,0);
+  const start=new Date(SEED_DATE+'T00:00:00');
+  const totalDays=Math.round((today-start)/(86400000))+1;
+  let ctlPrev=SEED_CTL,atlPrev=SEED_ATL;
   for(let i=0;i<totalDays;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);
     const key=dayKey(d);
     const tss=tssByDay[key]||0;
-    const ctl=ctlPrev+(tss-ctlPrev)*ctlDecay;
-    const atl=atlPrev+(tss-atlPrev)*atlDecay;
-    const tsb=ctl-atl;
-    // Only store entries after the warm-up period
-    if(i>=WARMUP_DAYS){
-      const entry={date:key,ctl,atl,tsb};
-      series.push(entry);
-      byDate[key]=entry;
-    }
+    const ctl=ctlPrev+(tss-ctlPrev)/42;
+    const atl=atlPrev+(tss-atlPrev)/7;
+    const tsb=ctlPrev-atl; // TP convention: previous CTL minus current ATL
+    const entry={date:key,ctl,atl,tsb};
+    series.push(entry);
+    byDate[key]=entry;
     ctlPrev=ctl;atlPrev=atl;
   }
-  return{series,byDate};
-}
-
-// Shift CTL by offset and ATL proportionally (ATL time-constant 7 vs CTL 42).
-// Recalculates TSB for every day after shifting.
-function applyCtlOffset(fit,offset){
-  if(!offset)return fit;
-  const atlOffset=offset*(7/42);
-  const series=fit.series.map(e=>({
-    date:e.date,
-    ctl:e.ctl+offset,
-    atl:e.atl+atlOffset,
-    tsb:(e.ctl+offset)-(e.atl+atlOffset)
-  }));
-  const byDate={};
-  series.forEach(e=>byDate[e.date]=e);
   return{series,byDate};
 }
 
@@ -862,8 +836,7 @@ async function loadDashboard(){
     const today=new Date();
     const oldest=new Date(today);oldest.setDate(today.getDate()-90);
     const oldestStr=oldest.toISOString().split('T')[0];
-    const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-FITNESS_DAYS);
-    const fitOldestStr=fitOldest.toISOString().split('T')[0];
+    const fitOldestStr=SEED_DATE;
     const allTimeOldest=new Date(today);allTimeOldest.setDate(today.getDate()-548); // 18 months
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
     const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
@@ -883,21 +856,11 @@ async function loadDashboard(){
     allActivities=sorted;
     window.allActivities=sorted;
 
-    // Compute CTL/ATL/TSB from scratch (Banister impulse-response model) using
-    // icu_training_load as TSS, rather than trusting the API's icu_ctl/icu_atl.
+    // Compute CTL/ATL/TSB using seed-based Banister model from SEED_DATE.
     const fitSorted=[...fitnessActs].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
-    window._fitnessFetchedActs=fitSorted; // cached for recalculation on offset change
     const fit=computeFitness(fitSorted);
-    const storedOffset=Number(localStorage.getItem(CTL_OFFSET_KEY)||0)||0;
-    const adjustedFit=storedOffset?applyCtlOffset(fit,storedOffset):fit;
-    fitnessSeries=adjustedFit.series;
-    fitnessByDate=adjustedFit.byDate;
-    const storedAtlOffset=Number(localStorage.getItem(ATL_OFFSET_KEY)||0)||0;
-    if(storedAtlOffset){
-      fitnessSeries=fitnessSeries.map(d=>({...d,atl:d.atl+storedAtlOffset,tsb:d.ctl-(d.atl+storedAtlOffset)}));
-      Object.keys(fitnessByDate).forEach(k=>{fitnessByDate[k].atl+=storedAtlOffset;fitnessByDate[k].tsb=fitnessByDate[k].ctl-fitnessByDate[k].atl;});
-    }
-    updateCtlRefDisplay();
+    fitnessSeries=fit.series;
+    fitnessByDate=fit.byDate;
     const todayEntry=fitnessSeries[fitnessSeries.length-1];
     let ctl=0,atl=0,tsb=0;
     if(todayEntry){
@@ -2122,111 +2085,6 @@ async function renderCurve(){
   }
 }
 
-// --- CTL calibration modal ---
-
-function updateCtlRefDisplay(){
-  const el=document.getElementById('ctlRefDisplay');
-  if(!el)return;
-  const ref=localStorage.getItem(CTL_REF_KEY);
-  el.textContent=ref?'TP ref: '+ref:'';
-}
-
-function openCtlSeedModal(){
-  const cur=localStorage.getItem(CTL_REF_KEY)||'';
-  const curAtl=localStorage.getItem(ATL_OFFSET_KEY)||'';
-  document.getElementById('ctlSeedInput').value=cur;
-  document.getElementById('atlOffsetInput').value=curAtl;
-  document.getElementById('ctlSeedError').style.display='none';
-  document.getElementById('ctlSeedModal').style.display='flex';
-  document.getElementById('ctlSeedInput').focus();
-}
-
-function closeCtlSeedModal(){
-  document.getElementById('ctlSeedModal').style.display='none';
-}
-
-function saveCtlSeed(){
-  const raw=document.getElementById('ctlSeedInput').value.trim();
-  const rawAtl=document.getElementById('atlOffsetInput').value.trim();
-  const errEl=document.getElementById('ctlSeedError');
-  errEl.style.display='none';
-
-  if(raw===''&&rawAtl===''){
-    // Clear all calibration — reset to pure calculated values
-    localStorage.removeItem(CTL_REF_KEY);
-    localStorage.removeItem(CTL_OFFSET_KEY);
-    localStorage.removeItem(ATL_OFFSET_KEY);
-    if(window._fitnessFetchedActs){
-      const fit=computeFitness(window._fitnessFetchedActs);
-      fitnessSeries=fit.series;
-      fitnessByDate=fit.byDate;
-      _applyFitnessToUI();
-    }
-    updateCtlRefDisplay();
-    closeCtlSeedModal();
-    return;
-  }
-
-  // Validate CTL input if provided
-  if(raw!==''){
-    const n=Number(raw);
-    if(isNaN(n)||n<0||n>300){
-      errEl.textContent='CTL must be a number between 0 and 300.';
-      errEl.style.display='block';
-      return;
-    }
-  }
-
-  // Validate ATL offset if provided
-  if(rawAtl!==''){
-    const a=Number(rawAtl);
-    if(isNaN(a)||a<-200||a>200){
-      errEl.textContent='ATL offset must be a number between -200 and 200.';
-      errEl.style.display='block';
-      return;
-    }
-  }
-
-  if(!window._fitnessFetchedActs){
-    errEl.textContent='Activity data not loaded yet — try again in a moment.';
-    errEl.style.display='block';
-    return;
-  }
-
-  // Apply CTL offset
-  const baseFit=computeFitness(window._fitnessFetchedActs);
-  if(raw!==''){
-    const n=Number(raw);
-    const todayRaw=baseFit.series[baseFit.series.length-1];
-    const calcCTL=todayRaw?todayRaw.ctl:0;
-    const offset=n-calcCTL;
-    localStorage.setItem(CTL_REF_KEY,String(n));
-    localStorage.setItem(CTL_OFFSET_KEY,String(offset));
-    const adjusted=applyCtlOffset(baseFit,offset);
-    fitnessSeries=adjusted.series;
-    fitnessByDate=adjusted.byDate;
-  } else {
-    localStorage.removeItem(CTL_REF_KEY);
-    localStorage.removeItem(CTL_OFFSET_KEY);
-    fitnessSeries=baseFit.series;
-    fitnessByDate=baseFit.byDate;
-  }
-
-  // Apply ATL offset
-  if(rawAtl!==''){
-    const atlOff=Number(rawAtl);
-    localStorage.setItem(ATL_OFFSET_KEY,String(atlOff));
-    fitnessSeries=fitnessSeries.map(d=>({...d,atl:d.atl+atlOff,tsb:d.ctl-(d.atl+atlOff)}));
-    Object.keys(fitnessByDate).forEach(k=>{fitnessByDate[k].atl+=atlOff;fitnessByDate[k].tsb=fitnessByDate[k].ctl-fitnessByDate[k].atl;});
-  } else {
-    localStorage.removeItem(ATL_OFFSET_KEY);
-  }
-
-  _applyFitnessToUI();
-  updateCtlRefDisplay();
-  closeCtlSeedModal();
-}
-
 // ========== DASHBOARD CALENDAR TAB ==========
 let athCalMonth=new Date(); athCalMonth.setDate(1);
 let athWorkoutsCache=[];
@@ -3272,25 +3130,7 @@ function _applyFitnessToUI(){
   </div>
 </div>
 
-<div id="ctlSeedModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center">
-  <div style="background:var(--bc2);border:1px solid var(--border);padding:2rem;max-width:400px;width:92%">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.2rem">Fitness calibration</div>
-    <div class="field">
-      <label>Your current CTL from TrainingPeaks</label>
-      <input type="number" id="ctlSeedInput" placeholder="e.g. 68" min="0" max="300" onkeydown="if(event.key==='Enter')saveCtlSeed()" />
-    </div>
-    <div class="field" style="margin-top:0.75rem">
-      <label>ATL offset (add/subtract from calculated ATL)</label>
-      <input type="number" id="atlOffsetInput" placeholder="e.g. 5 or -3" min="-200" max="200" onkeydown="if(event.key==='Enter')saveCtlSeed()" />
-    </div>
-    <p style="font-size:12px;color:var(--tc3);line-height:1.6;margin-bottom:1.2rem">CTL: shifts the Banister model so today matches your TrainingPeaks reference. ATL offset: shifts acute load independently by a fixed amount. Leave both blank to remove all calibration.</p>
-    <div class="error-msg" id="ctlSeedError" style="display:none"></div>
-    <div style="display:flex;gap:10px;margin-top:0.25rem">
-      <button class="btn" style="width:auto" onclick="saveCtlSeed()">Save &amp; recalculate</button>
-      <button class="btn" style="width:auto;background:transparent;border:1px solid var(--border);color:var(--tc2)" onclick="closeCtlSeedModal()">Cancel</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- ── Nutrition tab ──────────────────────────────────────────────── -->
 <style>
