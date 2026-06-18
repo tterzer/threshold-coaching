@@ -678,11 +678,11 @@ function fmtDist(m,type){
   }
 }
 
-const TIER_LOCK_HTML='<div class="tier-lock"><span>📊</span><div>Available on Performance &amp; Elite plans</div><a href="mailto:travis.terzer95@gmail.com">Contact Travis to upgrade</a></div>';
+const TIER_LOCK_HTML='<div class="tier-lock"><span>📊</span><div>Available on Build &amp; Peak plans</div><a href="mailto:travis.terzer95@gmail.com">Contact Travis to upgrade</a></div>';
 function getTier(){
   const t=(currentAthlete&&currentAthlete.coaching_tier)||'base';
-  if(t==='elite')return 3;
-  if(t==='performance')return 2;
+  if(t==='peak')return 3;
+  if(t==='build')return 2;
   return 1;
 }
 function applyTierGating(){
