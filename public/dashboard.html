@@ -791,6 +791,7 @@ const FITNESS_DAYS=1095; // 3 years of activity history to fetch
 const WARMUP_DAYS=180;   // 6-month silent warm-up — model runs but nothing stored
 const CTL_REF_KEY='hm2l_ctl_ref';       // localStorage: TP reference CTL entered by user
 const CTL_OFFSET_KEY='hm2l_ctl_offset'; // localStorage: computed offset (ref - calculated)
+const ATL_OFFSET_KEY='hm2l_atl_offset'; // localStorage: independent ATL offset
 let fitnessSeries=[],fitnessByDate={};
 
 function dayKey(d){const dt=d instanceof Date?d:new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
@@ -891,6 +892,11 @@ async function loadDashboard(){
     const adjustedFit=storedOffset?applyCtlOffset(fit,storedOffset):fit;
     fitnessSeries=adjustedFit.series;
     fitnessByDate=adjustedFit.byDate;
+    const storedAtlOffset=Number(localStorage.getItem(ATL_OFFSET_KEY)||0)||0;
+    if(storedAtlOffset){
+      fitnessSeries=fitnessSeries.map(d=>({...d,atl:d.atl+storedAtlOffset,tsb:d.ctl-(d.atl+storedAtlOffset)}));
+      Object.keys(fitnessByDate).forEach(k=>{fitnessByDate[k].atl+=storedAtlOffset;fitnessByDate[k].tsb=fitnessByDate[k].ctl-fitnessByDate[k].atl;});
+    }
     updateCtlRefDisplay();
     const todayEntry=fitnessSeries[fitnessSeries.length-1];
     let ctl=0,atl=0,tsb=0;
@@ -2127,7 +2133,9 @@ function updateCtlRefDisplay(){
 
 function openCtlSeedModal(){
   const cur=localStorage.getItem(CTL_REF_KEY)||'';
+  const curAtl=localStorage.getItem(ATL_OFFSET_KEY)||'';
   document.getElementById('ctlSeedInput').value=cur;
+  document.getElementById('atlOffsetInput').value=curAtl;
   document.getElementById('ctlSeedError').style.display='none';
   document.getElementById('ctlSeedModal').style.display='flex';
   document.getElementById('ctlSeedInput').focus();
@@ -2139,13 +2147,15 @@ function closeCtlSeedModal(){
 
 function saveCtlSeed(){
   const raw=document.getElementById('ctlSeedInput').value.trim();
+  const rawAtl=document.getElementById('atlOffsetInput').value.trim();
   const errEl=document.getElementById('ctlSeedError');
   errEl.style.display='none';
 
-  if(raw===''){
-    // Clear calibration — reset to pure calculated values
+  if(raw===''&&rawAtl===''){
+    // Clear all calibration — reset to pure calculated values
     localStorage.removeItem(CTL_REF_KEY);
     localStorage.removeItem(CTL_OFFSET_KEY);
+    localStorage.removeItem(ATL_OFFSET_KEY);
     if(window._fitnessFetchedActs){
       const fit=computeFitness(window._fitnessFetchedActs);
       fitnessSeries=fit.series;
@@ -2157,11 +2167,24 @@ function saveCtlSeed(){
     return;
   }
 
-  const n=Number(raw);
-  if(isNaN(n)||n<0||n>300){
-    errEl.textContent='Enter a number between 0 and 300.';
-    errEl.style.display='block';
-    return;
+  // Validate CTL input if provided
+  if(raw!==''){
+    const n=Number(raw);
+    if(isNaN(n)||n<0||n>300){
+      errEl.textContent='CTL must be a number between 0 and 300.';
+      errEl.style.display='block';
+      return;
+    }
+  }
+
+  // Validate ATL offset if provided
+  if(rawAtl!==''){
+    const a=Number(rawAtl);
+    if(isNaN(a)||a<-200||a>200){
+      errEl.textContent='ATL offset must be a number between -200 and 200.';
+      errEl.style.display='block';
+      return;
+    }
   }
 
   if(!window._fitnessFetchedActs){
@@ -2170,18 +2193,35 @@ function saveCtlSeed(){
     return;
   }
 
-  // Run Banister from scratch (seed=0), measure today's raw CTL, derive offset.
+  // Apply CTL offset
   const baseFit=computeFitness(window._fitnessFetchedActs);
-  const todayRaw=baseFit.series[baseFit.series.length-1];
-  const calcCTL=todayRaw?todayRaw.ctl:0;
-  const offset=n-calcCTL;
+  if(raw!==''){
+    const n=Number(raw);
+    const todayRaw=baseFit.series[baseFit.series.length-1];
+    const calcCTL=todayRaw?todayRaw.ctl:0;
+    const offset=n-calcCTL;
+    localStorage.setItem(CTL_REF_KEY,String(n));
+    localStorage.setItem(CTL_OFFSET_KEY,String(offset));
+    const adjusted=applyCtlOffset(baseFit,offset);
+    fitnessSeries=adjusted.series;
+    fitnessByDate=adjusted.byDate;
+  } else {
+    localStorage.removeItem(CTL_REF_KEY);
+    localStorage.removeItem(CTL_OFFSET_KEY);
+    fitnessSeries=baseFit.series;
+    fitnessByDate=baseFit.byDate;
+  }
 
-  localStorage.setItem(CTL_REF_KEY,String(n));
-  localStorage.setItem(CTL_OFFSET_KEY,String(offset));
+  // Apply ATL offset
+  if(rawAtl!==''){
+    const atlOff=Number(rawAtl);
+    localStorage.setItem(ATL_OFFSET_KEY,String(atlOff));
+    fitnessSeries=fitnessSeries.map(d=>({...d,atl:d.atl+atlOff,tsb:d.ctl-(d.atl+atlOff)}));
+    Object.keys(fitnessByDate).forEach(k=>{fitnessByDate[k].atl+=atlOff;fitnessByDate[k].tsb=fitnessByDate[k].ctl-fitnessByDate[k].atl;});
+  } else {
+    localStorage.removeItem(ATL_OFFSET_KEY);
+  }
 
-  const adjusted=applyCtlOffset(baseFit,offset);
-  fitnessSeries=adjusted.series;
-  fitnessByDate=adjusted.byDate;
   _applyFitnessToUI();
   updateCtlRefDisplay();
   closeCtlSeedModal();
@@ -3234,12 +3274,16 @@ function _applyFitnessToUI(){
 
 <div id="ctlSeedModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100;align-items:center;justify-content:center">
   <div style="background:var(--bc2);border:1px solid var(--border);padding:2rem;max-width:400px;width:92%">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.2rem">CTL calibration</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.2rem">Fitness calibration</div>
     <div class="field">
       <label>Your current CTL from TrainingPeaks</label>
       <input type="number" id="ctlSeedInput" placeholder="e.g. 68" min="0" max="300" onkeydown="if(event.key==='Enter')saveCtlSeed()" />
     </div>
-    <p style="font-size:12px;color:var(--tc3);line-height:1.6;margin-bottom:1.2rem">Enter your current CTL as shown in TrainingPeaks. The Banister model will be calculated from scratch (seed 0) and then shifted so today's value matches your reference. The same proportional offset is applied across the full history. Leave blank to remove calibration.</p>
+    <div class="field" style="margin-top:0.75rem">
+      <label>ATL offset (add/subtract from calculated ATL)</label>
+      <input type="number" id="atlOffsetInput" placeholder="e.g. 5 or -3" min="-200" max="200" onkeydown="if(event.key==='Enter')saveCtlSeed()" />
+    </div>
+    <p style="font-size:12px;color:var(--tc3);line-height:1.6;margin-bottom:1.2rem">CTL: shifts the Banister model so today matches your TrainingPeaks reference. ATL offset: shifts acute load independently by a fixed amount. Leave both blank to remove all calibration.</p>
     <div class="error-msg" id="ctlSeedError" style="display:none"></div>
     <div style="display:flex;gap:10px;margin-top:0.25rem">
       <button class="btn" style="width:auto" onclick="saveCtlSeed()">Save &amp; recalculate</button>
