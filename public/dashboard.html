@@ -274,6 +274,15 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     </div>
   </div>
 </nav>
+<div id="onboardingBanner" style="display:none;background:rgba(200,240,54,0.08);border-bottom:1px solid rgba(200,240,54,0.3);padding:10px 2rem">
+  <div style="max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+    <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2)">Welcome to HM2L Racing. Complete your athlete profile to unlock personalised zones and training plans.</span>
+    <div style="display:flex;gap:1rem;align-items:center;flex-shrink:0">
+      <a href="#" onclick="document.getElementById('tab-profile')&&document.querySelector('[data-tab=profile]')&&document.querySelector('[data-tab=profile]').click();document.getElementById('onboardingBanner').style.display='none';return false" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.06em;text-transform:uppercase">Complete profile →</a>
+      <button onclick="localStorage.setItem('hm2l_onboard_dismissed','1');document.getElementById('onboardingBanner').style.display='none'" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);background:none;border:none;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase">Dismiss</button>
+    </div>
+  </div>
+</div>
 <div class="page">
 
 
@@ -680,6 +689,16 @@ window.addEventListener('DOMContentLoaded',()=>{
     loadDashboard();
   }else{
     showSetupModal();
+  }
+  // Onboarding banner — show if profile is empty and not dismissed
+  if(currentAthlete&&!localStorage.getItem('hm2l_onboard_dismissed')){
+    fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(currentAthlete.id))
+      .then(r=>r.json())
+      .then(({profile})=>{
+        const p=profile||{};
+        const hasData=p.date_of_birth||p.weight_kg||p.height_cm||p.primary_sport||p.bio;
+        if(!hasData)document.getElementById('onboardingBanner').style.display='block';
+      }).catch(()=>{});
   }
 });
 

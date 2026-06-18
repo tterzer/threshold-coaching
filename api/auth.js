@@ -32,8 +32,12 @@ export default async function handler(req, res) {
       const insertPayload = { email: normalizedEmail, password_hash, name, role: 'athlete' };
       if (intervals_athlete_id) insertPayload.intervals_athlete_id = intervals_athlete_id;
       if (intervals_api_key) insertPayload.intervals_api_key = intervals_api_key;
+      const TRAVIS_ID = 'fdba3831-f111-41d4-bc02-4c80340ce10a';
+      insertPayload.coach_id = TRAVIS_ID;
       const { data, error } = await supabase.from('athletes').insert(insertPayload).select().single();
       if (error) return res.status(500).json({ error: error.message });
+      // Create athlete_profiles row so profile exists immediately
+      await supabase.from('athlete_profiles').insert({ athlete_id: data.id });
       delete data.password_hash;
       return res.status(200).json({ ok: true });
     }
