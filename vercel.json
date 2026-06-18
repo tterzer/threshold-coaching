@@ -17,6 +17,7 @@
     { "source": "/api/nutrition-food", "destination": "/api/nutrition-food" },
     { "source": "/api/nutrition-data", "destination": "/api/nutrition-data" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/js/:file", "destination": "/public/js/:file" },
     { "source": "/(.*)", "destination": "/public/$1" }
   ]
 }
