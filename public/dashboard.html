@@ -150,6 +150,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .prof-toggle{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 14px;border:1px solid var(--border);background:var(--bc3)}
 .prof-toggle input{accent-color:var(--acc);cursor:pointer;width:14px;height:14px}
 .prof-toggle:has(input:checked){border-color:var(--acc);color:var(--acc)}
+/* Tier gating */
+.tier-lock{position:absolute;inset:0;background:var(--bc3);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:1.5rem;z-index:10}
+.tier-lock span{font-size:28px}
+.tier-lock div{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);letter-spacing:0.06em}
+.tier-lock a{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.06em;text-transform:uppercase}
+.tier-lockable{position:relative}
 /* Dashboard tab nav */
 .dash-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem}
 .dash-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:7px 16px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -334,7 +340,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         </div>
         <div style="position:relative;height:240px"><canvas id="pmcChart"></canvas></div>
       </div>
-      <div class="chart-box">
+      <div class="chart-box tier-lockable" id="sportCtlBox">
         <div class="chart-title">Sport-specific fitness (CTL)
           <div style="display:flex;gap:4px">
             <button class="sub-tab" id="sctl-6W" onclick="setSportCtlRange('6W',this)">6W</button>
@@ -353,7 +359,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     </div>
 
     <!-- Row 2: Load by Sport | Weekly Load Trend -->
-    <div class="grid-2" style="margin-top:1px">
+    <div class="grid-2 tier-lockable" id="loadRow" style="margin-top:1px">
       <div class="chart-box">
         <div class="chart-title">Load by sport
           <div class="legend" style="margin:0" id="sportLoadLegend"></div>
@@ -385,7 +391,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     </div>
 
     <!-- Row 3: Zone Distribution | Peak Power/Pace -->
-    <div class="grid-2" style="margin-top:1px">
+    <div class="grid-2 tier-lockable" id="zoneRow" style="margin-top:1px">
       <div class="chart-box">
         <div class="chart-title">Zone distribution
           <div class="zd-controls">
@@ -672,7 +678,29 @@ function fmtDist(m,type){
   }
 }
 
+const TIER_LOCK_HTML='<div class="tier-lock"><span>📊</span><div>Available on Performance &amp; Elite plans</div><a href="mailto:travis.terzer95@gmail.com">Contact Travis to upgrade</a></div>';
+function getTier(){
+  const t=(currentAthlete&&currentAthlete.coaching_tier)||'base';
+  if(t==='elite')return 3;
+  if(t==='performance')return 2;
+  return 1;
+}
+function applyTierGating(){
+  const tier=getTier();
+  // FuelPro tab — elite only
+  const fuelTab=document.querySelector('.dash-tab[data-dtab="nutrition"]');
+  if(fuelTab)fuelTab.style.display=tier>=3?'':'none';
+  // Performance features — lock for base
+  if(tier<2){
+    ['sportCtlBox','loadRow','zoneRow'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el&&!el.querySelector('.tier-lock'))el.insertAdjacentHTML('beforeend',TIER_LOCK_HTML);
+    });
+  }
+}
+
 window.addEventListener('DOMContentLoaded',()=>{
+  applyTierGating();
   // Populate athlete header immediately from localStorage (before API data loads)
   if(currentAthlete){
     const name=currentAthlete.name||'Athlete';
