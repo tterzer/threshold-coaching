@@ -220,9 +220,42 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .laps-table th { font-family:'DM Mono',monospace; font-size:9px; color:#888; text-transform:uppercase; letter-spacing:0.08em; padding:8px 10px; text-align:left; border-bottom:1px solid var(--border); }
 .laps-table td { font-family:'DM Mono',monospace; font-size:11px; color:var(--tc2); padding:7px 10px; border-bottom:1px solid rgba(42,42,42,0.5); }
 .laps-table tr:hover td { color:var(--tc); background:var(--bc3); }
+.athlete-list-toggle{display:none}
+#coachSidebarContent{display:block!important;padding:1.25rem}
 @media(max-width:900px){
   .layout{grid-template-columns:1fr}
-  .metrics{grid-template-columns:1fr}
+  .metrics{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:767px){
+  body{height:auto;overflow-x:hidden;overflow-y:auto}
+  .page{padding:0 0 3rem;overflow:visible;height:auto}
+  .portal{display:flex!important;height:auto;overflow:visible;flex:none}
+  .layout{overflow:visible;height:auto;flex:none;background:none;gap:0}
+  .panel{overflow:visible;height:auto}
+  .panel:first-child{border-bottom:1px solid var(--border)}
+  .athlete-list-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 1rem;background:var(--bc2);cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--acc);border-bottom:1px solid var(--border);user-select:none}
+  .athlete-list-toggle .toggle-arrow{transition:transform 0.2s}
+  .athlete-list-toggle.open .toggle-arrow{transform:rotate(180deg)}
+  #coachSidebarContent{display:none;padding:0.75rem 1rem 1rem}
+  #coachSidebarContent.open{display:block}
+  .athlete-list{max-height:240px}
+  #mainPanel{padding:0}
+  .tab-panel.active{padding:1rem;overflow-y:visible}
+  #tab-chat.active{height:calc(100vh - 56px);padding:0}
+  .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;padding:0 1rem}
+  .tab{padding:10px 14px;font-size:10px}
+  .metrics{grid-template-columns:repeat(3,1fr)}
+  .chart-box{padding:1rem}
+  .athlete-bar{flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;padding:1rem 1rem 0}
+  .block-modal{min-width:0;width:100%;padding:20px 16px}
+  .block-cols{grid-template-columns:1fr}
+  .block-metrics-strip{flex-wrap:wrap}
+  .chat-layout{grid-template-columns:1fr}
+  .chat-history-sidebar{display:none}
+  .modal{width:96%;max-height:92vh}
+}
+@media(max-width:479px){
+  .metrics{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
@@ -242,10 +275,15 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   <div class="portal" id="portal">
     <div class="layout">
       <div class="panel">
-        <div class="section-label">Athletes</div>
-        <div class="athlete-list" id="athleteList"><div class="empty-note">Loading athletes...</div></div>
-        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
-          <a href="/register.html" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase">+ New athlete registration &#8599;</a>
+        <div class="athlete-list-toggle" id="athleteToggle" onclick="toggleAthletePanel()">
+          <div class="section-label" style="margin:0">Athletes</div>
+          <span class="toggle-arrow">▼</span>
+        </div>
+        <div id="coachSidebarContent" style="padding:0.75rem 1rem 1rem">
+          <div class="athlete-list" id="athleteList"><div class="empty-note">Loading athletes...</div></div>
+          <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+            <a href="/register.html" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase">+ New athlete registration &#8599;</a>
+          </div>
         </div>
       </div>
       <div class="panel" id="mainPanel">
@@ -2495,6 +2533,15 @@ async function loadCoachNutrition(){
       });
     }
   }
+}
+
+function toggleAthletePanel(){
+  const content=document.getElementById('coachSidebarContent');
+  const toggle=document.getElementById('athleteToggle');
+  if(window.innerWidth>767)return;
+  const isOpen=content.classList.contains('open');
+  content.classList.toggle('open',!isOpen);
+  toggle.classList.toggle('open',!isOpen);
 }
 </script>
 

@@ -268,6 +268,33 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   .act-stats{gap:1rem}
   .threshold-row{grid-template-columns:1fr;gap:8px}
 }
+@media(max-width:767px){
+  html,body{height:auto;overflow-x:hidden;overflow-y:auto}
+  .page{padding:1rem 1rem 3rem}
+  .dash-panel.active{height:auto;overflow-y:visible}
+  #dtp-calendar.active{height:calc(100vh - 130px);overflow:hidden;display:flex;flex-direction:column}
+  .dash-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;padding-bottom:0}
+  .dash-tab{padding:7px 12px;font-size:10px}
+  .athlete-bar{flex-wrap:wrap;gap:0.5rem;padding-bottom:1rem;margin-bottom:1.5rem}
+  .athlete-name{font-size:22px}
+  .metrics{grid-template-columns:repeat(3,1fr)}
+  .chart-box{padding:1rem}
+  .chart-title{font-size:10px;gap:0.5rem}
+  .act-name{font-size:13px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .act-stats{gap:0.75rem;flex-wrap:wrap}
+  .act-row{flex-wrap:wrap;gap:6px}
+  .zc-section{margin-top:2rem;padding-top:1.5rem}
+  .sport-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
+  .sport-tab{padding:10px 14px}
+  .threshold-row{grid-template-columns:1fr 1fr}
+  .sub-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;padding-bottom:2px}
+  .zone-table{font-size:11px}
+  .zone-table th,.zone-td{padding:7px 8px}
+}
+@media(max-width:479px){
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .act-stats{display:none}
+}
 </style>
 </head>
 <body>
