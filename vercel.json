@@ -1,4 +1,15 @@
 {
+  "headers": [
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/api/races", "destination": "/api/races" },
     { "source": "/api/athlete-profile", "destination": "/api/athlete-profile" },
