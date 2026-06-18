@@ -704,14 +704,14 @@ function fmtDist(m,type){
   }
 }
 
-const TIER_LOCK_HTML='<div class="tier-lock"><span>📊</span><div>Available on Build &amp; Peak plans</div><a href="mailto:travis.terzer95@gmail.com">Contact Travis to upgrade</a></div>';
-function getTier(){
+window.TIER_LOCK_HTML='<div class="tier-lock"><span>📊</span><div>Available on Build &amp; Peak plans</div><a href="mailto:travis.terzer95@gmail.com">Contact Travis to upgrade</a></div>';
+window.getTier=function(){
   const t=(currentAthlete&&currentAthlete.coaching_tier)||'base';
   if(t==='peak')return 3;
   if(t==='build')return 2;
   return 1;
-}
-function applyTierGating(){
+};
+window.applyTierGating=function(){
   const tier=getTier();
   // FuelPro tab — elite only
   const fuelTab=document.querySelector('.dash-tab[data-dtab="nutrition"]');
@@ -723,7 +723,7 @@ function applyTierGating(){
       if(el&&!el.querySelector('.tier-lock'))el.insertAdjacentHTML('beforeend',TIER_LOCK_HTML);
     });
   }
-}
+};
 
 window.addEventListener('DOMContentLoaded',()=>{
   applyTierGating();
@@ -786,9 +786,9 @@ function sportClass(type){
 // Total fetch window: 3 years. First WARMUP_DAYS run the model without
 // Seed-based Banister model — starts from a known TP state on SEED_DATE
 // rather than warming up from zero, so CTL/ATL/TSB naturally match TP values.
-const SEED_DATE='2026-01-01';
-const SEED_CTL=75;
-const SEED_ATL=67;
+window.SEED_DATE='2026-01-01';
+window.SEED_CTL=75;
+window.SEED_ATL=67;
 let fitnessSeries=[],fitnessByDate={};
 
 function dayKey(d){const dt=d instanceof Date?d:new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
@@ -806,9 +806,9 @@ function computeFitness(acts){
   const series=[];
   const byDate={};
   const today=new Date();today.setHours(0,0,0,0);
-  const start=new Date(SEED_DATE+'T00:00:00');
+  const start=new Date(window.SEED_DATE+'T00:00:00');
   const totalDays=Math.round((today-start)/(86400000))+1;
-  let ctlPrev=SEED_CTL,atlPrev=SEED_ATL;
+  let ctlPrev=window.SEED_CTL,atlPrev=window.SEED_ATL;
   for(let i=0;i<totalDays;i++){
     const d=new Date(start);d.setDate(start.getDate()+i);
     const key=dayKey(d);
