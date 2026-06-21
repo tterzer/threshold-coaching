@@ -298,9 +298,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 }
 </style>
 <script>
-window.PMC_SEED_CTL = 88;
-window.PMC_SEED_DATE = '2026-01-01';
-window.PMC_SEED_ATL = 78;
+window.PMC_SEED_DATE = '2020-01-01';
 
 window.computeFitness = function(acts) {
   var tssByDay = {};
@@ -315,8 +313,8 @@ window.computeFitness = function(acts) {
   today.setHours(0,0,0,0);
   var start = new Date(window.PMC_SEED_DATE + 'T00:00:00');
   var totalDays = Math.round((today - start) / 86400000) + 1;
-  var ctlPrev = window.PMC_SEED_CTL;
-  var atlPrev = window.PMC_SEED_ATL;
+  var ctlPrev = 0;
+  var atlPrev = 0;
   for (var i = 0; i < totalDays; i++) {
     var d = new Date(start);
     d.setDate(start.getDate() + i);
@@ -3962,6 +3960,12 @@ function nutrRenderHistory(){
   catch(e) { localStorage.removeItem('hm2l_athlete'); window.location.href = '/login.html'; throw new Error('redirect'); }
 })();
 
+// One-time wipe of stale PMC/CTL cache from the old seeded model.
+if(!localStorage.getItem('hm2l_pmc_unseeded_v1')){
+  ['hm2l_snap_ctl','hm2l_snap_atl','hm2l_snap_tsb','hm2l_snap_this_week','hm2l_snap_last_week','hm2l_snap_pmc_data','hm2l_snap_ramp'].forEach(function(k){localStorage.removeItem(k);});
+  localStorage.setItem('hm2l_pmc_unseeded_v1','1');
+}
+
 var pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=false; // default imperial (mi/yd)
 var _snapshotRamp=null;
 var allActivities=[];
@@ -4103,7 +4107,7 @@ async function loadDashboard(){
     const today=new Date();
     const oldest=new Date(today);oldest.setDate(today.getDate()-90);
     const oldestStr=oldest.toISOString().split('T')[0];
-    const fitOldestStr='2026-01-01';
+    const fitOldestStr='2020-01-01';
     const allTimeOldest=new Date(today);allTimeOldest.setDate(today.getDate()-548); // 18 months
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
     const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
