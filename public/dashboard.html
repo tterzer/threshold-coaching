@@ -4129,6 +4129,7 @@ async function loadDashboard(){
 
     // Compute CTL/ATL/TSB using seed-based Banister model from SEED_DATE.
     const fitSorted=[...fitnessActs].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
+    window._fitnessFetchedActs=fitSorted;
     const fit=window.computeFitness(fitSorted);
     fitnessSeries=fit.series;
     fitnessByDate=fit.byDate;
