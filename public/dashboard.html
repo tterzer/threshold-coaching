@@ -711,7 +711,7 @@ function setPmcRange(days){
 var pmcRangeDays=180;
 function buildPMC(rangeDays){
   if(rangeDays)pmcRangeDays=rangeDays;
-  // The fitness series only spans FITNESS_DAYS (~6 months); requesting a wider
+  // The fitness series only spans 180 days (~6 months); requesting a wider
   // range simply shows nulls for the days we have no computed fitness for.
   const n=pmcRangeDays;
   const days=Array.from({length:n},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(n-1-i));return d;});
@@ -773,7 +773,7 @@ function calcSportCTL(acts, sportName) {
     if (!day) return;
     tssByDay[day] = (tssByDay[day]||0) + (Number(a.icu_training_load)||0);
   });
-  const totalDays = FITNESS_DAYS;
+  const totalDays = 180;
   const start = new Date();
   start.setHours(0,0,0,0);
   start.setDate(start.getDate() - (totalDays - 1));
@@ -785,7 +785,7 @@ function calcSportCTL(acts, sportName) {
     const key = dayKey(d);
     const tss = tssByDay[key]||0;
     const ctl = ctlPrev + (tss - ctlPrev) * ctlDecay;
-    if (i >= WARMUP_DAYS) result[key] = ctl;
+    if (i >= 0) result[key] = ctl;
     ctlPrev = ctl;
   }
   return result;
@@ -4086,7 +4086,7 @@ function sportClass(type){
   return'other';
 }
 
-// Total fetch window: 3 years. First WARMUP_DAYS run the model without
+// Total fetch window: 3 years. First 0 days run the model without
 var fitnessSeries=[],fitnessByDate={};
 
 function dayKey(d){const dt=d instanceof Date?d:new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
