@@ -959,17 +959,23 @@ const zs={
 var currentSport='cycling';
 
 const ZONE_SETTINGS_KEY='tc_zone_settings';
-function saveZoneSettings(){
+async function saveZoneSettings(){
   const data={
     cycling:{ftp:zs.cycling.ftp,lthr:zs.cycling.lthr,max_hr:zs.cycling.max_hr,overrides:zs.cycling.overrides},
     running:{threshold_pace:zs.running.threshold_pace,lthr:zs.running.lthr,max_hr:zs.running.max_hr,overrides:zs.running.overrides},
     swimming:{css:zs.swimming.css,css_unit:zs.swimming.css_unit,lthr:zs.swimming.lthr,max_hr:zs.swimming.max_hr,overrides:zs.swimming.overrides},
   };
   try{localStorage.setItem(ZONE_SETTINGS_KEY,JSON.stringify(data));}catch(e){}
-  if(window.currentAthlete&&window.currentAthlete.id){
-    fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({athlete_id:window.currentAthlete.id,zone_settings:data})}).catch(()=>{});
-  }
+  try{
+    const athlete=JSON.parse(localStorage.getItem('hm2l_athlete'));
+    if(athlete?.id){
+      await fetch('/api/athlete-profile',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({athlete_id:athlete.id,zone_settings:data})
+      });
+    }
+  }catch(e){console.warn('zone save to Supabase failed',e);}
 }
 function applyZoneSettingsData(data){
   if(!data)return;
