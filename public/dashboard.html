@@ -369,7 +369,7 @@ window.applyTierGating = function() {
     <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2)">Welcome to HM2L Racing. Complete your athlete profile to unlock personalised zones and training plans.</span>
     <div style="display:flex;gap:1rem;align-items:center;flex-shrink:0">
       <a href="#" onclick="document.getElementById('tab-profile')&&document.querySelector('[data-tab=profile]')&&document.querySelector('[data-tab=profile]').click();document.getElementById('onboardingBanner').style.display='none';return false" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.06em;text-transform:uppercase">Complete profile →</a>
-      <button onclick="localStorage.setItem('hm2l_onboard_dismissed','1');document.getElementById('onboardingBanner').style.display='none'" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);background:none;border:none;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase">Dismiss</button>
+      <button onclick="dismissOnboarding()" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);background:none;border:none;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase">Dismiss</button>
     </div>
   </div>
 </div>
@@ -966,26 +966,44 @@ function saveZoneSettings(){
     swimming:{css:zs.swimming.css,css_unit:zs.swimming.css_unit,lthr:zs.swimming.lthr,max_hr:zs.swimming.max_hr,overrides:zs.swimming.overrides},
   };
   try{localStorage.setItem(ZONE_SETTINGS_KEY,JSON.stringify(data));}catch(e){}
+  if(window.currentAthlete&&window.currentAthlete.id){
+    fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({athlete_id:window.currentAthlete.id,zone_settings:data})}).catch(()=>{});
+  }
+}
+function applyZoneSettingsData(data){
+  if(!data)return;
+  ['cycling','running','swimming'].forEach(sport=>{
+    if(!data[sport])return;
+    const{overrides,...rest}=data[sport];
+    Object.assign(zs[sport],rest);
+    if(overrides){
+      Object.keys(overrides).forEach(k=>{
+        zs[sport].overrides[k]=overrides[k]||{};
+      });
+    }
+  });
 }
 function loadZoneSettings(){
   try{
     const raw=localStorage.getItem(ZONE_SETTINGS_KEY);
     if(!raw)return;
-    const data=JSON.parse(raw);
-    ['cycling','running','swimming'].forEach(sport=>{
-      if(!data[sport])return;
-      const{overrides,...rest}=data[sport];
-      Object.assign(zs[sport],rest);
-      if(overrides){
-        Object.keys(overrides).forEach(k=>{
-          zs[sport].overrides[k]=overrides[k]||{};
-        });
-      }
-    });
+    applyZoneSettingsData(JSON.parse(raw));
   }catch(e){}
 }
 // Restore persisted thresholds/overrides immediately so nothing renders with defaults first.
+// This is a localStorage fallback only — the Supabase profile (fetched after login)
+// is the source of truth and overwrites this once it arrives.
 loadZoneSettings();
+
+function dismissOnboarding(){
+  try{localStorage.setItem('hm2l_onboard_dismissed','1');}catch(e){}
+  document.getElementById('onboardingBanner').style.display='none';
+  if(window.currentAthlete&&window.currentAthlete.id){
+    fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({athlete_id:window.currentAthlete.id,onboarding_dismissed:true})}).catch(()=>{});
+  }
+}
 
 function parsePace(str){const p=str.split(':');return p.length===2?parseInt(p[0])*60+parseInt(p[1]):360;}
 function secsToMMSS(s){s=Math.round(s);const m=Math.floor(s/60),sec=s%60;return m+':'+(sec<10?'0':'')+sec;}
@@ -4051,14 +4069,21 @@ window.addEventListener('DOMContentLoaded',()=>{
   }else{
     showSetupModal();
   }
-  // Onboarding banner — show if profile is empty and not dismissed
-  if(currentAthlete&&!localStorage.getItem('hm2l_onboard_dismissed')){
+  // Fetch Supabase athlete profile — hydrates zone settings (overriding the
+  // localStorage fallback) and decides onboarding banner visibility.
+  if(currentAthlete){
     fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(currentAthlete.id))
       .then(r=>r.json())
       .then(({profile})=>{
         const p=profile||{};
+        if(p.zone_settings){
+          applyZoneSettingsData(p.zone_settings);
+          initZoneCalc();
+          if(typeof buildZoneDistribution==='function')buildZoneDistribution();
+        }
         const hasData=p.date_of_birth||p.weight_kg||p.height_cm||p.primary_sport||p.bio;
-        if(!hasData)document.getElementById('onboardingBanner').style.display='block';
+        const dismissed=p.onboarding_dismissed||localStorage.getItem('hm2l_onboard_dismissed');
+        if(!hasData&&!dismissed)document.getElementById('onboardingBanner').style.display='block';
       }).catch(()=>{});
   }
 });
