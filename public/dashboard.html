@@ -775,10 +775,16 @@ function calcSportCTL(acts, sportName) {
     if (!day) return;
     tssByDay[day] = (tssByDay[day]||0) + (Number(a.icu_training_load)||0);
   });
-  const totalDays = 180;
-  const start = new Date();
-  start.setHours(0,0,0,0);
-  start.setDate(start.getDate() - (totalDays - 1));
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let start = new Date(today);
+  acts.forEach(a => {
+    const day = (a.start_date_local||'').slice(0,10);
+    if (!day) return;
+    const d = new Date(day+'T00:00:00');
+    if (d < start) start = d;
+  });
+  const totalDays = Math.round((today - start) / 86400000) + 1;
   const ctlDecay = 1 - Math.exp(-1/42);
   const result = {};
   let ctlPrev = 0;
