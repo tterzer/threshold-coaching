@@ -1128,10 +1128,10 @@ function zoneBoundsFor(sport,metric){
   const s=zs[sport];
   if(metric==='hr'){
     const base=s.lthr||s.max_hr;
-    return CYCLING_HR.map((z,i)=>{const ov=s.overrides.hr[i];return ov?[Number(ov[0])||0,Number(ov[1])||9999]:[Math.round(base*z.lo/100),Math.round(base*z.hi/100)];});
+    return CYCLING_HR.map((z,i)=>{const ov=s.overrides.hr[i];if(ov)return[Number(ov[0])||0,Number(ov[1])||9999];const hi=i===CYCLING_HR.length-1?Infinity:Math.round(base*z.hi/100);return[Math.round(base*z.lo/100),hi];});
   }
   if(sport==='cycling'){
-    return CYCLING_PWR.map((z,i)=>{const ov=s.overrides.power[i];return ov?[Number(ov[0])||0,Number(ov[1])||9999]:[Math.round(s.ftp*z.lo/100),Math.round(s.ftp*z.hi/100)];});
+    return CYCLING_PWR.map((z,i)=>{const ov=s.overrides.power[i];if(ov)return[Number(ov[0])||0,Number(ov[1])||9999];const hi=i===CYCLING_PWR.length-1?Infinity:Math.round(s.ftp*z.hi/100);return[Math.round(s.ftp*z.lo/100),hi];});
   }
   if(sport==='running'){
     const thresh=parsePace(s.threshold_pace);
@@ -1376,7 +1376,7 @@ async function fetchStream(activityId,type){
     const data=await apiCall(curId,curKey,activityId+'/streams','types='+type,'activity');
     let arr=null;
     if(Array.isArray(data)){
-      const match=data.find(d=>d.type===type)||data[0];
+      const match=data.find(d=>d.type===type);
       arr=match?match.data:null;
     } else if(data&&data[type]){
       arr=data[type].data||data[type];
@@ -4234,6 +4234,14 @@ async function loadDashboard(){
       fetch('/api/stream-cache?stream_type=velocity_smooth',{method:'DELETE'})
         .then(()=>localStorage.setItem('hm2l_stream_cache_v2','cleared'))
         .catch(()=>{}); // fire-and-forget; renderCurve proceeds regardless
+    }
+    // One-time wipe of heartrate/watts entries cached before the fetchStream fallback
+    // bug was fixed (it could substitute the wrong stream type when the requested one
+    // was missing, e.g. watts data cached under a heartrate key).
+    if(!localStorage.getItem('hm2l_stream_cache_v3')){
+      Promise.all(['heartrate','watts'].map(t=>fetch('/api/stream-cache?stream_type='+t,{method:'DELETE'})))
+        .then(()=>localStorage.setItem('hm2l_stream_cache_v3','cleared'))
+        .catch(()=>{});
     }
     renderCurve();
     // Pre-load calendar data in background
