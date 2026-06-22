@@ -167,12 +167,17 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .dash-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1rem}
 .dash-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:7px 16px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
 .dash-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.dash-subtabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin:0.25rem 0 1.25rem}
+.dash-subtab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:7px 16px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.dash-subtab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.dash-subpanel{display:none}
+.dash-subpanel.active{display:block}
 .dash-panel{display:none}
 .dash-panel.active{display:block;height:calc(100vh - 160px);overflow-y:auto}
 /* Athlete calendar (dashboard) */
-#dtp-calendar.active{overflow:hidden;display:flex;flex-direction:column}
+#dtp-calendar.active{overflow-y:auto;display:flex;flex-direction:column}
 .ath-cal-nav{flex-shrink:0}
-.ath-cal-wrap{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.ath-cal-wrap{flex:1;display:flex;flex-direction:column;min-height:420px;overflow:hidden}
 #athCalHeadRow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);flex-shrink:0}
 .ath-cal-grid{flex:1;height:100%;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-top:none;min-height:0}
 .ath-cal-head{background:var(--bc3);padding:clamp(4px,1vh,8px) 4px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
@@ -406,6 +411,14 @@ window.applyTierGating = function() {
       <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="mLastWeek">—</div><div class="metric-sub">Training load</div></div>
     </div>
 
+
+    <div class="dash-subtabs">
+      <button class="dash-subtab active" data-dsub="load" onclick="switchDashSubTab('load')">Training Load</button>
+      <button class="dash-subtab" data-dsub="perf" onclick="switchDashSubTab('perf')">Performance</button>
+      <button class="dash-subtab" data-dsub="compare" onclick="switchDashSubTab('compare')">Compare</button>
+    </div>
+
+    <div class="dash-subpanel active" id="dsub-load">
     <!-- Row 1: PMC | Sport CTL -->
     <div class="grid-2" id="pmcGrid">
       <div class="chart-box">
@@ -478,7 +491,9 @@ window.applyTierGating = function() {
         <div style="position:relative;height:240px;margin-top:0.5rem"><canvas id="loadChart"></canvas></div>
       </div>
     </div>
+    </div><!-- /dsub-load -->
 
+    <div class="dash-subpanel" id="dsub-perf">
     <!-- Row 3: Zone Distribution | Peak Power/Pace -->
     <div class="grid-2 tier-lockable" id="zoneRow" style="margin-top:1px">
       <div class="chart-box">
@@ -517,6 +532,20 @@ window.applyTierGating = function() {
       </div>
     </div>
 
+    <div class="zc-section">
+      <div class="section-label">Training zones</div>
+      <div class="sport-tabs">
+        <button class="sport-tab active" onclick="switchSport('cycling')">Cycling</button>
+        <button class="sport-tab" onclick="switchSport('running')">Running</button>
+        <button class="sport-tab" onclick="switchSport('swimming')">Swimming</button>
+      </div>
+      <div id="sp-cycling" class="sport-panel active"></div>
+      <div id="sp-running" class="sport-panel"></div>
+      <div id="sp-swimming" class="sport-panel"></div>
+    </div>
+    </div><!-- /dsub-perf -->
+
+    <div class="dash-subpanel" id="dsub-compare">
     <div class="grid-2 tier-lockable" id="hrCorrRow" style="margin-top:1px">
       <div class="chart-box">
         <div class="chart-title">Power vs Heart Rate</div>
@@ -535,30 +564,9 @@ window.applyTierGating = function() {
         <div id="pahrBox" style="width:100%;max-width:100%;overflow:hidden"><div class="empty-note">Loading…</div></div>
       </div>
     </div>
-
-    <!-- Row 4: Recent Activities (full width) -->
-    <div style="margin-top:1px">
-      <div class="activities-box">
-        <div class="act-header">
-          <div class="act-title">Recent activities</div>
-          <button class="unit-toggle" id="unitToggle" onclick="toggleUnits()">km / m</button>
-        </div>
-        <div id="actList"><div class="empty-note">Loading activities...</div></div>
-      </div>
-    </div>
-
-    <div class="zc-section">
-      <div class="section-label">Training zones</div>
-      <div class="sport-tabs">
-        <button class="sport-tab active" onclick="switchSport('cycling')">Cycling</button>
-        <button class="sport-tab" onclick="switchSport('running')">Running</button>
-        <button class="sport-tab" onclick="switchSport('swimming')">Swimming</button>
-      </div>
-      <div id="sp-cycling" class="sport-panel active"></div>
-      <div id="sp-running" class="sport-panel"></div>
-      <div id="sp-swimming" class="sport-panel"></div>
-    </div>
+    </div><!-- /dsub-compare -->
     </div><!-- /dtp-data -->
+
 
     <div class="dash-panel" id="dtp-calendar">
       <div class="ath-cal-nav">
@@ -571,6 +579,17 @@ window.applyTierGating = function() {
         <div class="ath-cal-grid" id="athCalGrid"></div>
       </div>
       <p style="font-size:11px;color:var(--tc3);margin-top:0.5rem;flex-shrink:0">Tap a workout or race for details. Tap an empty day to add a session. <span class="ath-badge-a">A</span> = added by you.</p>
+
+      <!-- Row 4: Recent Activities (full width) -->
+    <div style="margin-top:1px">
+      <div class="activities-box">
+        <div class="act-header">
+          <div class="act-title">Recent activities</div>
+          <button class="unit-toggle" id="unitToggle" onclick="toggleUnits()">km / m</button>
+        </div>
+        <div id="actList"><div class="empty-note">Loading activities...</div></div>
+      </div>
+    </div>
     </div>
 
     <div class="dash-panel" id="dtp-profile">
@@ -4492,6 +4511,11 @@ function switchDashTab(name){
   if(name==='calendar'&&currentAthlete&&currentAthlete.id) loadAthCal();
   if(name==='profile'&&currentAthlete&&currentAthlete.id) loadAthProfile();
   if(name==='nutrition') loadNutritionTab();
+}
+
+function switchDashSubTab(name){
+  document.querySelectorAll('.dash-subtab').forEach(t=>t.classList.toggle('active',t.dataset.dsub===name));
+  document.querySelectorAll('.dash-subpanel').forEach(p=>p.classList.toggle('active',p.id==='dsub-'+name));
 }
 
 // ========== ATHLETE PROFILE TAB ==========
