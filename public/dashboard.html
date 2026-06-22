@@ -1087,19 +1087,19 @@ function renderZoneTable(sport){
     getVals=(z,i)=>{const ov=s.overrides.power[i];const lo=ov?ov[0]:Math.round(s.ftp*z.lo/100);const hi=ov?ov[1]:Math.round(s.ftp*z.hi/100);return{loStr:lo+'w',hiStr:hi+'w',barPct:Math.min(100,z.hi/2)};};
   } else if(sport==='cycling'&&sub==='hr'){
     zones=CYCLING_HR;
-    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:z.hi};};
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:Math.min(100,z.hi)};};
   } else if(sport==='running'&&sub==='pace'){
     zones=RUNNING_PACE;
     getVals=(z,i)=>{const thresh=parsePace(s.threshold_pace);const ov=s.overrides.pace[i];const lo=ov?ov[0]:secsToMMSS(thresh*100/z.hi);const hi=ov?ov[1]:(z.lo===0?'—':secsToMMSS(thresh*100/z.lo));return{loStr:lo,hiStr:hi,barPct:Math.min(100,z.hi/1.15)};};
   } else if(sport==='running'&&sub==='hr'){
     zones=CYCLING_HR;
-    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:z.hi};};
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:Math.min(100,z.hi)};};
   } else if(sport==='swimming'&&sub==='pace'){
     zones=SWIM_PACE;
     getVals=(z,i)=>{const css=parsePace(s.css);const ov=s.overrides.pace[i];const lo=ov?ov[0]:secsToMMSS(css*100/z.hi);const hi=ov?ov[1]:(z.lo===0?'—':secsToMMSS(css*100/z.lo));return{loStr:lo+'/'+s.css_unit,hiStr:hi+(hi==='—'?'':'/'+s.css_unit),barPct:Math.min(100,z.hi/1.2)};};
   } else {
     zones=CYCLING_HR;
-    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:z.hi};};
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:Math.min(100,z.hi)};};
   }
   const ovKey=(sub==='power'||sub==='pace')?(sport==='cycling'?'power':'pace'):'hr';
   const hasOv=Object.keys(s.overrides[ovKey]||{}).length>0;
