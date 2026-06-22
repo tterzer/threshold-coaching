@@ -168,16 +168,32 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .dash-subpanel.active{display:block}
 .dash-panel{display:none}
 .dash-panel.active{display:block;height:calc(100vh - 160px);overflow-y:auto}
-/* Athlete calendar (dashboard) */
+/* Athlete calendar (dashboard) -- infinite-scroll weeks + synced weekly summary */
 #dtp-calendar.active{overflow-y:auto;display:flex;flex-direction:column}
-.ath-cal-nav{flex-shrink:0}
-.ath-cal-wrap{flex:1;display:flex;flex-direction:column;min-height:420px;overflow:hidden}
-#athCalHeadRow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);flex-shrink:0}
-.ath-cal-grid{flex:1;height:100%;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-top:none;min-height:0}
+.ath-cal-nav{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem}
+.ath-cal-layout{flex:1;display:flex;gap:1px;min-height:420px;overflow:hidden}
+.ath-cal-scroll{position:relative;flex:1;overflow-y:auto;min-height:0;background:var(--border);border:1px solid var(--border)}
+#athCalHeadRow{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border)}
+.ath-cal-sentinel{height:1px}
+.ath-cal-month-divider{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;color:var(--tc2);background:var(--bc2);padding:6px 10px}
+.ath-cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
 .ath-cal-head{background:var(--bc3);padding:clamp(4px,1vh,8px) 4px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.ath-cal-cell{background:var(--bc2);min-height:0;padding:4px 5px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
+.ath-cal-cell{background:var(--bc2);min-height:64px;padding:4px 5px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
+.ath-cal-summary{width:230px;flex-shrink:0;background:var(--bc2);border:1px solid var(--border);padding:1rem;overflow-y:auto;font-family:'DM Mono',monospace}
+.ath-cal-sum-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--tc2)}
+.ath-cal-sum-row.total{font-weight:700;color:var(--tc)}
+.ath-cal-sum-label{color:var(--tc3);font-size:9px;letter-spacing:0.06em;text-transform:uppercase}
+.ath-cal-sum-vals{display:flex;gap:8px;font-size:11px}
+.ath-cal-sum-vals .planned{color:var(--tc3)}
+.ath-cal-sum-vals .actual{color:var(--acc)}
+.ath-cal-sum-section{margin-top:0.9rem;padding-top:0.6rem;border-top:1px solid var(--border)}
+.ath-cal-sum-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;color:var(--tc2);margin-bottom:4px}
+.ath-cal-sum-fitness{display:flex;justify-content:space-between;margin-bottom:0.8rem}
+.ath-cal-sum-fitness div{text-align:center}
+.ath-cal-sum-fitness .val{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700}
+.ath-cal-sum-fitness .lbl{font-size:8px;letter-spacing:0.06em;text-transform:uppercase;color:var(--tc3)}
 .ath-cal-cell:hover{background:var(--bc3)}
-.ath-cal-cell.other-month{opacity:0.35}
+.ath-cal-cell.is-today{box-shadow:inset 0 0 0 1.5px var(--acc)}
 .ath-cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
 .ath-cal-wo{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .ath-cal-wo.sport-cycling{border-left:2px solid #378ADD;background:rgba(55,138,221,0.12);color:var(--tc2)}
@@ -203,7 +219,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-race.priority-A{background:#FFD700;color:#1a1000}
 .ath-cal-race.priority-B{background:#C0C0C0;color:#111}
 .ath-cal-race.priority-C{background:#CD7F32;color:#fff}
-.ath-cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem}
 .ath-cal-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase}
 /* Detail modals */
 .ath-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -542,13 +557,17 @@ window.applyTierGating = function() {
 
     <div class="dash-panel" id="dtp-calendar">
       <div class="ath-cal-nav">
-        <button class="btn btn-sm btn-ghost" onclick="athCalShift(-1)">&#8249; Prev</button>
         <div class="ath-cal-title" id="athCalTitle">—</div>
-        <button class="btn btn-sm btn-ghost" onclick="athCalShift(1)">Next &#8250;</button>
+        <button class="btn btn-sm btn-ghost" onclick="athCalGoToday()">Today</button>
       </div>
-      <div class="ath-cal-wrap">
-        <div id="athCalHeadRow"></div>
-        <div class="ath-cal-grid" id="athCalGrid"></div>
+      <div class="ath-cal-layout">
+        <div class="ath-cal-scroll" id="athCalScroll">
+          <div id="athCalHeadRow"></div>
+          <div id="athCalTopSentinel" class="ath-cal-sentinel"></div>
+          <div id="athCalWeeks"></div>
+          <div id="athCalBottomSentinel" class="ath-cal-sentinel"></div>
+        </div>
+        <div class="ath-cal-summary" id="athCalSummary"></div>
       </div>
       <p style="font-size:11px;color:var(--tc3);margin-top:0.5rem;flex-shrink:0">Tap a workout or race for details. Tap an empty day to add a session. <span class="ath-badge-a">A</span> = added by you.</p>
 
@@ -1825,11 +1844,28 @@ async function renderCurve(){
 </script>
 <script>
 // ========== DASHBOARD CALENDAR TAB ==========
-var athCalMonth=new Date(); athCalMonth.setDate(1);
 var athWorkoutsCache=[];
 var athRacesCache=[];
 var athViewingWo=null;
 var athViewingRace=null;
+
+// ===== Infinite-scroll athlete calendar =====
+var athCalWoByDate={};
+var athCalRaceByDate={};
+var athCalActCache={}; // date -> [activities], grows as the user scrolls; independent of allActivities' 90-day cap
+var athCalActFetchedFrom=null;
+var athCalActFetchedTo=null;
+var athCalEarliestMonday=null;
+var athCalLatestMonday=null;
+var athCalFocusedMondayKey=null;
+var athCalLoadingTop=false;
+var athCalLoadingBottom=false;
+var athCalEdgeObserver=null;
+var athCalScrollFocusBound=false;
+var athCalScrollFocusRaf=null;
+const ATH_CAL_BATCH=4;
+const ATH_CAL_INITIAL_BEFORE=2;
+const ATH_CAL_INITIAL_AFTER=5;
 
 async function loadAthCal(){
   if(!currentAthlete||!currentAthlete.id)return;
@@ -1844,21 +1880,11 @@ async function loadAthCal(){
     athWorkoutsCache=[];
     athRacesCache=[];
   }
-  renderAthCal();
-}
-
-function athCalShift(dir){
-  athCalMonth.setMonth(athCalMonth.getMonth()+dir);
-  renderAthCal();
-}
-
-function athSportClass(sport){
-  const s=(sport||'').toLowerCase();
-  if(s==='cycling'||s==='bike')return'sport-cycling';
-  if(s==='running'||s==='run')return'sport-running';
-  if(s==='swimming'||s==='swim')return'sport-swimming';
-  if(s==='strength')return'sport-strength';
-  return'sport-other';
+  athCalWoByDate={};
+  athWorkoutsCache.forEach(w=>{ (athCalWoByDate[w.date]=athCalWoByDate[w.date]||[]).push(w); });
+  athCalRaceByDate={};
+  athRacesCache.forEach(r=>{ (athCalRaceByDate[r.date]=athCalRaceByDate[r.date]||[]).push(r); });
+  await athCalInit();
 }
 
 function athEscHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -1872,107 +1898,398 @@ function athIcuTypeToSport(type){
   return'other';
 }
 
-function renderAthCal(){
-  const grid=document.getElementById('athCalGrid');
+function athCalMonthKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+
+// Renders one day cell. Reuses the existing planned/completed matching logic,
+// just sourced from the incrementally-loaded athCalActCache instead of a
+// single full-month lookup table.
+function athCalRenderDay(d){
+  const key=toYMD(d);
+  const wos=athCalWoByDate[key]||[];
+  const races=athCalRaceByDate[key]||[];
+  const icuForDay=(athCalActCache[key]||[]).slice();
+
+  const racesHtml=races.map(r=>{
+    const pri=r.priority||'C';
+    const dist=r.distance?(' · '+r.distance):'';
+    return '<div class="ath-cal-race priority-'+pri+'" onclick="event.stopPropagation();openAthRaceModal(\''+String(r.id)+'\')" title="'+athEscHtml(r.name)+'">'
+      +'&#9873; '+athEscHtml(r.name||'Race')+athEscHtml(dist)+'</div>';
+  }).join('');
+
+  const matchedIcuIds=new Set();
+  const dayItems=[]; // {html, sortKey} — sortKey is ISO string or '' for untimed planned
+
+  wos.forEach(w=>{
+    const spClass='sport-'+(w.sport||'other');
+    const woIdStr=String(w.id);
+    const matchIdx=icuForDay.findIndex(a=>athIcuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
+    if(matchIdx!==-1){
+      const icu=icuForDay[matchIdx];
+      matchedIcuIds.add(icu.id);
+      const mins=Math.round((icu.moving_time||0)/60);
+      const tss=Math.round(icu.icu_training_load||0);
+      const timePrefix=_fmtBlockTime(icu.start_date_local);
+      const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+      const icuIdStr=String(icu.id);
+      const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
+      dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:icu.start_date_local||''});
+    }else{
+      const label=athEscHtml(w.title||w.sport||'Workout');
+      const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
+      dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:'',createdAt:w.created_at||''});
+    }
+  });
+
+  icuForDay.filter(a=>!matchedIcuIds.has(a.id)).forEach(a=>{
+    const sp=athIcuTypeToSport(a.type);
+    const spClass='sport-'+sp;
+    const mins=Math.round((a.moving_time||0)/60);
+    const tss=Math.round(a.icu_training_load||0);
+    const timePrefix=_fmtBlockTime(a.start_date_local);
+    const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+    const icuIdStr=String(a.id);
+    dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
+  });
+
+  dayItems.sort((a,b)=>{
+    const aT=a.sortKey,bT=b.sortKey;
+    if(aT&&bT)return aT.localeCompare(bT);
+    if(aT)return -1;
+    if(bT)return 1;
+    return (a.createdAt||'').localeCompare(b.createdAt||'');
+  });
+
+  const isToday=key===toYMD(new Date());
+  return '<div class="ath-cal-cell'+(isToday?' is-today':'')+'" onclick="openAthDayModal(\''+key+'\')">'
+    +'<div class="ath-cal-date">'+d.getDate()+'</div>'
+    +racesHtml+dayItems.map(x=>x.html).join('')
+    +'</div>';
+}
+
+function athCalRenderWeek(monday){
+  let html='<div class="ath-cal-week" data-week-key="'+toYMD(monday)+'">';
+  for(let i=0;i<7;i++){
+    const d=new Date(monday); d.setDate(d.getDate()+i);
+    html+=athCalRenderDay(d);
+  }
+  return html+'</div>';
+}
+
+// Fetches activities for a date range not already covered by athCalActCache.
+// Only requests the new sliver needed (the loaded range only ever grows
+// outward at one or both ends, since weeks are appended/prepended in order).
+async function athCalEnsureActivities(fromDate,toDate){
+  const ranges=[];
+  if(!athCalActFetchedFrom||!athCalActFetchedTo){
+    ranges.push([fromDate,toDate]);
+  }else{
+    if(fromDate<athCalActFetchedFrom){
+      const extEnd=new Date(athCalActFetchedFrom);extEnd.setDate(extEnd.getDate()-1);
+      ranges.push([fromDate,extEnd]);
+    }
+    if(toDate>athCalActFetchedTo){
+      const extStart=new Date(athCalActFetchedTo);extStart.setDate(extStart.getDate()+1);
+      ranges.push([extStart,toDate]);
+    }
+  }
+  if(!ranges.length)return;
+  for(const[start,end] of ranges){
+    if(start>end)continue;
+    try{
+      const data=await apiCall(curId,curKey,'activities','oldest='+toYMD(start)+'&newest='+toYMD(end)+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load');
+      (Array.isArray(data)?data:[]).forEach(a=>{
+        const key=(a.start_date_local||'').slice(0,10);
+        if(!key)return;
+        if(!athCalActCache[key])athCalActCache[key]=[];
+        if(!athCalActCache[key].some(x=>x.id===a.id))athCalActCache[key].push(a);
+      });
+    }catch(e){
+      console.error('athCalEnsureActivities error:',e);
+    }
+  }
+  athCalActFetchedFrom=athCalActFetchedFrom?new Date(Math.min(athCalActFetchedFrom,fromDate)):new Date(fromDate);
+  athCalActFetchedTo=athCalActFetchedTo?new Date(Math.max(athCalActFetchedTo,toDate)):new Date(toDate);
+}
+
+async function athCalInit(){
   const headRow=document.getElementById('athCalHeadRow');
-  const title=document.getElementById('athCalTitle');
-  if(!grid)return;
-  title.textContent=athCalMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'});
   const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   if(headRow)headRow.innerHTML=days.map(d=>'<div class="ath-cal-head">'+d+'</div>').join('');
+
+  const weeksEl=document.getElementById('athCalWeeks');
+  if(!weeksEl)return;
+
+  const todayMonday=mondayOf(new Date());
+  const startMonday=new Date(todayMonday);startMonday.setDate(startMonday.getDate()-7*ATH_CAL_INITIAL_BEFORE);
+  const endMonday=new Date(todayMonday);endMonday.setDate(endMonday.getDate()+7*ATH_CAL_INITIAL_AFTER);
+  const fetchEnd=new Date(endMonday);fetchEnd.setDate(fetchEnd.getDate()+6);
+
+  await athCalEnsureActivities(startMonday,fetchEnd);
+
+  const totalWeeks=ATH_CAL_INITIAL_BEFORE+ATH_CAL_INITIAL_AFTER+1;
   let html='';
-
-  const firstOfMonth=new Date(athCalMonth);
-  const firstDow=(firstOfMonth.getDay()+6)%7;
-  const gridStart=new Date(firstOfMonth);
-  gridStart.setDate(gridStart.getDate()-firstDow);
-
-  const woByDate={};
-  athWorkoutsCache.forEach(w=>{ (woByDate[w.date]=woByDate[w.date]||[]).push(w); });
-  const raceByDate={};
-  athRacesCache.forEach(r=>{ (raceByDate[r.date]=raceByDate[r.date]||[]).push(r); });
-
-  // Build ICU activities by date from allActivities
-  const icuByDate={};
-  (allActivities||[]).forEach(a=>{
-    const key=(a.start_date_local||'').slice(0,10);
-    if(!key)return;
-    (icuByDate[key]=icuByDate[key]||[]).push(a);
-  });
-  for(const d of Object.keys(icuByDate)){
-    icuByDate[d].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
+  let prevMonthKey=null;
+  for(let i=0;i<totalWeeks;i++){
+    const m=new Date(startMonday);m.setDate(m.getDate()+7*i);
+    const monthKey=athCalMonthKey(m);
+    if(monthKey!==prevMonthKey){
+      html+='<div class="ath-cal-month-divider">'+m.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</div>';
+      prevMonthKey=monthKey;
+    }
+    html+=athCalRenderWeek(m);
   }
+  weeksEl.innerHTML=html;
+  athCalEarliestMonday=startMonday;
+  athCalLatestMonday=endMonday;
+  athCalFocusedMondayKey=toYMD(todayMonday);
 
-  const _dim=new Date(athCalMonth.getFullYear(),athCalMonth.getMonth()+1,0).getDate();
-  const _cellCount=Math.ceil((firstDow+_dim)/7)*7;
-  for(let i=0;i<_cellCount;i++){
-    const d=new Date(gridStart);
-    d.setDate(gridStart.getDate()+i);
-    const key=toYMD(d);
-    const otherMonth=d.getMonth()!==athCalMonth.getMonth();
-    const wos=woByDate[key]||[];
-    const races=raceByDate[key]||[];
-    const icuForDay=(icuByDate[key]||[]).slice();
+  athCalUpdateTitle(todayMonday);
+  athCalRenderSummary(todayMonday);
+  athCalScrollToMonday(todayMonday);
+  athCalSetupEdgeObserver();
+  athCalObserveWeeks();
+  athCalUpdateFocusFromScroll();
+  // If the initial batch doesn't fill the viewport, the edge sentinels can be
+  // immediately in range and trigger an auto-expansion before this function
+  // even returns. That shifts everything below the prepended content, so
+  // re-settle the scroll position once those loads have had a chance to land.
+  setTimeout(()=>{
+    athCalScrollToMonday(todayMonday);
+    athCalUpdateFocusFromScroll();
+  },250);
+}
 
-    const racesHtml=races.map(r=>{
-      const pri=r.priority||'C';
-      const dist=r.distance?(' · '+r.distance):'';
-      return '<div class="ath-cal-race priority-'+pri+'" onclick="event.stopPropagation();openAthRaceModal(\''+String(r.id)+'\')" title="'+athEscHtml(r.name)+'">'
-        +'&#9873; '+athEscHtml(r.name||'Race')+athEscHtml(dist)+'</div>';
-    }).join('');
+async function athCalLoadMore(direction){
+  const weeksEl=document.getElementById('athCalWeeks');
+  if(!weeksEl)return;
+  if(direction==='top'){
+    if(athCalLoadingTop)return;
+    athCalLoadingTop=true;
+    try{
+      const newEarliest=new Date(athCalEarliestMonday);newEarliest.setDate(newEarliest.getDate()-7*ATH_CAL_BATCH);
+      const fetchEnd=new Date(athCalEarliestMonday);fetchEnd.setDate(fetchEnd.getDate()-1);
+      await athCalEnsureActivities(newEarliest,fetchEnd);
 
-    // Match planned workouts with ICU activities by sport, build merged sorted list
-    const matchedIcuIds=new Set();
-    const dayItems=[]; // {html, sortKey} — sortKey is ISO string or '' for untimed planned
+      const scrollEl=document.getElementById('athCalScroll');
+      const prevScrollHeight=scrollEl.scrollHeight;
+      const prevScrollTop=scrollEl.scrollTop;
 
-    wos.forEach(w=>{
-      const spClass='sport-'+(w.sport||'other');
-      const woIdStr=String(w.id);
-      const matchIdx=icuForDay.findIndex(a=>athIcuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
-      if(matchIdx!==-1){
-        const icu=icuForDay[matchIdx];
-        matchedIcuIds.add(icu.id);
-        const mins=Math.round((icu.moving_time||0)/60);
-        const tss=Math.round(icu.icu_training_load||0);
-        const timePrefix=_fmtBlockTime(icu.start_date_local);
-        const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
-        const icuIdStr=String(icu.id);
-        const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-        dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:icu.start_date_local||''});
-      }else{
-        const label=athEscHtml(w.title||w.sport||'Workout');
-        const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-        dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:'',createdAt:w.created_at||''});
+      const firstWeekEl=weeksEl.querySelector('.ath-cal-week');
+      const firstWeekMonth=firstWeekEl?firstWeekEl.dataset.weekKey.slice(0,7):null;
+      const existingDivider=(firstWeekEl&&firstWeekEl.previousElementSibling&&firstWeekEl.previousElementSibling.classList.contains('ath-cal-month-divider'))?firstWeekEl.previousElementSibling:null;
+      // Build the new batch with its own fresh divider logic (first new week always
+      // gets one, marking the start of the prepended run), THEN check whether the
+      // batch's last week (the one immediately adjacent to existing content) lands
+      // in the same month as the existing first week -- if so, the existing divider
+      // is now redundant (the new batch's own divider for that month already covers
+      // it) and gets removed, instead of adding a second, duplicate one.
+      let prevMonthKey=null;
+      let html='';
+      for(let i=ATH_CAL_BATCH-1;i>=0;i--){
+        const m=new Date(athCalEarliestMonday);m.setDate(m.getDate()-7*(i+1));
+        const monthKey=athCalMonthKey(m);
+        if(monthKey!==prevMonthKey){
+          html+='<div class="ath-cal-month-divider">'+m.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</div>';
+          prevMonthKey=monthKey;
+        }
+        html+=athCalRenderWeek(m);
       }
-    });
+      if(prevMonthKey===firstWeekMonth&&existingDivider)existingDivider.remove();
+      weeksEl.insertAdjacentHTML('afterbegin',html);
+      athCalEarliestMonday=newEarliest;
+      athCalObserveWeeks();
+      scrollEl.scrollTop=prevScrollTop+(scrollEl.scrollHeight-prevScrollHeight);
+    }finally{
+      athCalLoadingTop=false;
+    }
+  }else{
+    if(athCalLoadingBottom)return;
+    athCalLoadingBottom=true;
+    try{
+      const fetchStart=new Date(athCalLatestMonday);fetchStart.setDate(fetchStart.getDate()+7);
+      const newLatest=new Date(athCalLatestMonday);newLatest.setDate(newLatest.getDate()+7*ATH_CAL_BATCH);
+      const fetchEnd=new Date(newLatest);fetchEnd.setDate(fetchEnd.getDate()+6);
+      await athCalEnsureActivities(fetchStart,fetchEnd);
 
-    // Unmatched ICU activities
-    icuForDay.filter(a=>!matchedIcuIds.has(a.id)).forEach(a=>{
-      const sp=athIcuTypeToSport(a.type);
-      const spClass='sport-'+sp;
-      const mins=Math.round((a.moving_time||0)/60);
-      const tss=Math.round(a.icu_training_load||0);
-      const timePrefix=_fmtBlockTime(a.start_date_local);
-      const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
-      const icuIdStr=String(a.id);
-      dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
-    });
-
-    // Sort: timed items (completed) by start_date_local asc, untimed planned after by created_at asc
-    dayItems.sort((a,b)=>{
-      const aT=a.sortKey,bT=b.sortKey;
-      if(aT&&bT)return aT.localeCompare(bT);
-      if(aT)return -1;
-      if(bT)return 1;
-      return (a.createdAt||'').localeCompare(b.createdAt||'');
-    });
-
-    html+='<div class="ath-cal-cell'+(otherMonth?' other-month':'')+'" onclick="openAthDayModal(\''+key+'\')">'
-      +'<div class="ath-cal-date">'+d.getDate()+'</div>'
-      +racesHtml+dayItems.map(x=>x.html).join('')
-      +'</div>';
+      const lastWeekEl=weeksEl.querySelector('.ath-cal-week:last-child');
+      let prevMonthKey=lastWeekEl?lastWeekEl.dataset.weekKey.slice(0,7):null;
+      let html='';
+      for(let i=1;i<=ATH_CAL_BATCH;i++){
+        const m=new Date(athCalLatestMonday);m.setDate(m.getDate()+7*i);
+        const monthKey=athCalMonthKey(m);
+        if(monthKey!==prevMonthKey){
+          html+='<div class="ath-cal-month-divider">'+m.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</div>';
+          prevMonthKey=monthKey;
+        }
+        html+=athCalRenderWeek(m);
+      }
+      weeksEl.insertAdjacentHTML('beforeend',html);
+      athCalLatestMonday=newLatest;
+      athCalObserveWeeks();
+    }finally{
+      athCalLoadingBottom=false;
+    }
   }
-  grid.innerHTML=html;
+}
+
+function athCalSetupEdgeObserver(){
+  const scrollEl=document.getElementById('athCalScroll');
+  const topSentinel=document.getElementById('athCalTopSentinel');
+  const bottomSentinel=document.getElementById('athCalBottomSentinel');
+  if(athCalEdgeObserver)athCalEdgeObserver.disconnect();
+  athCalEdgeObserver=new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(!entry.isIntersecting)return;
+      if(entry.target.id==='athCalTopSentinel')athCalLoadMore('top');
+      else if(entry.target.id==='athCalBottomSentinel')athCalLoadMore('bottom');
+    });
+  },{root:scrollEl,rootMargin:'200px 0px'});
+  if(topSentinel)athCalEdgeObserver.observe(topSentinel);
+  if(bottomSentinel)athCalEdgeObserver.observe(bottomSentinel);
+
+  // Focus-tracking uses scroll position directly (closest week to viewport
+  // center) rather than IntersectionObserver ratios -- when enough weeks fit
+  // fully on screen at once, several tie at ratio 1.0, and ratio alone can't
+  // break that tie meaningfully. Distance-to-center always picks one winner.
+  if(!athCalScrollFocusBound){
+    scrollEl.addEventListener('scroll',athCalQueueFocusUpdate);
+    athCalScrollFocusBound=true;
+  }
+}
+
+function athCalQueueFocusUpdate(){
+  if(athCalScrollFocusRaf)return;
+  athCalScrollFocusRaf=requestAnimationFrame(()=>{
+    athCalScrollFocusRaf=null;
+    athCalUpdateFocusFromScroll();
+  });
+}
+
+function athCalUpdateFocusFromScroll(){
+  const scrollEl=document.getElementById('athCalScroll');
+  if(!scrollEl)return;
+  const scrollRect=scrollEl.getBoundingClientRect();
+  const centerY=scrollRect.top+scrollRect.height/2;
+  let bestKey=null,bestDist=Infinity;
+  document.querySelectorAll('.ath-cal-week').forEach(w=>{
+    const r=w.getBoundingClientRect();
+    if(r.bottom<scrollRect.top||r.top>scrollRect.bottom)return;
+    const dist=Math.abs((r.top+r.height/2)-centerY);
+    if(dist<bestDist){bestDist=dist;bestKey=w.dataset.weekKey;}
+  });
+  if(bestKey&&bestKey!==athCalFocusedMondayKey){
+    athCalFocusedMondayKey=bestKey;
+    const monday=new Date(bestKey+'T00:00:00');
+    athCalRenderSummary(monday);
+    athCalUpdateTitle(monday);
+  }
+}
+
+function athCalObserveWeeks(){
+  // Kept as a no-op hook point for callers (load-more, init) so a future
+  // virtualization pass has a single place to wire up -- focus tracking
+  // itself no longer needs per-element observation, just re-runs on scroll.
+}
+
+// Centers the given week in the viewport -- matches athCalUpdateFocusFromScroll's
+// closest-to-center logic, so jumping here immediately re-focuses on the same week.
+function athCalScrollToMonday(monday){
+  const scrollEl=document.getElementById('athCalScroll');
+  const weekEl=document.querySelector('.ath-cal-week[data-week-key="'+toYMD(monday)+'"]');
+  if(weekEl&&scrollEl){
+    const weekCenter=weekEl.offsetTop+weekEl.offsetHeight/2;
+    scrollEl.scrollTop=Math.max(0,weekCenter-scrollEl.clientHeight/2);
+  }
+}
+
+function athCalGoToday(){
+  const todayMonday=mondayOf(new Date());
+  const weekEl=document.querySelector('.ath-cal-week[data-week-key="'+toYMD(todayMonday)+'"]');
+  if(weekEl){
+    athCalScrollToMonday(todayMonday);
+    athCalUpdateFocusFromScroll();
+  }else{
+    athCalInit();
+  }
+}
+
+function athCalUpdateTitle(monday){
+  const title=document.getElementById('athCalTitle');
+  if(!title)return;
+  title.textContent=monday.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+
+function athCalFmtDur(mins){
+  if(!mins)return'0:00';
+  const h=Math.floor(mins/60),m=Math.round(mins%60);
+  return h+':'+String(m).padStart(2,'0');
+}
+
+function athCalComputeWeekSummary(monday){
+  const days=[];
+  for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(d.getDate()+i);days.push(toYMD(d));}
+
+  const mkSport=()=>({dur:0,tss:0,dist:0});
+  const plannedBySport={cycling:mkSport(),running:mkSport(),swimming:mkSport(),strength:mkSport()};
+  const actualBySport={cycling:mkSport(),running:mkSport(),swimming:mkSport(),strength:mkSport()};
+  let plannedTotalDur=0,plannedTotalTss=0,actualTotalDur=0,actualTotalTss=0;
+
+  days.forEach(key=>{
+    (athCalWoByDate[key]||[]).forEach(w=>{
+      const sp=w.sport&&plannedBySport[w.sport]?w.sport:null;
+      const dur=Number(w.duration_minutes)||0;
+      const tss=Number(w.tss_target)||0;
+      if(sp){plannedBySport[sp].dur+=dur;plannedBySport[sp].tss+=tss;}
+      plannedTotalDur+=dur;plannedTotalTss+=tss;
+    });
+    (athCalActCache[key]||[]).forEach(a=>{
+      const sp=athIcuTypeToSport(a.type);
+      const durMin=(a.moving_time||0)/60;
+      const tss=Number(a.icu_training_load)||0;
+      const dist=Number(a.distance)||0;
+      if(actualBySport[sp]){actualBySport[sp].dur+=durMin;actualBySport[sp].tss+=tss;actualBySport[sp].dist+=dist;}
+      actualTotalDur+=durMin;actualTotalTss+=tss;
+    });
+  });
+
+  return{plannedBySport,actualBySport,plannedTotalDur,plannedTotalTss,actualTotalDur,actualTotalTss};
+}
+
+function athCalRenderSummary(monday){
+  const el=document.getElementById('athCalSummary');
+  if(!el)return;
+  const s=athCalComputeWeekSummary(monday);
+  const sunday=new Date(monday);sunday.setDate(sunday.getDate()+6);
+  const rangeLabel=monday.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+sunday.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+  const todayKey=toYMD(new Date());
+  let fit=null;
+  for(let i=6;i>=0;i--){
+    const d=new Date(monday);d.setDate(d.getDate()+i);
+    const k=toYMD(d);
+    if(k<=todayKey&&fitnessByDate[k]){fit=fitnessByDate[k];break;}
+  }
+
+  const sportLabel={cycling:'Bike',running:'Run',swimming:'Swim',strength:'Strength'};
+  const sportRows=['cycling','running','swimming','strength'].map(sp=>{
+    const p=s.plannedBySport[sp],a=s.actualBySport[sp];
+    if(!p.dur&&!a.dur)return'';
+    const distRow=a.dist?'<div class="ath-cal-sum-row"><span>'+sportLabel[sp]+' distance</span><span class="ath-cal-sum-vals"><span class="actual">'+fmtDist(a.dist,sp)+'</span></span></div>':'';
+    return '<div class="ath-cal-sum-row"><span>'+sportLabel[sp]+' duration</span><span class="ath-cal-sum-vals"><span class="planned">'+athCalFmtDur(p.dur)+'</span><span class="actual">'+athCalFmtDur(a.dur)+'</span></span></div>'+distRow;
+  }).join('');
+
+  el.innerHTML=
+    '<div class="ath-cal-sum-title">'+rangeLabel+'</div>'
+    +(fit?(
+      '<div class="ath-cal-sum-fitness">'
+      +'<div><div class="val" style="color:#378ADD">'+Math.round(fit.ctl)+'</div><div class="lbl">Fitness</div></div>'
+      +'<div><div class="val" style="color:#E24B4A">'+Math.round(fit.atl)+'</div><div class="lbl">Fatigue</div></div>'
+      +'<div><div class="val" style="color:#c8f036">'+(Math.round(fit.ctl-fit.atl)>=0?'+':'')+Math.round(fit.ctl-fit.atl)+'</div><div class="lbl">Form</div></div>'
+      +'</div>'
+    ):'')
+    +'<div class="ath-cal-sum-row total"><span>Total Duration</span><span class="ath-cal-sum-vals"><span class="planned">'+athCalFmtDur(s.plannedTotalDur)+'</span><span class="actual">'+athCalFmtDur(s.actualTotalDur)+'</span></span></div>'
+    +'<div class="ath-cal-sum-row total"><span>Total TSS</span><span class="ath-cal-sum-vals"><span class="planned">'+Math.round(s.plannedTotalTss)+'</span><span class="actual">'+Math.round(s.actualTotalTss)+'</span></span></div>'
+    +'<div class="ath-cal-sum-section">'+(sportRows||'<div class="ath-cal-sum-row"><span>No activity this week</span></div>')+'</div>';
 }
 
 function openAthWoModal(id){
