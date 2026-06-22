@@ -1702,20 +1702,27 @@ function drawSwimCurveChart(box,allPairs,recentPairs,note){
       plugins:{legend:{labels:{color:'#aaa',font:{size:11}}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmtPace(ctx.raw)+'/100y'}}},
       scales:{
         x:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}},
-        y:{reverse:true,min:60,max:200,ticks:{color:'#666',font:{size:10},stepSize:20,callback:v=>fmtPace(v)+'/100y'},grid:{color:'#1a1a1a'}}
+        y:{reverse:true,min:60,max:120,ticks:{color:'#666',font:{size:10},stepSize:20,callback:v=>fmtPace(v)+'/100y'},grid:{color:'#1a1a1a'}}
       }
     }
   });
-  // Table
-  const rows=validDists.map((d,i)=>{
-    const a=allData[i],r=recData?recData[i]:null;
-    const pk=r!=null&&a!=null&&r<a;
-    return`<tr><td>${SWIM_CURVE_LABELS[SWIM_CURVE_DISTANCES.indexOf(d)]}</td><td>${a!=null?fmtPace(a)+'/100y':'—'}</td><td style="${pk?'color:#00ff88;font-weight:600':''}">${r!=null?fmtPace(r)+'/100y'+(pk?' ★':''):'—'}</td></tr>`;
-  }).join('');
-  document.getElementById('curveTableWrap').innerHTML=
-    '<table style="width:100%;font-family:\'DM Mono\',monospace;font-size:11px;color:var(--tc2);border-collapse:collapse;margin-top:0.75rem">'
-    +'<thead><tr style="color:var(--tc3);font-size:10px"><th style="text-align:left;padding:4px 8px">Distance</th><th style="text-align:right;padding:4px 8px">All-time</th><th style="text-align:right;padding:4px 8px">Last 30d</th></tr></thead>'
-    +'<tbody>'+rows+'</tbody></table>'
+  // Summary table — matches drawCurveChart's layout (metric rows, distance columns)
+  const wrap=document.getElementById('curveTableWrap');
+  const tableRows=[
+    {lbl:'All-time',data:allData.map(v=>v!=null?fmtPace(v)+'/100y':'—'),color:'var(--tc)'},
+    ...(recData?[{lbl:'30 days',data:validDists.map((d,i)=>({v:recData[i]!=null?fmtPace(recData[i])+'/100y':'—',pk:isNewPeak(i)}))}]:[])
+  ];
+  wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
+    +'<thead><tr><th>Distance</th>'+labels.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
+    +'<tbody>'
+    +tableRows.map(r=>'<tr><td style="color:'+(r.color||'#378ADD')+'">'+r.lbl+'</td>'
+      +r.data.map(v=>{
+        if(typeof v==='object'&&v.pk!==undefined)
+          return'<td style="'+(v.pk?'color:#00ff88;font-weight:600':'')+'">'+v.v+(v.pk?' ★':'')+'</td>';
+        return'<td>'+v+'</td>';
+      }).join('')+'</tr>'
+    ).join('')
+    +'</tbody></table>'
     +(note?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:0.6rem">'+note+'</div>':'');
 }
 
