@@ -1157,6 +1157,7 @@ function fmtZoneBoundsDisplay(sport,metric,i){
     const z=CYCLING_HR[i]; if(!z)return'';
     const ov=(s.overrides.hr||{})[i];
     const lo=ov?ov[0]:Math.round(base*z.lo/100);
+    if(!ov&&i===CYCLING_HR.length-1)return lo+'+ bpm';
     const hi=ov?ov[1]:Math.round(base*z.hi/100);
     return lo+'–'+hi+' bpm';
   }
@@ -1164,6 +1165,7 @@ function fmtZoneBoundsDisplay(sport,metric,i){
     const z=CYCLING_PWR[i]; if(!z)return'';
     const ov=(s.overrides.power||{})[i];
     const lo=ov?ov[0]:Math.round(s.ftp*z.lo/100);
+    if(!ov&&i===CYCLING_PWR.length-1)return lo+'+w';
     const hi=ov?ov[1]:Math.round(s.ftp*z.hi/100);
     return lo+'–'+hi+'w';
   }
