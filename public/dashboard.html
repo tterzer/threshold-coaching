@@ -4226,23 +4226,21 @@ async function loadDashboard(){
     buildLoad(sorted);
     buildZones(sorted);
     buildActs(sorted.slice(0,7));
-    initZoneCalc();
-    loadZoneDistribution();
-    // One-time wipe of stale velocity_smooth entries (old run/swim cache may be corrupt).
-    // Runs once per browser; afterwards the cache builds fresh from today forward.
+    // One-time wipes of stale/corrupted stream cache entries. Must complete BEFORE
+    // any chart reads from the stream cache (zone distribution, curves) -- otherwise
+    // the first load after deploy still classifies the old corrupted data.
     if(!localStorage.getItem('hm2l_stream_cache_v2')){
-      fetch('/api/stream-cache?stream_type=velocity_smooth',{method:'DELETE'})
+      await fetch('/api/stream-cache?stream_type=velocity_smooth',{method:'DELETE'})
         .then(()=>localStorage.setItem('hm2l_stream_cache_v2','cleared'))
-        .catch(()=>{}); // fire-and-forget; renderCurve proceeds regardless
+        .catch(()=>{});
     }
-    // One-time wipe of heartrate/watts entries cached before the fetchStream fallback
-    // bug was fixed (it could substitute the wrong stream type when the requested one
-    // was missing, e.g. watts data cached under a heartrate key).
     if(!localStorage.getItem('hm2l_stream_cache_v3')){
-      Promise.all(['heartrate','watts'].map(t=>fetch('/api/stream-cache?stream_type='+t,{method:'DELETE'})))
+      await Promise.all(['heartrate','watts'].map(t=>fetch('/api/stream-cache?stream_type='+t,{method:'DELETE'})))
         .then(()=>localStorage.setItem('hm2l_stream_cache_v3','cleared'))
         .catch(()=>{});
     }
+    initZoneCalc();
+    loadZoneDistribution();
     renderCurve();
     // Pre-load calendar data in background
     if(currentAthlete&&currentAthlete.id){ loadAthCal(); }
