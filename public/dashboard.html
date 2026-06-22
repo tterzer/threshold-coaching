@@ -1283,7 +1283,7 @@ async function onZoneDistControlChange(){
       const total=totals.reduce((s,v)=>s+v,0);
       if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
       el.innerHTML=totals.map((t,i)=>{
-        const pct=Math.round((t/total)*100);
+        const pct=t>0&&Math.round((t/total)*100)===0?(t/total*100).toFixed(1):Math.round((t/total)*100);
         const color=ZC_COLORS[i]||'#7F77DD';
         return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}"></div><span class="zone-pct-d">${pct}%</span></div></div>`;
       }).join('');
@@ -1312,7 +1312,7 @@ async function onZoneDistControlChange(){
       const total=totals.reduce((s,v)=>s+v,0);
       if(!total){el.innerHTML='<div class="empty-note">No zone time recorded</div>';return;}
       el.innerHTML=totals.map((t,i)=>{
-        const pct=Math.round((t/total)*100);
+        const pct=t>0&&Math.round((t/total)*100)===0?(t/total*100).toFixed(1):Math.round((t/total)*100);
         const color=ZC_COLORS[i]||'#7F77DD';
         return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}"></div><span class="zone-pct-d">${pct}%</span></div></div>`;
       }).join('');
@@ -1346,7 +1346,7 @@ async function onZoneDistControlChange(){
     const total=totals.reduce((s,v)=>s+v,0);
     if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
     el.innerHTML=totals.map((t,i)=>{
-      const pct=Math.round((t/total)*100);
+      const pct=t>0&&Math.round((t/total)*100)===0?(t/total*100).toFixed(1):Math.round((t/total)*100);
       const color=ZC_COLORS[i]||'#7F77DD';
       const range=fmtZoneBoundsDisplay(sport,metric,i);
       return`<div class="zone-row-d"><span class="zone-name-d">Z${i+1}</span><div class="zone-bg-d"><div class="zone-fill-d" style="width:${pct}%;background:${color}"></div>${range?`<span class="zone-range-d" style="left:${pct}%">${range}</span>`:''}<span class="zone-pct-d">${pct}%</span></div></div>`;
