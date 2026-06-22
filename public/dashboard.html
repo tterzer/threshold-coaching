@@ -1325,8 +1325,8 @@ async function onZoneDistControlChange(){
   const cutoffStr=toYMD(cutoff);const acts=allActivities.filter(a=>sportClass(a.type)===sport&&(a.start_date_local||'').slice(0,10)>=cutoffStr).slice(0,20);
   if(!acts.length){el.innerHTML='<div class="empty-note">No '+sport+' activities in this window</div>';return;}
   try{
-    // Cycling only: watts streams
-    const streamType='watts';
+    // Cycling: watts for power metric, heartrate for hr metric
+    const streamType=metric==='hr'?'heartrate':'watts';
     const results=await Promise.all(acts.map(a=>fetchStream(a.id,streamType)));
     const bounds=zoneBoundsFor(sport,metric);
     const totals=new Array(bounds.length).fill(0);
@@ -1342,7 +1342,7 @@ async function onZoneDistControlChange(){
         }
       });
     });
-    if(!any){el.innerHTML='<div class="empty-note">No power stream data found</div>';return;}
+    if(!any){el.innerHTML='<div class="empty-note">No '+(metric==='hr'?'heart rate':'power')+' stream data found</div>';return;}
     const total=totals.reduce((s,v)=>s+v,0);
     if(!total){el.innerHTML='<div class="empty-note">No samples in zone range</div>';return;}
     el.innerHTML=totals.map((t,i)=>{
