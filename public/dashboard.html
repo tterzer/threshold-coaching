@@ -87,6 +87,12 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .zd-controls{display:flex;gap:6px;flex-wrap:wrap}
 .zd-select{font-family:'DM Mono',monospace;font-size:10px;background:var(--bc3);border:1px solid var(--border);color:var(--tc2);padding:5px 8px;letter-spacing:0.05em;text-transform:uppercase;outline:none}
 .zd-select:focus{border-color:var(--acc)}
+.zd-date{font-family:'DM Mono',monospace;font-size:10px;background:var(--bc3);border:1px solid var(--border);color:var(--tc2);padding:4px 6px;outline:none;color-scheme:dark}
+.zd-date:focus{border-color:var(--acc)}
+.phr-controls{display:flex;flex-direction:column;gap:6px;margin-bottom:1rem}
+.phr-period{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.phr-period-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.05em;text-transform:uppercase;width:64px;flex-shrink:0}
+.phr-sep{color:var(--tc3);font-size:11px}
 .activities-box{background:var(--bc2);padding:1.5rem}
 .act-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
 .act-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600;text-transform:uppercase;letter-spacing:0.02em}
@@ -346,7 +352,7 @@ window.applyTierGating = function() {
   var fuelTab = document.querySelector('.dash-tab[data-dtab="nutrition"]');
   if (fuelTab) fuelTab.style.display = tier >= 3 ? '' : 'none';
   if (tier < 2) {
-    ['sportCtlBox','loadRow','zoneRow'].forEach(function(id) {
+    ['sportCtlBox','loadRow','zoneRow','hrCorrRow'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el && !el.querySelector('.tier-lock')) el.insertAdjacentHTML('beforeend', window.TIER_LOCK_HTML);
     });
@@ -508,6 +514,25 @@ window.applyTierGating = function() {
           </div>
         </div>
         <div id="curveBox" style="width:100%;max-width:100%;overflow:hidden"><div class="empty-note">Loading durations curve...</div></div>
+      </div>
+    </div>
+
+    <div class="grid-2 tier-lockable" id="hrCorrRow" style="margin-top:1px">
+      <div class="chart-box">
+        <div class="chart-title">Power vs Heart Rate</div>
+        <div class="phr-controls">
+          <div class="phr-period"><span class="phr-period-label" style="color:#378ADD">Period A</span><input type="date" class="zd-date" id="phrFromA" onchange="renderPowerHrChart()"><span class="phr-sep">–</span><input type="date" class="zd-date" id="phrToA" onchange="renderPowerHrChart()"></div>
+          <div class="phr-period"><span class="phr-period-label" style="color:#E24B4A">Period B</span><input type="date" class="zd-date" id="phrFromB" onchange="renderPowerHrChart()"><span class="phr-sep">–</span><input type="date" class="zd-date" id="phrToB" onchange="renderPowerHrChart()"></div>
+        </div>
+        <div id="phrBox" style="width:100%;max-width:100%;overflow:hidden"><div class="empty-note">Loading…</div></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Pace vs Heart Rate</div>
+        <div class="phr-controls">
+          <div class="phr-period"><span class="phr-period-label" style="color:#378ADD">Period A</span><input type="date" class="zd-date" id="pahrFromA" onchange="renderPaceHrChart()"><span class="phr-sep">–</span><input type="date" class="zd-date" id="pahrToA" onchange="renderPaceHrChart()"></div>
+          <div class="phr-period"><span class="phr-period-label" style="color:#E24B4A">Period B</span><input type="date" class="zd-date" id="pahrFromB" onchange="renderPaceHrChart()"><span class="phr-sep">–</span><input type="date" class="zd-date" id="pahrToB" onchange="renderPaceHrChart()"></div>
+        </div>
+        <div id="pahrBox" style="width:100%;max-width:100%;overflow:hidden"><div class="empty-note">Loading…</div></div>
       </div>
     </div>
 
@@ -1807,6 +1832,114 @@ async function renderCurve(){
       box.innerHTML='<div class="empty-note">Could not load swim pace curve: '+(e.message||'error')+'</div>';
     }
     return;
+  }
+}
+
+/* ---------- Power/Pace vs Heart Rate correlation (two-period comparison) ---------- */
+// Fetches the primary metric stream + heartrate stream per activity, bins samples by
+// the primary metric (e.g. 20w power buckets), and returns {x,y} points where y is the
+// average %LTHR for that bucket across all activities. Buckets need a minimum sample
+// count to filter out noisy single-second buckets.
+async function buildHrCorrelationBins(acts,primaryType,toX,binSize,lthr,progId){
+  const bins={};
+  let done=0;
+  const progEl=()=>document.getElementById(progId);
+  await Promise.all(acts.map(async a=>{
+    try{
+      const[primary,hr]=await Promise.all([fetchStream(a.id,primaryType),fetchStream(a.id,'heartrate')]);
+      const n=Math.min(primary?primary.length:0,hr?hr.length:0);
+      for(let i=0;i<n;i++){
+        const rawX=primary[i],rawHr=hr[i];
+        if(rawX==null||rawX<=0||rawHr==null||rawHr<=0)continue;
+        const x=toX(rawX);
+        if(x==null||x<=0)continue;
+        const b=Math.round(x/binSize)*binSize;
+        if(!bins[b])bins[b]={sum:0,count:0};
+        bins[b].sum+=rawHr/lthr*100;
+        bins[b].count++;
+      }
+    }catch(e){}
+    done++;const el=progEl();if(el)el.style.width=Math.round(done/acts.length*100)+'%';
+  }));
+  const MIN_SAMPLES=10;
+  return Object.keys(bins).map(Number).filter(b=>bins[b].count>=MIN_SAMPLES).sort((a,b)=>a-b)
+    .map(b=>({x:b,y:bins[b].sum/bins[b].count}));
+}
+
+function drawHrCorrelationChart(box,canvasId,existingInst,binsA,binsB,labelA,labelB,xFmt,xReverse){
+  if(existingInst)existingInst.destroy();
+  box.style.overflow='hidden';
+  box.innerHTML='<div style="position:relative;height:260px;width:100%;max-width:100%;overflow:hidden"><canvas id="'+canvasId+'"></canvas></div>';
+  const datasets=[];
+  if(binsA.length)datasets.push({label:labelA,data:binsA,borderColor:'#378ADD',backgroundColor:'transparent',tension:0.2,pointRadius:2,pointBackgroundColor:'#378ADD',borderWidth:2});
+  if(binsB.length)datasets.push({label:labelB,data:binsB,borderColor:'#E24B4A',backgroundColor:'transparent',tension:0.2,pointRadius:2,pointBackgroundColor:'#E24B4A',borderWidth:2});
+  return new Chart(document.getElementById(canvasId),{
+    type:'line',
+    data:{datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'nearest',intersect:false},
+      plugins:{
+        legend:{display:true,labels:{color:'#999',font:{size:10,family:'DM Mono, monospace'},boxWidth:12,padding:14}},
+        tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+xFmt(ctx.parsed.x)+' → '+ctx.parsed.y.toFixed(1)+'% LTHR'}}
+      },
+      scales:{
+        x:{type:'linear',reverse:!!xReverse,ticks:{color:'#666',font:{size:10},callback:v=>xFmt(v)},grid:{color:'#1a1a1a'}},
+        y:{ticks:{color:'#666',font:{size:10},callback:v=>v+'%'},grid:{color:'#1a1a1a'},title:{display:true,text:'% LTHR',color:'#666',font:{size:10}}}
+      }
+    }
+  });
+}
+
+async function renderPowerHrChart(){
+  const box=document.getElementById('phrBox');
+  const fromA=document.getElementById('phrFromA').value,toA=document.getElementById('phrToA').value;
+  const fromB=document.getElementById('phrFromB').value,toB=document.getElementById('phrToB').value;
+  if(!fromA||!toA||!fromB||!toB){box.innerHTML='<div class="empty-note">Select both date ranges to compare</div>';return;}
+  box.innerHTML='<div class="curve-loading">Loading power/HR correlation…'
+    +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="phrProg" style="width:0%"></div></div></div>';
+  try{
+    const rides=allActivities.filter(a=>sportClass(a.type)==='cycling');
+    const ridesA=rides.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromA&&d<=toA;}).slice(0,40);
+    const ridesB=rides.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromB&&d<=toB;}).slice(0,40);
+    if(!ridesA.length&&!ridesB.length){box.innerHTML='<div class="empty-note">No cycling activities in either period</div>';return;}
+    const lthr=zs.cycling.lthr||zs.cycling.max_hr;
+    const[binsA,binsB]=await Promise.all([
+      ridesA.length?buildHrCorrelationBins(ridesA,'watts',v=>v,20,lthr,'phrProg'):Promise.resolve([]),
+      ridesB.length?buildHrCorrelationBins(ridesB,'watts',v=>v,20,lthr,'phrProg'):Promise.resolve([])
+    ]);
+    if(!binsA.length&&!binsB.length){box.innerHTML='<div class="empty-note">No overlapping power/HR stream data in either period</div>';return;}
+    phrInst=drawHrCorrelationChart(box,'phrChart',phrInst,binsA,binsB,
+      'Period A ('+ridesA.length+' rides)','Period B ('+ridesB.length+' rides)',
+      v=>Math.round(v)+'w',false);
+  }catch(e){
+    box.innerHTML='<div class="empty-note">Could not load power/HR correlation: '+(e.message||'error')+'</div>';
+  }
+}
+
+async function renderPaceHrChart(){
+  const box=document.getElementById('pahrBox');
+  const fromA=document.getElementById('pahrFromA').value,toA=document.getElementById('pahrToA').value;
+  const fromB=document.getElementById('pahrFromB').value,toB=document.getElementById('pahrToB').value;
+  if(!fromA||!toA||!fromB||!toB){box.innerHTML='<div class="empty-note">Select both date ranges to compare</div>';return;}
+  box.innerHTML='<div class="curve-loading">Loading pace/HR correlation…'
+    +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="pahrProg" style="width:0%"></div></div></div>';
+  try{
+    const runs=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START);
+    const runsA=runs.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromA&&d<=toA;}).slice(0,40);
+    const runsB=runs.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromB&&d<=toB;}).slice(0,40);
+    if(!runsA.length&&!runsB.length){box.innerHTML='<div class="empty-note">No run activities in either period</div>';return;}
+    const lthr=zs.running.lthr||zs.running.max_hr;
+    const[binsA,binsB]=await Promise.all([
+      runsA.length?buildHrCorrelationBins(runsA,'velocity_smooth',mpsToSecsPerMile,15,lthr,'pahrProg'):Promise.resolve([]),
+      runsB.length?buildHrCorrelationBins(runsB,'velocity_smooth',mpsToSecsPerMile,15,lthr,'pahrProg'):Promise.resolve([])
+    ]);
+    if(!binsA.length&&!binsB.length){box.innerHTML='<div class="empty-note">No overlapping pace/HR stream data in either period</div>';return;}
+    pahrInst=drawHrCorrelationChart(box,'pahrChart',pahrInst,binsA,binsB,
+      'Period A ('+runsA.length+' runs)','Period B ('+runsB.length+' runs)',
+      v=>fmtPace(v),true);
+  }catch(e){
+    box.innerHTML='<div class="empty-note">Could not load pace/HR correlation: '+(e.message||'error')+'</div>';
   }
 }
 </script>
@@ -4011,7 +4144,7 @@ if(!localStorage.getItem('hm2l_pmc_unseeded_v1')){
   localStorage.setItem('hm2l_pmc_unseeded_v1','1');
 }
 
-var pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=false; // default imperial (mi/yd)
+var pmcInst,sportLoadInst,loadInst,curveInst,phrInst,pahrInst,lastActs=[],useMetric=false; // default imperial (mi/yd)
 var _snapshotRamp=null;
 var allActivities=[];
 var allTimeActivities=[];
@@ -4244,6 +4377,22 @@ async function loadDashboard(){
     initZoneCalc();
     loadZoneDistribution();
     renderCurve();
+    // Default date ranges for the power/pace vs HR correlation charts:
+    // Period A = last 6 weeks, Period B = the 6 weeks before that.
+    const hrCorrToday=new Date();
+    const hrCorrAFrom=new Date(hrCorrToday);hrCorrAFrom.setDate(hrCorrAFrom.getDate()-42);
+    const hrCorrBTo=new Date(hrCorrAFrom);hrCorrBTo.setDate(hrCorrBTo.getDate()-1);
+    const hrCorrBFrom=new Date(hrCorrBTo);hrCorrBFrom.setDate(hrCorrBFrom.getDate()-42);
+    const hrCorrAToStr=toYMD(hrCorrToday),hrCorrAFromStr=toYMD(hrCorrAFrom);
+    const hrCorrBToStr=toYMD(hrCorrBTo),hrCorrBFromStr=toYMD(hrCorrBFrom);
+    ['phr','pahr'].forEach(prefix=>{
+      document.getElementById(prefix+'ToA').value=hrCorrAToStr;
+      document.getElementById(prefix+'FromA').value=hrCorrAFromStr;
+      document.getElementById(prefix+'ToB').value=hrCorrBToStr;
+      document.getElementById(prefix+'FromB').value=hrCorrBFromStr;
+    });
+    renderPowerHrChart();
+    renderPaceHrChart();
     // Pre-load calendar data in background
     if(currentAthlete&&currentAthlete.id){ loadAthCal(); }
   }catch(e){
