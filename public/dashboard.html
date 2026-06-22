@@ -357,7 +357,7 @@ window.applyTierGating = function() {
   var fuelTab = document.querySelector('.dash-tab[data-dtab="nutrition"]');
   if (fuelTab) fuelTab.style.display = tier >= 3 ? '' : 'none';
   if (tier < 2) {
-    ['sportCtlBox','loadRow','zoneRow','hrCorrRow'].forEach(function(id) {
+    ['sportCtlBox','loadRow','zoneRow'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el && !el.querySelector('.tier-lock')) el.insertAdjacentHTML('beforeend', window.TIER_LOCK_HTML);
     });
@@ -415,7 +415,6 @@ window.applyTierGating = function() {
     <div class="dash-subtabs">
       <button class="dash-subtab active" data-dsub="load" onclick="switchDashSubTab('load')">Training Load</button>
       <button class="dash-subtab" data-dsub="perf" onclick="switchDashSubTab('perf')">Performance</button>
-      <button class="dash-subtab" data-dsub="compare" onclick="switchDashSubTab('compare')">Compare</button>
     </div>
 
     <div class="dash-subpanel active" id="dsub-load">
@@ -528,6 +527,34 @@ window.applyTierGating = function() {
             </select>
           </div>
         </div>
+        <div class="phr-controls">
+          <div class="phr-period">
+            <span class="phr-period-label" style="color:#c8f036">Period A</span>
+            <select class="zd-select" id="curvePresetA" onchange="applyCurvePreset('A')">
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="180">Last 6 months</option>
+              <option value="ytd">YTD</option>
+              <option value="365">Last 1 year</option>
+            </select>
+            <input type="date" class="zd-date" id="curveFromA" onchange="renderCurve()">
+            <span class="phr-sep">–</span>
+            <input type="date" class="zd-date" id="curveToA" onchange="renderCurve()">
+          </div>
+          <div class="phr-period">
+            <span class="phr-period-label" style="color:#378ADD">Period B</span>
+            <select class="zd-select" id="curvePresetB" onchange="applyCurvePreset('B')">
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="180">Last 6 months</option>
+              <option value="ytd">YTD</option>
+              <option value="365">Last 1 year</option>
+            </select>
+            <input type="date" class="zd-date" id="curveFromB" onchange="renderCurve()">
+            <span class="phr-sep">–</span>
+            <input type="date" class="zd-date" id="curveToB" onchange="renderCurve()">
+          </div>
+        </div>
         <div id="curveBox" style="width:100%;max-width:100%;overflow:hidden"><div class="empty-note">Loading durations curve...</div></div>
       </div>
     </div>
@@ -544,27 +571,6 @@ window.applyTierGating = function() {
       <div id="sp-swimming" class="sport-panel"></div>
     </div>
     </div><!-- /dsub-perf -->
-
-    <div class="dash-subpanel" id="dsub-compare">
-    <div class="grid-2 tier-lockable" id="hrCorrRow" style="margin-top:1px">
-      <div class="chart-box">
-        <div class="chart-title">Power vs Heart Rate</div>
-        <div class="phr-controls">
-          <div class="phr-period"><span class="phr-period-label" style="color:#378ADD">Period A</span><input type="date" class="zd-date" id="phrFromA" onchange="renderPowerHrChart()"><span class="phr-sep">–</span><input type="date" class="zd-date" id="phrToA" onchange="renderPowerHrChart()"></div>
-          <div class="phr-period"><span class="phr-period-label" style="color:#E24B4A">Period B</span><input type="date" class="zd-date" id="phrFromB" onchange="renderPowerHrChart()"><span class="phr-sep">–</span><input type="date" class="zd-date" id="phrToB" onchange="renderPowerHrChart()"></div>
-        </div>
-        <div id="phrBox" style="width:100%;max-width:100%;overflow:hidden"><div class="empty-note">Loading…</div></div>
-      </div>
-      <div class="chart-box">
-        <div class="chart-title">Pace vs Heart Rate</div>
-        <div class="phr-controls">
-          <div class="phr-period"><span class="phr-period-label" style="color:#378ADD">Period A</span><input type="date" class="zd-date" id="pahrFromA" onchange="renderPaceHrChart()"><span class="phr-sep">–</span><input type="date" class="zd-date" id="pahrToA" onchange="renderPaceHrChart()"></div>
-          <div class="phr-period"><span class="phr-period-label" style="color:#E24B4A">Period B</span><input type="date" class="zd-date" id="pahrFromB" onchange="renderPaceHrChart()"><span class="phr-sep">–</span><input type="date" class="zd-date" id="pahrToB" onchange="renderPaceHrChart()"></div>
-        </div>
-        <div id="pahrBox" style="width:100%;max-width:100%;overflow:hidden"><div class="empty-note">Loading…</div></div>
-      </div>
-    </div>
-    </div><!-- /dsub-compare -->
     </div><!-- /dtp-data -->
 
 
@@ -1508,28 +1514,56 @@ function windowScore(l){
   return 0;
 }
 
-// Fetch watts streams for a list of cycling activities and compute per-duration best values.
-// Returns array aligned to CURVE_DURATIONS in watts.
-async function buildStreamCurve(acts, streamType, progressId){
+// Same as rollingMax, but also returns the start index of the best window so
+// the matching heartrate samples can be located.
+function rollingMaxWithIndex(arr,windowSecs){
+  if(!arr||arr.length<windowSecs)return null;
+  let sum=0,max=-Infinity,maxStart=-1;
+  for(let i=0;i<arr.length;i++){
+    sum+=(Number(arr[i])||0);
+    if(i>=windowSecs)sum-=(Number(arr[i-windowSecs])||0);
+    if(i>=windowSecs-1){
+      const avg=sum/windowSecs;
+      if(avg>max){max=avg;maxStart=i-windowSecs+1;}
+    }
+  }
+  return isFinite(max)?{value:max,start:maxStart}:null;
+}
+
+// Fetch primary-metric streams (watts/velocity_smooth) for a list of activities and
+// compute per-duration best sustained values, aligned to CURVE_DURATIONS.
+// If lthr is given, also fetches heartrate and returns the average HR during the
+// EXACT window that produced each duration's best value (not an average across all
+// samples at that intensity -- that conflates brief spikes with sustained efforts).
+async function buildStreamCurve(acts, streamType, progressId, lthr){
   const best=CURVE_DURATIONS.map(()=>null);
+  const bestHr=lthr?CURVE_DURATIONS.map(()=>null):null;
   let done=0;
   await Promise.all(acts.map(async a=>{
-    const arr=await fetchStream(a.id,streamType);
+    const fetches=[fetchStream(a.id,streamType)];
+    if(lthr)fetches.push(fetchStream(a.id,'heartrate'));
+    const[arr,hrArr]=await Promise.all(fetches);
     done++;
     const el=document.getElementById(progressId);
     if(el)el.style.width=Math.round(done/acts.length*100)+'%';
     if(!arr||!arr.length)return;
-    const filtered=arr.filter(v=>v!=null&&v>0);
-    if(streamType==='velocity_smooth'&&filtered.length){
-      const minV=Math.min(...filtered),maxV=Math.max(...filtered);
-      console.log(`[curve] act ${a.id} (${a.name||'?'}) len=${filtered.length} v=${minV.toFixed(3)}-${maxV.toFixed(3)} m/s | pace ${(1609.34/maxV).toFixed(0)}-${(1609.34/minV).toFixed(0)} s/mi | ${(100/maxV).toFixed(1)}-${(100/minV).toFixed(1)} s/100m`);
-    }
+    const filtered=[],origIdx=[];
+    arr.forEach((v,i)=>{if(v!=null&&v>0){filtered.push(v);origIdx.push(i);}});
+    if(!filtered.length)return;
     CURVE_DURATIONS.forEach((d,i)=>{
-      const m=rollingMax(filtered,d);
-      if(m!=null&&(best[i]==null||m>best[i]))best[i]=m;
+      const res=rollingMaxWithIndex(filtered,d);
+      if(res!=null&&(best[i]==null||res.value>best[i])){
+        best[i]=res.value;
+        if(lthr&&hrArr&&hrArr.length){
+          const origStart=origIdx[res.start];
+          const origEnd=origIdx[res.start+d-1];
+          const hrSlice=hrArr.slice(origStart,origEnd+1).filter(v=>v!=null&&v>0);
+          bestHr[i]=hrSlice.length?hrSlice.reduce((s,v)=>s+v,0)/hrSlice.length:null;
+        }
+      }
     });
   }));
-  return best;
+  return{best,bestHr};
 }
 
 function mpsToSecsPerMile(v){return v>0?1609.34/v:null;}
@@ -1584,7 +1618,8 @@ async function buildSwimCurve(swims){
 // recentPairs:  [{s,v}] or null
 // isRun: true → convert m/s → secs/mile, inverted Y axis
 // note: small attribution text
-function drawCurveChart(box, allTimePairs, recentPairs, isRun, note, allTimeLabel, isSwim){
+function drawCurveChart(box, allTimePairs, recentPairs, isRun, note, allTimeLabel, isSwim, hrA, hrB){
+  const labelA=allTimeLabel||'Period A', labelB='Period B';
   const DISPLAY_SECS=[5,10,30,60,120,300,600,1200,1800,3600,5400,7200];
   function fmtSecs(s){return s<60?s+'s':s<3600?(s/60)%1===0?(s/60)+'m':(s/60).toFixed(1)+'m':s%3600===0?(s/3600)+'h':(s/3600).toFixed(1)+'h';}
 
@@ -1627,14 +1662,14 @@ function drawCurveChart(box, allTimePairs, recentPairs, isRun, note, allTimeLabe
   box.innerHTML='<div style="position:relative;height:230px;width:100%;max-width:100%;overflow:hidden"><canvas id="curveChart" style="max-width:100%;width:100%"></canvas></div><div id="curveTableWrap"></div>';
 
   const datasets=[{
-    label:allTimeLabel||'All-time best',
+    label:labelA,
     data:allTimeData,
     borderColor:'#c8f036',backgroundColor:'rgba(200,240,54,0.13)',
     fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#c8f036',order:2
   }];
   if(recentData){
     datasets.push({
-      label:'Last 30 days',
+      label:labelB,
       data:recentData,
       borderColor:'#378ADD',backgroundColor:'transparent',
       fill:false,tension:0.3,pointRadius:4,order:1,
@@ -1683,11 +1718,16 @@ function drawCurveChart(box, allTimePairs, recentPairs, isRun, note, allTimeLabe
     }
   });
 
-  // Summary table
+  // Summary table -- HR rows (when available) sit right under their period's
+  // power/pace row, directly answering "to hold X for this long, what did it cost".
+  const fmtHr=v=>v==null?'—':Math.round(v)+' bpm';
+  const curveIdx=s=>CURVE_DURATIONS.indexOf(s);
   const wrap=document.getElementById('curveTableWrap');
   const tableRows=[
-    {lbl:allTimeLabel||'All-time',data:validSecs.map(s=>fmtVal(lookupAll(s))),color:'var(--tc)'},
-    ...(recentData?[{lbl:'30 days',data:validSecs.map((s,i)=>({v:fmtVal(lookupRec(s)),pk:isNewPeak(i)})),color:'#378ADD'}]:[])
+    {lbl:labelA,data:validSecs.map(s=>fmtVal(lookupAll(s))),color:'#c8f036'},
+    ...(hrA?[{lbl:labelA+' HR',data:validSecs.map(s=>fmtHr(hrA[curveIdx(s)])),color:'#c8f036'}]:[]),
+    ...(recentData?[{lbl:labelB,data:validSecs.map((s,i)=>({v:fmtVal(lookupRec(s)),pk:isNewPeak(i)})),color:'#378ADD'}]:[]),
+    ...(recentData&&hrB?[{lbl:labelB+' HR',data:validSecs.map(s=>fmtHr(hrB[curveIdx(s)])),color:'#378ADD'}]:[])
   ];
   wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
     +'<thead><tr><th>Duration</th>'+chartLabels.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
@@ -1724,14 +1764,14 @@ function drawSwimCurveChart(box,allPairs,recentPairs,note){
   box.style.overflow='hidden';
   box.innerHTML='<div style="position:relative;height:230px;width:100%;max-width:100%;overflow:hidden"><canvas id="curveChart" style="max-width:100%;width:100%"></canvas></div><div id="curveTableWrap"></div>';
   const datasets=[{
-    label:'All-time best',
+    label:'Period A',
     data:allData,
     borderColor:'#c8f036',backgroundColor:'rgba(200,240,54,0.13)',
     fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#c8f036',order:2
   }];
   if(recData){
     datasets.push({
-      label:'Last 30 days',
+      label:'Period B',
       data:recData,
       borderColor:'#378ADD',backgroundColor:'transparent',
       fill:false,tension:0.3,pointRadius:4,order:1,
@@ -1755,8 +1795,8 @@ function drawSwimCurveChart(box,allPairs,recentPairs,note){
   // Summary table — matches drawCurveChart's layout (metric rows, distance columns)
   const wrap=document.getElementById('curveTableWrap');
   const tableRows=[
-    {lbl:'All-time',data:allData.map(v=>v!=null?fmtPace(v):'—'),color:'var(--tc)'},
-    ...(recData?[{lbl:'30 days',data:validDists.map((d,i)=>({v:recData[i]!=null?fmtPace(recData[i]):'—',pk:isNewPeak(i)}))}]:[])
+    {lbl:'Period A',data:allData.map(v=>v!=null?fmtPace(v):'—'),color:'#c8f036'},
+    ...(recData?[{lbl:'Period B',data:validDists.map((d,i)=>({v:recData[i]!=null?fmtPace(recData[i]):'—',pk:isNewPeak(i)})),color:'#378ADD'}]:[])
   ];
   wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
     +'<thead><tr><th>Distance</th>'+labels.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
@@ -1772,31 +1812,45 @@ function drawSwimCurveChart(box,allPairs,recentPairs,note){
     +(note?'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:0.6rem">'+note+'</div>':'');
 }
 
+// Peak power/pace comparison: two arbitrary periods, each settable via a
+// preset dropdown (relative to today) or by hand-editing the date fields directly.
+function computePresetDates(val){
+  const to=new Date();
+  let from=new Date();
+  if(val==='ytd')from=new Date(to.getFullYear(),0,1);
+  else from.setDate(from.getDate()-Number(val));
+  return{from:toYMD(from),to:toYMD(to)};
+}
+function applyCurvePreset(period){
+  const val=document.getElementById('curvePreset'+period).value;
+  const{from,to}=computePresetDates(val);
+  document.getElementById('curveFrom'+period).value=from;
+  document.getElementById('curveTo'+period).value=to;
+  renderCurve();
+}
+
 async function renderCurve(){
   const sport=document.getElementById('curveSport').value;
   const box=document.getElementById('curveBox');
-
-  // 30-day cutoff
-  const thirtyDaysAgo=new Date();thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+  const fromA=document.getElementById('curveFromA').value,toA=document.getElementById('curveToA').value;
+  const fromB=document.getElementById('curveFromB').value,toB=document.getElementById('curveToB').value;
 
   if(sport==='cycling'){
     box.innerHTML='<div class="curve-loading">Loading power curve…'
       +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
     try{
-      const rides=allActivities.filter(a=>sportClass(a.type)==='cycling').slice(0,30);
-      if(!rides.length){box.innerHTML='<div class="empty-note">No cycling activities available.</div>';return;}
-      const recentRides=rides.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyDaysAgo));
-      const allBest=await buildStreamCurve(rides,'watts','curveProg');
-      const allPairs=CURVE_DURATIONS.map((s,i)=>allBest[i]!=null?{s,v:allBest[i]}:null).filter(Boolean);
-      let recentPairs=null;
-      if(recentRides.length){
-        const recentBest=await buildStreamCurve(recentRides,'watts','curveProg');
-        const rp=CURVE_DURATIONS.map((s,i)=>recentBest[i]!=null?{s,v:recentBest[i]}:null).filter(Boolean);
-        if(rp.length)recentPairs=rp;
-      }
-      if(!allPairs.length){box.innerHTML='<div class="empty-note">No cycling power stream data available — ride with a power meter to build the curve</div>';return;}
-      const note='All rides: watts streams'+(recentPairs?' | 30 days: '+recentRides.length+' rides':'');
-      drawCurveChart(box,allPairs,recentPairs,false,note);
+      const rides=allActivities.filter(a=>sportClass(a.type)==='cycling');
+      const ridesA=rides.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromA&&d<=toA;}).slice(0,30);
+      const ridesB=rides.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromB&&d<=toB;}).slice(0,30);
+      if(!ridesA.length&&!ridesB.length){box.innerHTML='<div class="empty-note">No cycling activities in either period.</div>';return;}
+      const lthr=zs.cycling.lthr||zs.cycling.max_hr;
+      const curveA=ridesA.length?await buildStreamCurve(ridesA,'watts','curveProg',lthr):{best:CURVE_DURATIONS.map(()=>null),bestHr:null};
+      const curveB=ridesB.length?await buildStreamCurve(ridesB,'watts','curveProg',lthr):{best:CURVE_DURATIONS.map(()=>null),bestHr:null};
+      const pairsA=CURVE_DURATIONS.map((s,i)=>curveA.best[i]!=null?{s,v:curveA.best[i]}:null).filter(Boolean);
+      const pairsB=CURVE_DURATIONS.map((s,i)=>curveB.best[i]!=null?{s,v:curveB.best[i]}:null).filter(Boolean);
+      if(!pairsA.length&&!pairsB.length){box.innerHTML='<div class="empty-note">No cycling power stream data available — ride with a power meter to build the curve</div>';return;}
+      const note='Period A: '+ridesA.length+' rides | Period B: '+ridesB.length+' rides';
+      drawCurveChart(box,pairsA,pairsB.length?pairsB:null,false,note,'Period A',false,curveA.bestHr,curveB.bestHr);
     }catch(e){
       box.innerHTML='<div class="empty-note">Could not load cycling curve: '+(e.message||'error')+'</div>';
     }
@@ -1807,21 +1861,18 @@ async function renderCurve(){
     box.innerHTML='<div class="curve-loading">Loading run pace curve…'
       +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
     try{
-      const runs=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START).slice(0,30);
-      if(!runs.length){box.innerHTML='<div class="empty-note">No run data available — complete a run synced from intervals.icu</div>';return;}
-      const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
-      const recentRuns=runs.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
-      const allBest=await buildStreamCurve(runs,'velocity_smooth','curveProg');
-      const allPairs=CURVE_DURATIONS.map((s,i)=>allBest[i]!=null?{s,v:allBest[i]}:null).filter(Boolean);
-      let recentPairs=null;
-      if(recentRuns.length){
-        const recentBest=await buildStreamCurve(recentRuns,'velocity_smooth','curveProg','run');
-        const rp=CURVE_DURATIONS.map((s,i)=>recentBest[i]!=null?{s,v:recentBest[i]}:null).filter(Boolean);
-        if(rp.length)recentPairs=rp;
-      }
-      if(!allPairs.length){box.innerHTML='<div class="empty-note">No run velocity stream data available — streams may not be cached yet</div>';return;}
-      const note='All runs: velocity_smooth streams'+(recentPairs?' | 30 days: '+recentRuns.length+' runs':'');
-      drawCurveChart(box,allPairs,recentPairs,true,note);
+      const runs=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START);
+      const runsA=runs.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromA&&d<=toA;}).slice(0,30);
+      const runsB=runs.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromB&&d<=toB;}).slice(0,30);
+      if(!runsA.length&&!runsB.length){box.innerHTML='<div class="empty-note">No run activities in either period.</div>';return;}
+      const lthr=zs.running.lthr||zs.running.max_hr;
+      const curveA=runsA.length?await buildStreamCurve(runsA,'velocity_smooth','curveProg',lthr):{best:CURVE_DURATIONS.map(()=>null),bestHr:null};
+      const curveB=runsB.length?await buildStreamCurve(runsB,'velocity_smooth','curveProg',lthr):{best:CURVE_DURATIONS.map(()=>null),bestHr:null};
+      const pairsA=CURVE_DURATIONS.map((s,i)=>curveA.best[i]!=null?{s,v:curveA.best[i]}:null).filter(Boolean);
+      const pairsB=CURVE_DURATIONS.map((s,i)=>curveB.best[i]!=null?{s,v:curveB.best[i]}:null).filter(Boolean);
+      if(!pairsA.length&&!pairsB.length){box.innerHTML='<div class="empty-note">No run velocity stream data available — streams may not be cached yet</div>';return;}
+      const note='Period A: '+runsA.length+' runs | Period B: '+runsB.length+' runs';
+      drawCurveChart(box,pairsA,pairsB.length?pairsB:null,true,note,'Period A',false,curveA.bestHr,curveB.bestHr);
     }catch(e){
       box.innerHTML='<div class="empty-note">Could not load run pace curve: '+(e.message||'error')+'</div>';
     }
@@ -1832,21 +1883,17 @@ async function renderCurve(){
     box.innerHTML='<div class="curve-loading">Loading swim pace curve…'
       +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="curveProg" style="width:0%"></div></div></div>';
     try{
-      const swims=allActivities.filter(a=>sportClass(a.type)==='swimming'&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START).slice(0,30);
-      if(!swims.length){box.innerHTML='<div class="empty-note">No swim data available — complete a swim synced from intervals.icu</div>';return;}
-      const thirtyAgo=new Date();thirtyAgo.setDate(thirtyAgo.getDate()-30);
-      const recentSwims=swims.filter(a=>(a.start_date_local||'').slice(0,10)>=toYMD(thirtyAgo));
-      const allBest=await buildSwimCurve(swims);
-      const allPairs=SWIM_CURVE_DISTANCES.map((d,i)=>allBest[i]!=null?{d,v:allBest[i]}:null).filter(Boolean);
-      let recentPairs=null;
-      if(recentSwims.length){
-        const recentBest=await buildSwimCurve(recentSwims);
-        const rp=SWIM_CURVE_DISTANCES.map((d,i)=>recentBest[i]!=null?{d,v:recentBest[i]}:null).filter(Boolean);
-        if(rp.length)recentPairs=rp;
-      }
-      if(!allPairs.length){box.innerHTML='<div class="empty-note">No swim lap data available — swims may not have lap data in intervals.icu</div>';return;}
-      const note='All swims: lap-based'+(recentPairs?' | 30 days: '+recentSwims.length+' swims':'');
-      drawSwimCurveChart(box,allPairs,recentPairs,note);
+      const swims=allActivities.filter(a=>sportClass(a.type)==='swimming'&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START);
+      const swimsA=swims.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromA&&d<=toA;}).slice(0,30);
+      const swimsB=swims.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromB&&d<=toB;}).slice(0,30);
+      if(!swimsA.length&&!swimsB.length){box.innerHTML='<div class="empty-note">No swim activities in either period.</div>';return;}
+      const allBest=swimsA.length?await buildSwimCurve(swimsA):SWIM_CURVE_DISTANCES.map(()=>null);
+      const recentBest=swimsB.length?await buildSwimCurve(swimsB):SWIM_CURVE_DISTANCES.map(()=>null);
+      const pairsA=SWIM_CURVE_DISTANCES.map((d,i)=>allBest[i]!=null?{d,v:allBest[i]}:null).filter(Boolean);
+      const pairsB=SWIM_CURVE_DISTANCES.map((d,i)=>recentBest[i]!=null?{d,v:recentBest[i]}:null).filter(Boolean);
+      if(!pairsA.length&&!pairsB.length){box.innerHTML='<div class="empty-note">No swim lap data available — swims may not have lap data in intervals.icu</div>';return;}
+      const note='Period A: '+swimsA.length+' swims | Period B: '+swimsB.length+' swims';
+      drawSwimCurveChart(box,pairsA,pairsB.length?pairsB:null,note);
     }catch(e){
       box.innerHTML='<div class="empty-note">Could not load swim pace curve: '+(e.message||'error')+'</div>';
     }
@@ -1854,116 +1901,6 @@ async function renderCurve(){
   }
 }
 
-/* ---------- Power/Pace vs Heart Rate correlation (two-period comparison) ---------- */
-// Fetches the primary metric stream + heartrate stream per activity, bins samples by
-// the primary metric (e.g. 20w power buckets), and returns {x,y} points where y is the
-// average %LTHR for that bucket across all activities. Buckets need a minimum sample
-// count to filter out noisy single-second buckets.
-async function buildHrCorrelationBins(acts,primaryType,toX,binSize,lthr,progId){
-  const bins={};
-  let done=0;
-  const progEl=()=>document.getElementById(progId);
-  await Promise.all(acts.map(async a=>{
-    try{
-      const[primary,hr]=await Promise.all([fetchStream(a.id,primaryType),fetchStream(a.id,'heartrate')]);
-      const n=Math.min(primary?primary.length:0,hr?hr.length:0);
-      for(let i=0;i<n;i++){
-        const rawX=primary[i],rawHr=hr[i];
-        if(rawX==null||rawX<=0||rawHr==null||rawHr<=0)continue;
-        const x=toX(rawX);
-        if(x==null||x<=0)continue;
-        const b=Math.round(x/binSize)*binSize;
-        if(!bins[b])bins[b]={sum:0,count:0};
-        bins[b].sum+=rawHr/lthr*100;
-        bins[b].count++;
-      }
-    }catch(e){}
-    done++;const el=progEl();if(el)el.style.width=Math.round(done/acts.length*100)+'%';
-  }));
-  const MIN_SAMPLES=10;
-  return Object.keys(bins).map(Number).filter(b=>bins[b].count>=MIN_SAMPLES).sort((a,b)=>a-b)
-    .map(b=>({x:b,y:bins[b].sum/bins[b].count}));
-}
-
-function drawHrCorrelationChart(box,canvasId,existingInst,binsA,binsB,labelA,labelB,yFmt,yReverse){
-  if(existingInst)existingInst.destroy();
-  box.style.overflow='hidden';
-  box.innerHTML='<div style="position:relative;height:260px;width:100%;max-width:100%;overflow:hidden"><canvas id="'+canvasId+'"></canvas></div>';
-  // bins are {x: power/pace bin, y: avg %LTHR} -- swap so %LTHR is the x-axis and
-  // power/pace is the y-axis (opposite of the intervals.icu reference chart).
-  const swapXY=p=>({x:p.y,y:p.x});
-  const datasets=[];
-  if(binsA.length)datasets.push({label:labelA,data:binsA.map(swapXY),borderColor:'#378ADD',backgroundColor:'transparent',tension:0.2,pointRadius:2,pointBackgroundColor:'#378ADD',borderWidth:2});
-  if(binsB.length)datasets.push({label:labelB,data:binsB.map(swapXY),borderColor:'#E24B4A',backgroundColor:'transparent',tension:0.2,pointRadius:2,pointBackgroundColor:'#E24B4A',borderWidth:2});
-  return new Chart(document.getElementById(canvasId),{
-    type:'line',
-    data:{datasets},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'nearest',intersect:false},
-      plugins:{
-        legend:{display:true,labels:{color:'#999',font:{size:10,family:'DM Mono, monospace'},boxWidth:12,padding:14}},
-        tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.x.toFixed(1)+'% LTHR → '+yFmt(ctx.parsed.y)}}
-      },
-      scales:{
-        x:{type:'linear',ticks:{color:'#666',font:{size:10},callback:v=>v+'%'},grid:{color:'#1a1a1a'},title:{display:true,text:'% LTHR',color:'#666',font:{size:10}}},
-        y:{reverse:!!yReverse,ticks:{color:'#666',font:{size:10},callback:v=>yFmt(v)},grid:{color:'#1a1a1a'}}
-      }
-    }
-  });
-}
-
-async function renderPowerHrChart(){
-  const box=document.getElementById('phrBox');
-  const fromA=document.getElementById('phrFromA').value,toA=document.getElementById('phrToA').value;
-  const fromB=document.getElementById('phrFromB').value,toB=document.getElementById('phrToB').value;
-  if(!fromA||!toA||!fromB||!toB){box.innerHTML='<div class="empty-note">Select both date ranges to compare</div>';return;}
-  box.innerHTML='<div class="curve-loading">Loading power/HR correlation…'
-    +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="phrProg" style="width:0%"></div></div></div>';
-  try{
-    const rides=allActivities.filter(a=>sportClass(a.type)==='cycling');
-    const ridesA=rides.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromA&&d<=toA;}).slice(0,40);
-    const ridesB=rides.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromB&&d<=toB;}).slice(0,40);
-    if(!ridesA.length&&!ridesB.length){box.innerHTML='<div class="empty-note">No cycling activities in either period</div>';return;}
-    const lthr=zs.cycling.lthr||zs.cycling.max_hr;
-    const[binsA,binsB]=await Promise.all([
-      ridesA.length?buildHrCorrelationBins(ridesA,'watts',v=>v,20,lthr,'phrProg'):Promise.resolve([]),
-      ridesB.length?buildHrCorrelationBins(ridesB,'watts',v=>v,20,lthr,'phrProg'):Promise.resolve([])
-    ]);
-    if(!binsA.length&&!binsB.length){box.innerHTML='<div class="empty-note">No overlapping power/HR stream data in either period</div>';return;}
-    phrInst=drawHrCorrelationChart(box,'phrChart',phrInst,binsA,binsB,
-      'Period A ('+ridesA.length+' rides)','Period B ('+ridesB.length+' rides)',
-      v=>Math.round(v)+'w',false);
-  }catch(e){
-    box.innerHTML='<div class="empty-note">Could not load power/HR correlation: '+(e.message||'error')+'</div>';
-  }
-}
-
-async function renderPaceHrChart(){
-  const box=document.getElementById('pahrBox');
-  const fromA=document.getElementById('pahrFromA').value,toA=document.getElementById('pahrToA').value;
-  const fromB=document.getElementById('pahrFromB').value,toB=document.getElementById('pahrToB').value;
-  if(!fromA||!toA||!fromB||!toB){box.innerHTML='<div class="empty-note">Select both date ranges to compare</div>';return;}
-  box.innerHTML='<div class="curve-loading">Loading pace/HR correlation…'
-    +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="pahrProg" style="width:0%"></div></div></div>';
-  try{
-    const runs=allActivities.filter(a=>sportClass(a.type)==='running'&&(a.start_date_local||'').slice(0,10)>=HM2L_RUN_SWIM_START);
-    const runsA=runs.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromA&&d<=toA;}).slice(0,40);
-    const runsB=runs.filter(a=>{const d=(a.start_date_local||'').slice(0,10);return d>=fromB&&d<=toB;}).slice(0,40);
-    if(!runsA.length&&!runsB.length){box.innerHTML='<div class="empty-note">No run activities in either period</div>';return;}
-    const lthr=zs.running.lthr||zs.running.max_hr;
-    const[binsA,binsB]=await Promise.all([
-      runsA.length?buildHrCorrelationBins(runsA,'velocity_smooth',mpsToSecsPerMile,15,lthr,'pahrProg'):Promise.resolve([]),
-      runsB.length?buildHrCorrelationBins(runsB,'velocity_smooth',mpsToSecsPerMile,15,lthr,'pahrProg'):Promise.resolve([])
-    ]);
-    if(!binsA.length&&!binsB.length){box.innerHTML='<div class="empty-note">No overlapping pace/HR stream data in either period</div>';return;}
-    pahrInst=drawHrCorrelationChart(box,'pahrChart',pahrInst,binsA,binsB,
-      'Period A ('+runsA.length+' runs)','Period B ('+runsB.length+' runs)',
-      v=>fmtPace(v),true);
-  }catch(e){
-    box.innerHTML='<div class="empty-note">Could not load pace/HR correlation: '+(e.message||'error')+'</div>';
-  }
-}
 </script>
 <script>
 // ========== DASHBOARD CALENDAR TAB ==========
@@ -4166,7 +4103,7 @@ if(!localStorage.getItem('hm2l_pmc_unseeded_v1')){
   localStorage.setItem('hm2l_pmc_unseeded_v1','1');
 }
 
-var pmcInst,sportLoadInst,loadInst,curveInst,phrInst,pahrInst,lastActs=[],useMetric=false; // default imperial (mi/yd)
+var pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=false; // default imperial (mi/yd)
 var _snapshotRamp=null;
 var allActivities=[];
 var allTimeActivities=[];
@@ -4398,23 +4335,18 @@ async function loadDashboard(){
     }
     initZoneCalc();
     loadZoneDistribution();
+    // Default Peak power/pace comparison: Period A = last 30 days,
+    // Period B = the same 30-day window one year earlier.
+    const curveToday=new Date();
+    const curveAFrom=new Date(curveToday);curveAFrom.setDate(curveAFrom.getDate()-30);
+    const curveBTo=new Date(curveToday);curveBTo.setDate(curveBTo.getDate()-365);
+    const curveBFrom=new Date(curveBTo);curveBFrom.setDate(curveBFrom.getDate()-30);
+    document.getElementById('curvePresetA').value='30';
+    document.getElementById('curveFromA').value=toYMD(curveAFrom);
+    document.getElementById('curveToA').value=toYMD(curveToday);
+    document.getElementById('curveFromB').value=toYMD(curveBFrom);
+    document.getElementById('curveToB').value=toYMD(curveBTo);
     renderCurve();
-    // Default date ranges for the power/pace vs HR correlation charts:
-    // Period A = last 6 weeks, Period B = the 6 weeks before that.
-    const hrCorrToday=new Date();
-    const hrCorrAFrom=new Date(hrCorrToday);hrCorrAFrom.setDate(hrCorrAFrom.getDate()-42);
-    const hrCorrBTo=new Date(hrCorrAFrom);hrCorrBTo.setDate(hrCorrBTo.getDate()-1);
-    const hrCorrBFrom=new Date(hrCorrBTo);hrCorrBFrom.setDate(hrCorrBFrom.getDate()-42);
-    const hrCorrAToStr=toYMD(hrCorrToday),hrCorrAFromStr=toYMD(hrCorrAFrom);
-    const hrCorrBToStr=toYMD(hrCorrBTo),hrCorrBFromStr=toYMD(hrCorrBFrom);
-    ['phr','pahr'].forEach(prefix=>{
-      document.getElementById(prefix+'ToA').value=hrCorrAToStr;
-      document.getElementById(prefix+'FromA').value=hrCorrAFromStr;
-      document.getElementById(prefix+'ToB').value=hrCorrBToStr;
-      document.getElementById(prefix+'FromB').value=hrCorrBFromStr;
-    });
-    renderPowerHrChart();
-    renderPaceHrChart();
     // Pre-load calendar data in background
     if(currentAthlete&&currentAthlete.id){ loadAthCal(); }
   }catch(e){
