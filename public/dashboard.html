@@ -1711,8 +1711,8 @@ function drawSwimCurveChart(box,allPairs,recentPairs,note){
   // Summary table — matches drawCurveChart's layout (metric rows, distance columns)
   const wrap=document.getElementById('curveTableWrap');
   const tableRows=[
-    {lbl:'All-time',data:allData.map(v=>v!=null?fmtPace(v)+'/100y':'—'),color:'var(--tc)'},
-    ...(recData?[{lbl:'30 days',data:validDists.map((d,i)=>({v:recData[i]!=null?fmtPace(recData[i])+'/100y':'—',pk:isNewPeak(i)}))}]:[])
+    {lbl:'All-time',data:allData.map(v=>v!=null?fmtPace(v):'—'),color:'var(--tc)'},
+    ...(recData?[{lbl:'30 days',data:validDists.map((d,i)=>({v:recData[i]!=null?fmtPace(recData[i]):'—',pk:isNewPeak(i)}))}]:[])
   ];
   wrap.innerHTML='<table class="curve-table" style="margin-top:1rem">'
     +'<thead><tr><th>Distance</th>'+labels.map(l=>'<th>'+l+'</th>').join('')+'</tr></thead>'
