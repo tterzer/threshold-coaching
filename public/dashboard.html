@@ -479,18 +479,18 @@ window.applyTierGating = function() {
       <div class="chart-box">
         <div class="chart-title" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">
           <span>Load</span>
-          <select class="zd-select" id="loadSport" onchange="buildLoad(allActivities)" style="margin-left:auto">
+          <select class="zd-select" id="loadSport" onchange="buildLoad(allActivities);saveLoadChartSettings()" style="margin-left:auto">
             <option value="all">All Sports</option>
             <option value="cycling">Cycling</option>
             <option value="running">Running</option>
             <option value="swimming">Swimming</option>
             <option value="strength">Strength</option>
           </select>
-          <select class="zd-select" id="loadPeriod" onchange="buildLoad(allActivities)">
+          <select class="zd-select" id="loadPeriod" onchange="buildLoad(allActivities);saveLoadChartSettings()">
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
-          <select class="zd-select" id="loadMetric" onchange="buildLoad(allActivities)">
+          <select class="zd-select" id="loadMetric" onchange="buildLoad(allActivities);saveLoadChartSettings()">
             <option value="load">Load (TSS)</option>
             <option value="duration">Duration (hrs)</option>
             <option value="distance">Distance (mi)</option>
@@ -917,6 +917,41 @@ function calendarMonths(n){
     out.push({label:start.toLocaleString('default',{month:'short',year:'2-digit'}),start,end:cappedEnd});
   }
   return out;
+}
+
+// Load chart filter preference (sport/period/metric) -- persisted the same
+// way as zone settings: localStorage for an instant first paint, synced to
+// Supabase via athlete-profile so it follows the athlete across devices.
+const LOAD_CHART_SETTINGS_KEY='tc_load_chart_settings';
+function applyLoadChartSettings(s){
+  if(!s)return;
+  const sportEl=document.getElementById('loadSport'),periodEl=document.getElementById('loadPeriod'),metricEl=document.getElementById('loadMetric');
+  if(sportEl&&s.sport)sportEl.value=s.sport;
+  if(periodEl&&s.period)periodEl.value=s.period;
+  if(metricEl&&s.metric)metricEl.value=s.metric;
+}
+function loadLoadChartSettingsLocal(){
+  try{
+    const raw=localStorage.getItem(LOAD_CHART_SETTINGS_KEY);
+    if(raw)applyLoadChartSettings(JSON.parse(raw));
+  }catch(e){}
+}
+async function saveLoadChartSettings(){
+  const data={
+    sport:document.getElementById('loadSport')?.value||'all',
+    period:document.getElementById('loadPeriod')?.value||'weekly',
+    metric:document.getElementById('loadMetric')?.value||'load',
+  };
+  try{localStorage.setItem(LOAD_CHART_SETTINGS_KEY,JSON.stringify(data));}catch(e){}
+  try{
+    if(currentAthlete?.id){
+      await fetch('/api/athlete-profile',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({athlete_id:currentAthlete.id,load_chart_settings:data})
+      });
+    }
+  }catch(e){console.warn('load chart settings save to Supabase failed',e);}
 }
 
 function buildLoad(acts){
@@ -4448,6 +4483,9 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(avatarEl)avatarEl.textContent=initials;
     if(nameEl)nameEl.textContent=name;
   }
+  // Restore the Load chart's filter selects from localStorage before the
+  // first buildLoad() call, same fast-path-then-sync pattern as zone settings.
+  loadLoadChartSettingsLocal();
   // Check for intervals.icu credentials
   if(currentAthlete&&currentAthlete.intervals_athlete_id&&currentAthlete.intervals_api_key){
     curId=currentAthlete.intervals_athlete_id;
@@ -4467,6 +4505,10 @@ window.addEventListener('DOMContentLoaded',()=>{
           applyZoneSettingsData(p.zone_settings);
           initZoneCalc();
           if(typeof buildZoneDistribution==='function')buildZoneDistribution();
+        }
+        if(p.load_chart_settings){
+          applyLoadChartSettings(p.load_chart_settings);
+          if(allActivities&&allActivities.length)buildLoad(allActivities);
         }
         const hasData=p.date_of_birth||p.weight_kg||p.height_cm||p.primary_sport||p.bio;
         const dismissed=p.onboarding_dismissed||localStorage.getItem('hm2l_onboard_dismissed');
