@@ -24,11 +24,11 @@ html,body{height:100%;overflow:hidden}
 body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6}
 a{color:var(--acc);text-decoration:none}
 nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:10}
-.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;height:56px}
 .nav-logo img{height:52px;width:auto;display:block}
 .nav-back{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.08em;text-transform:uppercase}
 .nav-back:hover{color:var(--tc2)}
-.page{max-width:1200px;margin:0 auto;padding:3rem 2rem}
+.page{padding:3rem 2rem}
 .gate-box{background:var(--bc2);border:1px solid var(--border);padding:2.5rem;max-width:480px;margin:5rem auto}
 .gate-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
 .gate-label::before{content:'';display:block;width:32px;height:1px;background:var(--acc)}
@@ -385,7 +385,7 @@ window.applyTierGating = function() {
   </div>
 </nav>
 <div id="onboardingBanner" style="display:none;background:rgba(200,240,54,0.08);border-bottom:1px solid rgba(200,240,54,0.3);padding:10px 2rem">
-  <div style="max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
     <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2)">Welcome to HM2L Racing. Complete your athlete profile to unlock personalised zones and training plans.</span>
     <div style="display:flex;gap:1rem;align-items:center;flex-shrink:0">
       <a href="#" onclick="document.getElementById('tab-profile')&&document.querySelector('[data-tab=profile]')&&document.querySelector('[data-tab=profile]').click();document.getElementById('onboardingBanner').style.display='none';return false" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.06em;text-transform:uppercase">Complete profile →</a>
