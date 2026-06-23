@@ -176,9 +176,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 #athCalHeadRow{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border)}
 .ath-cal-sentinel{height:1px}
 .ath-cal-month-divider{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;color:var(--tc2);background:var(--bc2);padding:6px 10px}
-.ath-cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.ath-cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;min-height:var(--ath-cal-week-h,480px)}
 .ath-cal-head{background:var(--bc3);padding:clamp(4px,1vh,8px) 4px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.ath-cal-cell{background:var(--bc2);min-height:64px;padding:4px 5px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
+.ath-cal-cell{background:var(--bc2);min-height:64px;padding:7px 8px;display:flex;flex-direction:column;gap:4px;cursor:pointer;overflow:hidden}
 .ath-cal-summary{width:230px;flex-shrink:0;background:var(--bc2);border:1px solid var(--border);padding:1rem;overflow-y:auto;font-family:'DM Mono',monospace}
 .ath-cal-sum-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--tc2)}
 .ath-cal-sum-row.total{font-weight:700;color:var(--tc)}
@@ -194,7 +194,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-sum-fitness .lbl{font-size:8px;letter-spacing:0.06em;text-transform:uppercase;color:var(--tc3)}
 .ath-cal-cell:hover{background:var(--bc3)}
 .ath-cal-cell.is-today{box-shadow:inset 0 0 0 1.5px var(--acc)}
-.ath-cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
+.ath-cal-date{font-family:'DM Mono',monospace;font-size:14px;color:var(--tc3)}
 .ath-cal-wo{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .ath-cal-wo.sport-cycling{border-left:2px solid #378ADD;background:rgba(55,138,221,0.12);color:var(--tc2)}
 .ath-cal-wo.sport-running{border-left:2px solid #639922;background:rgba(99,153,34,0.12);color:var(--tc2)}
@@ -203,8 +203,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .ath-cal-wo.completed{opacity:0.55;text-decoration:line-through}
 /* Athlete calendar block styles */
-.ath-cal-block{font-family:'DM Mono',monospace;font-size:9px;padding:1px 4px;overflow:hidden;white-space:nowrap;cursor:pointer;height:auto;line-height:1.3;text-overflow:ellipsis;margin-bottom:1px;box-sizing:border-box;border-radius:1px;display:flex;align-items:center;gap:3px}
-.ath-cal-block .pill-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.ath-cal-block{font-family:'DM Mono',monospace;font-size:12px;padding:3px 6px;overflow:hidden;white-space:nowrap;cursor:pointer;height:auto;line-height:1.4;text-overflow:ellipsis;margin-bottom:3px;box-sizing:border-box;border-radius:2px;display:flex;align-items:center;gap:4px}
+.ath-cal-block .pill-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 .ath-cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
 .ath-cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
 .ath-cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
@@ -215,7 +215,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-block.completed.sport-swimming{background:#1D9E75;color:#fff;border:none}
 .ath-cal-block.completed.sport-strength{background:#7F77DD;color:#fff;border:none}
 .ath-cal-block.completed.sport-other{background:#c8f036;color:#000;border:none}
-.ath-cal-race{font-family:'DM Mono',monospace;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:24px;line-height:24px;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box}
+.ath-cal-race{font-family:'DM Mono',monospace;font-size:13px;padding:0 7px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:28px;line-height:28px;text-overflow:ellipsis;margin-bottom:3px;box-sizing:border-box}
 .ath-cal-race.priority-A{background:#FFD700;color:#1a1000}
 .ath-cal-race.priority-B{background:#C0C0C0;color:#111}
 .ath-cal-race.priority-C{background:#CD7F32;color:#fff}
@@ -1863,6 +1863,7 @@ var athCalLoadingBottom=false;
 var athCalEdgeObserver=null;
 var athCalScrollFocusBound=false;
 var athCalScrollFocusRaf=null;
+var athCalResizeBound=false;
 const ATH_CAL_BATCH=4;
 const ATH_CAL_INITIAL_BEFORE=2;
 const ATH_CAL_INITIAL_AFTER=5;
@@ -2011,10 +2012,28 @@ async function athCalEnsureActivities(fromDate,toDate){
   athCalActFetchedTo=athCalActFetchedTo?new Date(Math.max(athCalActFetchedTo,toDate)):new Date(toDate);
 }
 
+// Sizes each week row to fill the visible calendar viewport, so roughly one
+// week is on screen at a time (bigger cells/text) while the existing
+// infinite-scroll loading above/below is untouched.
+function athCalSizeWeeks(){
+  const scrollEl=document.getElementById('athCalScroll');
+  const headRow=document.getElementById('athCalHeadRow');
+  if(!scrollEl)return;
+  const h=scrollEl.clientHeight-(headRow?headRow.offsetHeight:0);
+  if(h>0)scrollEl.style.setProperty('--ath-cal-week-h',h+'px');
+}
+
 async function athCalInit(){
   const headRow=document.getElementById('athCalHeadRow');
   const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   if(headRow)headRow.innerHTML=days.map(d=>'<div class="ath-cal-head">'+d+'</div>').join('');
+  athCalSizeWeeks();
+  if(!athCalResizeBound){
+    window.addEventListener('resize',()=>{
+      if(document.getElementById('dtp-calendar')?.classList.contains('active'))athCalSizeWeeks();
+    });
+    athCalResizeBound=true;
+  }
 
   const weeksEl=document.getElementById('athCalWeeks');
   if(!weeksEl)return;
@@ -2230,24 +2249,28 @@ function athCalComputeWeekSummary(monday){
   for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(d.getDate()+i);days.push(toYMD(d));}
 
   const mkSport=()=>({dur:0,tss:0,dist:0});
-  const plannedBySport={cycling:mkSport(),running:mkSport(),swimming:mkSport(),strength:mkSport()};
-  const actualBySport={cycling:mkSport(),running:mkSport(),swimming:mkSport(),strength:mkSport()};
+  // Anything that isn't bike/run/swim (strength, other, etc.) rolls up into a
+  // single "other" bucket -- those sports don't have a meaningful distance
+  // stat, so the summary only ever shows duration for them.
+  const plannedBySport={cycling:mkSport(),running:mkSport(),swimming:mkSport(),other:mkSport()};
+  const actualBySport={cycling:mkSport(),running:mkSport(),swimming:mkSport(),other:mkSport()};
   let plannedTotalDur=0,plannedTotalTss=0,actualTotalDur=0,actualTotalTss=0;
 
   days.forEach(key=>{
     (athCalWoByDate[key]||[]).forEach(w=>{
-      const sp=w.sport&&plannedBySport[w.sport]?w.sport:null;
+      const sp=plannedBySport[w.sport]?w.sport:'other';
       const dur=Number(w.duration_minutes)||0;
       const tss=Number(w.tss_target)||0;
-      if(sp){plannedBySport[sp].dur+=dur;plannedBySport[sp].tss+=tss;}
+      plannedBySport[sp].dur+=dur;plannedBySport[sp].tss+=tss;
       plannedTotalDur+=dur;plannedTotalTss+=tss;
     });
     (athCalActCache[key]||[]).forEach(a=>{
-      const sp=athIcuTypeToSport(a.type);
+      const sp0=athIcuTypeToSport(a.type);
+      const sp=actualBySport[sp0]?sp0:'other';
       const durMin=(a.moving_time||0)/60;
       const tss=Number(a.icu_training_load)||0;
       const dist=Number(a.distance)||0;
-      if(actualBySport[sp]){actualBySport[sp].dur+=durMin;actualBySport[sp].tss+=tss;actualBySport[sp].dist+=dist;}
+      actualBySport[sp].dur+=durMin;actualBySport[sp].tss+=tss;actualBySport[sp].dist+=dist;
       actualTotalDur+=durMin;actualTotalTss+=tss;
     });
   });
@@ -2270,11 +2293,11 @@ function athCalRenderSummary(monday){
     if(k<=todayKey&&fitnessByDate[k]){fit=fitnessByDate[k];break;}
   }
 
-  const sportLabel={cycling:'Bike',running:'Run',swimming:'Swim',strength:'Strength'};
-  const sportRows=['cycling','running','swimming','strength'].map(sp=>{
+  const sportLabel={cycling:'Bike',running:'Run',swimming:'Swim',other:'Other'};
+  const sportRows=['cycling','running','swimming','other'].map(sp=>{
     const p=s.plannedBySport[sp],a=s.actualBySport[sp];
     if(!p.dur&&!a.dur)return'';
-    const distRow=a.dist?'<div class="ath-cal-sum-row"><span>'+sportLabel[sp]+' distance</span><span class="ath-cal-sum-vals"><span class="actual">'+fmtDist(a.dist,sp)+'</span></span></div>':'';
+    const distRow=(sp!=='other'&&a.dist)?'<div class="ath-cal-sum-row"><span>'+sportLabel[sp]+' distance</span><span class="ath-cal-sum-vals"><span class="actual">'+fmtDist(a.dist,sp)+'</span></span></div>':'';
     return '<div class="ath-cal-sum-row"><span>'+sportLabel[sp]+' duration</span><span class="ath-cal-sum-vals"><span class="planned">'+athCalFmtDur(p.dur)+'</span><span class="actual">'+athCalFmtDur(a.dur)+'</span></span></div>'+distRow;
   }).join('');
 
