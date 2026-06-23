@@ -64,7 +64,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .metric{background:var(--bc2);padding:1rem;min-width:0}
 .risk-pill{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:2px;margin-top:6px}
 .metric-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:4px}
-.chart-card{background:var(--bc2);border:1px solid var(--border);padding:1rem;margin-top:1px;width:100%;box-sizing:border-box}
+.chart-card{background:var(--bc2);border:1px solid var(--border);padding:1rem;margin-top:1px;width:100%;box-sizing:border-box;min-width:0}
+.coach-overview-charts{display:grid;grid-template-columns:1fr 1fr;gap:1px}
 .chart-card-header{display:flex;align-items:center;gap:8px;margin-bottom:0.75rem}
 .chart-card-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase}
 .metric-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
@@ -82,18 +83,33 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .tab.active{color:var(--acc);border-bottom-color:var(--acc)}
 .tab-panel{display:none}
 .tab-panel.active{display:block;flex:1;min-height:0;overflow-y:auto;padding:1.5rem;box-sizing:border-box}
-/* Calendar */
+/* Calendar -- infinite-scroll weeks + synced weekly summary (mirrors dashboard.html) */
 #tab-calendar.active{overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0}
 #tab-chat.active{padding:0;overflow:hidden;display:flex;flex-direction:column}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;flex-shrink:0}
-.cal-wrap{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-#calHeadRow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);flex-shrink:0}
-.cal-grid{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-top:none;min-height:0}
+.cal-layout{flex:1;display:flex;gap:1px;min-height:420px;overflow:hidden}
+.cal-scroll{position:relative;flex:1;overflow-y:auto;min-height:0;background:var(--border);border:1px solid var(--border)}
+#calHeadRow{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border)}
+.cal-sentinel{height:1px}
+.cal-month-divider{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;color:var(--tc2);background:var(--bc2);padding:6px 10px}
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;min-height:var(--cal-week-h,480px)}
 .cal-head{background:var(--bc3);padding:clamp(4px,1vh,8px) 8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.cal-cell{background:var(--bc2);min-height:0;padding:6px;display:flex;flex-direction:column;gap:1px;cursor:pointer;overflow:hidden}
+.cal-cell{background:var(--bc2);min-height:64px;padding:7px 8px;display:flex;flex-direction:column;gap:4px;cursor:pointer;overflow:hidden;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .cal-cell:hover{background:var(--bc3)}
-.cal-cell.other-month{opacity:0.35}
-.cal-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)}
+.cal-cell.is-today{box-shadow:inset 0 0 0 1.5px var(--acc)}
+.cal-date{font-family:'DM Mono',monospace;font-size:14px;color:var(--tc3)}
+.cal-summary{width:230px;flex-shrink:0;background:var(--bc2);border:1px solid var(--border);padding:1rem;overflow-y:auto;font-family:'DM Mono',monospace}
+.cal-sum-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--tc2)}
+.cal-sum-row.total{font-weight:700;color:var(--tc)}
+.cal-sum-vals{display:flex;gap:8px;font-size:11px}
+.cal-sum-vals .planned{color:var(--tc3)}
+.cal-sum-vals .actual{color:var(--acc)}
+.cal-sum-section{margin-top:0.9rem;padding-top:0.6rem;border-top:1px solid var(--border)}
+.cal-sum-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;color:var(--tc2);margin-bottom:4px}
+.cal-sum-fitness{display:flex;justify-content:space-between;margin-bottom:0.8rem}
+.cal-sum-fitness div{text-align:center}
+.cal-sum-fitness .val{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700}
+.cal-sum-fitness .lbl{font-size:8px;letter-spacing:0.06em;text-transform:uppercase;color:var(--tc3)}
 .cal-wo{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;height:18px;line-height:14px;box-sizing:border-box}
 .cal-wo.sport-cycling{border-left:2px solid #378ADD;background:rgba(55,138,221,0.12);color:var(--tc2)}
 .cal-wo.sport-running{border-left:2px solid #639922;background:rgba(99,153,34,0.12);color:var(--tc2)}
@@ -102,8 +118,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .cal-wo.completed{opacity:0.55;text-decoration:line-through}
 /* New unified cal-block styles */
-.cal-block{font-family:'DM Mono',monospace;font-size:9px;padding:1px 4px;overflow:hidden;white-space:nowrap;cursor:pointer;height:auto;line-height:1.3;text-overflow:ellipsis;margin-bottom:1px;box-sizing:border-box;border-radius:1px;display:flex;align-items:center;gap:3px}
-.cal-block .pill-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+.cal-block{font-family:'DM Mono',monospace;font-size:12px;padding:4px 6px;cursor:pointer;height:auto;line-height:1.4;margin-bottom:3px;box-sizing:border-box;border-radius:2px;display:flex;align-items:flex-start;gap:4px}
+.cal-block .pill-title{white-space:normal;word-break:break-word;flex:1;min-width:0}
 .cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
 .cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
 .cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
@@ -166,7 +182,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .zc-input:focus{border-color:var(--acc)}
 .zc-select{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%}
 .zc-select:focus{border-color:var(--acc)}
-.cal-race{font-family:'DM Mono',monospace;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:24px;line-height:24px;text-overflow:ellipsis;margin-bottom:2px;box-sizing:border-box}
+.cal-race{font-family:'DM Mono',monospace;font-size:13px;padding:0 7px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:28px;line-height:28px;text-overflow:ellipsis;margin-bottom:3px;box-sizing:border-box}
 .cal-race.priority-A{background:#FFD700;color:#1a1000}
 .cal-race.priority-B{background:#C0C0C0;color:#111}
 .cal-race.priority-C{background:#CD7F32;color:#fff}
@@ -225,6 +241,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 @media(max-width:900px){
   .layout{grid-template-columns:1fr}
   .metrics{grid-template-columns:repeat(3,1fr)}
+  .coach-overview-charts{grid-template-columns:1fr}
 }
 @media(max-width:767px){
   body{height:auto;overflow-x:hidden;overflow-y:auto}
@@ -317,23 +334,25 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               <div class="metric"><div class="metric-label">This week</div><div class="metric-val" id="ovWeek">—</div><div class="metric-sub">Training load</div></div>
               <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="ovLastWeek">—</div><div class="metric-sub">Training load</div></div>
             </div>
-            <div class="chart-card">
-              <div class="chart-card-header">
-                <button class="btn btn-sm btn-ghost" id="cpmc-6W" onclick="setCoachPmcRange(42,this)" style="padding:4px 10px;font-size:10px">6W</button>
-                <button class="btn btn-sm btn-ghost" id="cpmc-3M" onclick="setCoachPmcRange(90,this)" style="padding:4px 10px;font-size:10px">3M</button>
-                <button class="btn btn-sm btn-ghost active" id="cpmc-6M" onclick="setCoachPmcRange(180,this)" style="padding:4px 10px;font-size:10px">6M</button>
-                <span class="chart-card-label">Performance management</span>
+            <div class="coach-overview-charts">
+              <div class="chart-card">
+                <div class="chart-card-header">
+                  <button class="btn btn-sm btn-ghost" id="cpmc-6W" onclick="setCoachPmcRange(42,this)" style="padding:4px 10px;font-size:10px">6W</button>
+                  <button class="btn btn-sm btn-ghost" id="cpmc-3M" onclick="setCoachPmcRange(90,this)" style="padding:4px 10px;font-size:10px">3M</button>
+                  <button class="btn btn-sm btn-ghost active" id="cpmc-6M" onclick="setCoachPmcRange(180,this)" style="padding:4px 10px;font-size:10px">6M</button>
+                  <span class="chart-card-label">Performance management</span>
+                </div>
+                <div style="position:relative;height:240px;width:100%"><canvas id="coachPmcChart"></canvas></div>
               </div>
-              <div style="position:relative;height:200px;width:100%"><canvas id="coachPmcChart"></canvas></div>
-            </div>
-            <div class="chart-card">
-              <div class="chart-card-header">
-                <button class="btn btn-sm btn-ghost" id="csctl-6W" onclick="setCoachSportCtlRange('6W',this)" style="padding:4px 10px;font-size:10px">6W</button>
-                <button class="btn btn-sm btn-ghost" id="csctl-3M" onclick="setCoachSportCtlRange('3M',this)" style="padding:4px 10px;font-size:10px">3M</button>
-                <button class="btn btn-sm btn-ghost" id="csctl-6M" onclick="setCoachSportCtlRange('6M',this)" style="padding:4px 10px;font-size:10px">6M</button>
-                <span class="chart-card-label">Sport-specific CTL</span>
+              <div class="chart-card">
+                <div class="chart-card-header">
+                  <button class="btn btn-sm btn-ghost" id="csctl-6W" onclick="setCoachSportCtlRange('6W',this)" style="padding:4px 10px;font-size:10px">6W</button>
+                  <button class="btn btn-sm btn-ghost" id="csctl-3M" onclick="setCoachSportCtlRange('3M',this)" style="padding:4px 10px;font-size:10px">3M</button>
+                  <button class="btn btn-sm btn-ghost" id="csctl-6M" onclick="setCoachSportCtlRange('6M',this)" style="padding:4px 10px;font-size:10px">6M</button>
+                  <span class="chart-card-label">Sport-specific CTL</span>
+                </div>
+                <div style="position:relative;height:240px;width:100%"><canvas id="coachSportCtlChart"></canvas></div>
               </div>
-              <div style="position:relative;height:160px;width:100%"><canvas id="coachSportCtlChart"></canvas></div>
             </div>
             <div style="margin-top:1.5rem">
               <div class="section-label">Recent activities</div>
@@ -343,13 +362,17 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 
           <div class="tab-panel" id="tab-calendar">
             <div class="cal-nav">
-              <button class="btn btn-sm btn-ghost" onclick="calShift(-1)">&#8249; Prev</button>
               <div class="cal-title" id="calTitle">—</div>
-              <button class="btn btn-sm btn-ghost" onclick="calShift(1)">Next &#8250;</button>
+              <button class="btn btn-sm btn-ghost" onclick="coachCalGoToday()">Today</button>
             </div>
-            <div class="cal-wrap">
-              <div id="calHeadRow"></div>
-              <div class="cal-grid" id="calGrid"></div>
+            <div class="cal-layout">
+              <div class="cal-scroll" id="coachCalScroll">
+                <div id="calHeadRow"></div>
+                <div id="coachCalTopSentinel" class="cal-sentinel"></div>
+                <div id="coachCalWeeks"></div>
+                <div id="coachCalBottomSentinel" class="cal-sentinel"></div>
+              </div>
+              <div class="cal-summary" id="coachCalSummary"></div>
             </div>
             <p style="font-size:11px;color:var(--tc3);margin-top:0.5rem;flex-shrink:0">Click a day to add a workout or race. Click an item to edit it.</p>
           </div>
@@ -384,104 +407,109 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
           </div>
 
           <div class="tab-panel" id="tab-profile">
-            <div style="max-width:680px">
+            <!-- W/kg banner -->
+            <div id="coachProfWkg" style="display:none;background:var(--bc3);border:1px solid var(--border);padding:14px 20px;margin-bottom:1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--acc)">
+              <span id="coachProfWkgVal">—</span> <span style="font-size:14px;font-family:'DM Mono',monospace;color:var(--tc3);font-weight:400">w/kg</span>
+            </div>
 
-              <!-- W/kg banner -->
-              <div id="coachProfWkg" style="display:none;background:var(--bc3);border:1px solid var(--border);padding:14px 20px;margin-bottom:1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--acc)">
-                <span id="coachProfWkgVal">—</span> <span style="font-size:14px;font-family:'DM Mono',monospace;color:var(--tc3);font-weight:400">w/kg</span>
-              </div>
-
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;align-items:start">
               <!-- Personal Info -->
-              <div class="section-label" style="margin-top:0">Personal info</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem">
-                <div class="field"><label>Age</label><input class="zc-input" type="number" id="cpf_age" min="10" max="100" placeholder="e.g. 32"></div>
-                <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="cpf_weight_lbs" min="80" max="400" placeholder="e.g. 165" oninput="coachUpdateWkg()"></div>
-                <div class="field"><label>FTP (watts)</label><input class="zc-input" type="number" id="cpf_ftp_watts" min="50" max="700" placeholder="e.g. 280" oninput="coachUpdateWkg()"></div>
-                <div class="field"><label>Height — feet</label>
-                  <select class="zc-select" id="cpf_height_feet">
-                    <option value="">—</option>
-                    <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
-                  </select>
+              <div class="chart-box">
+                <div class="section-label" style="margin-top:0">Personal info</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <div class="field"><label>Age</label><input class="zc-input" type="number" id="cpf_age" min="10" max="100" placeholder="e.g. 32"></div>
+                  <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="cpf_weight_lbs" min="80" max="400" placeholder="e.g. 165" oninput="coachUpdateWkg()"></div>
+                  <div class="field"><label>FTP (watts)</label><input class="zc-input" type="number" id="cpf_ftp_watts" min="50" max="700" placeholder="e.g. 280" oninput="coachUpdateWkg()"></div>
+                  <div class="field"><label>Height — feet</label>
+                    <select class="zc-select" id="cpf_height_feet">
+                      <option value="">—</option>
+                      <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>Height — inches</label>
+                    <select class="zc-select" id="cpf_height_inches">
+                      <option value="">—</option>
+                      <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                      <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                      <option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>Experience level</label>
+                    <select class="zc-select" id="cpf_experience_level">
+                      <option value="">—</option>
+                      <option value="Beginner">Beginner</option><option value="Intermediate">Intermediate</option>
+                      <option value="Advanced">Advanced</option><option value="Elite">Elite</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>Years of endurance training</label><input class="zc-input" type="number" id="cpf_years_training" min="0" max="50" placeholder="e.g. 5"></div>
                 </div>
-                <div class="field"><label>Height — inches</label>
-                  <select class="zc-select" id="cpf_height_inches">
-                    <option value="">—</option>
-                    <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
-                    <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
-                    <option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
-                  </select>
-                </div>
-                <div class="field"><label>Experience level</label>
-                  <select class="zc-select" id="cpf_experience_level">
-                    <option value="">—</option>
-                    <option value="Beginner">Beginner</option><option value="Intermediate">Intermediate</option>
-                    <option value="Advanced">Advanced</option><option value="Elite">Elite</option>
-                  </select>
-                </div>
-                <div class="field"><label>Years of endurance training</label><input class="zc-input" type="number" id="cpf_years_training" min="0" max="50" placeholder="e.g. 5"></div>
               </div>
 
               <!-- Training Constraints -->
-              <div class="section-label">Training constraints</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
-                <div class="field"><label>Available training days / week</label><input class="zc-input" type="number" id="cpf_available_days_per_week" min="1" max="7" placeholder="e.g. 6"></div>
-                <div class="field"><label>Max weekly training hours</label><input class="zc-input" type="number" id="cpf_max_weekly_hours" min="1" max="40" placeholder="e.g. 12"></div>
-                <div class="field"><label>Preferred training time</label>
-                  <select class="zc-select" id="cpf_preferred_time">
-                    <option value="">—</option>
-                    <option value="Early morning">Early morning</option><option value="Morning">Morning</option>
-                    <option value="Lunch">Lunch</option><option value="Afternoon">Afternoon</option>
-                    <option value="Evening">Evening</option><option value="Flexible">Flexible</option>
-                  </select>
+              <div class="chart-box">
+                <div class="section-label" style="margin-top:0">Training constraints</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+                  <div class="field"><label>Available training days / week</label><input class="zc-input" type="number" id="cpf_available_days_per_week" min="1" max="7" placeholder="e.g. 6"></div>
+                  <div class="field"><label>Max weekly training hours</label><input class="zc-input" type="number" id="cpf_max_weekly_hours" min="1" max="40" placeholder="e.g. 12"></div>
+                  <div class="field"><label>Preferred training time</label>
+                    <select class="zc-select" id="cpf_preferred_time">
+                      <option value="">—</option>
+                      <option value="Early morning">Early morning</option><option value="Morning">Morning</option>
+                      <option value="Lunch">Lunch</option><option value="Afternoon">Afternoon</option>
+                      <option value="Evening">Evening</option><option value="Flexible">Flexible</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>Pool access days / week</label><input class="zc-input" type="number" id="cpf_pool_days_per_week" min="0" max="7" placeholder="e.g. 3"></div>
                 </div>
-                <div class="field"><label>Pool access days / week</label><input class="zc-input" type="number" id="cpf_pool_days_per_week" min="0" max="7" placeholder="e.g. 3"></div>
-              </div>
-              <div class="field" style="margin-bottom:1rem">
-                <label>Rest days</label>
-                <div id="cpf_rest_days" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-                  <label class="prof-check"><input type="checkbox" value="Mon"> Mon</label>
-                  <label class="prof-check"><input type="checkbox" value="Tue"> Tue</label>
-                  <label class="prof-check"><input type="checkbox" value="Wed"> Wed</label>
-                  <label class="prof-check"><input type="checkbox" value="Thu"> Thu</label>
-                  <label class="prof-check"><input type="checkbox" value="Fri"> Fri</label>
-                  <label class="prof-check"><input type="checkbox" value="Sat"> Sat</label>
-                  <label class="prof-check"><input type="checkbox" value="Sun"> Sun</label>
+                <div class="field" style="margin-bottom:1rem">
+                  <label>Rest days</label>
+                  <div id="cpf_rest_days" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+                    <label class="prof-check"><input type="checkbox" value="Mon"> Mon</label>
+                    <label class="prof-check"><input type="checkbox" value="Tue"> Tue</label>
+                    <label class="prof-check"><input type="checkbox" value="Wed"> Wed</label>
+                    <label class="prof-check"><input type="checkbox" value="Thu"> Thu</label>
+                    <label class="prof-check"><input type="checkbox" value="Fri"> Fri</label>
+                    <label class="prof-check"><input type="checkbox" value="Sat"> Sat</label>
+                    <label class="prof-check"><input type="checkbox" value="Sun"> Sun</label>
+                  </div>
                 </div>
-              </div>
-              <div style="display:flex;gap:24px;margin-bottom:1.5rem;flex-wrap:wrap">
-                <label class="prof-toggle"><input type="checkbox" id="cpf_has_indoor_trainer"> Has indoor trainer</label>
-                <label class="prof-toggle"><input type="checkbox" id="cpf_has_track_access"> Has track access</label>
+                <div style="display:flex;gap:24px;flex-wrap:wrap">
+                  <label class="prof-toggle"><input type="checkbox" id="cpf_has_indoor_trainer"> Has indoor trainer</label>
+                  <label class="prof-toggle"><input type="checkbox" id="cpf_has_track_access"> Has track access</label>
+                </div>
               </div>
 
               <!-- Athletic Profile -->
-              <div class="section-label">Athletic profile</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
-                <div class="field"><label>Primary limiter</label>
-                  <select class="zc-select" id="cpf_primary_limiter">
-                    <option value="">—</option>
-                    <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
-                    <option value="Running">Running</option><option value="Strength">Strength</option>
-                    <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
-                  </select>
+              <div class="chart-box">
+                <div class="section-label" style="margin-top:0">Athletic profile</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+                  <div class="field"><label>Primary limiter</label>
+                    <select class="zc-select" id="cpf_primary_limiter">
+                      <option value="">—</option>
+                      <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
+                      <option value="Running">Running</option><option value="Strength">Strength</option>
+                      <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
+                    </select>
+                  </div>
+                  <div class="field"><label>Secondary limiter</label>
+                    <select class="zc-select" id="cpf_secondary_limiter">
+                      <option value="">—</option>
+                      <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
+                      <option value="Running">Running</option><option value="Strength">Strength</option>
+                      <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
+                    </select>
+                  </div>
                 </div>
-                <div class="field"><label>Secondary limiter</label>
-                  <select class="zc-select" id="cpf_secondary_limiter">
-                    <option value="">—</option>
-                    <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
-                    <option value="Running">Running</option><option value="Strength">Strength</option>
-                    <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
-                  </select>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <div class="field"><label>Injury history</label><textarea class="zc-input" id="cpf_injury_history" rows="3" placeholder="Past recurring issues..." style="resize:vertical;height:80px"></textarea></div>
+                  <div class="field"><label>Current injuries / niggles</label><textarea class="zc-input" id="cpf_current_injuries" rows="3" placeholder="Anything bothering them right now..." style="resize:vertical;height:80px"></textarea></div>
+                  <div class="field" style="grid-column:span 2"><label>Strengths</label><textarea class="zc-input" id="cpf_strengths" rows="2" placeholder="What are they good at?" style="resize:vertical;height:64px"></textarea></div>
                 </div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem">
-                <div class="field"><label>Injury history</label><textarea class="zc-input" id="cpf_injury_history" rows="3" placeholder="Past recurring issues..." style="resize:vertical;height:80px"></textarea></div>
-                <div class="field"><label>Current injuries / niggles</label><textarea class="zc-input" id="cpf_current_injuries" rows="3" placeholder="Anything bothering them right now..." style="resize:vertical;height:80px"></textarea></div>
-                <div class="field" style="grid-column:span 2"><label>Strengths</label><textarea class="zc-input" id="cpf_strengths" rows="2" placeholder="What are they good at?" style="resize:vertical;height:64px"></textarea></div>
               </div>
 
               <!-- Goals -->
-              <div class="section-label">Goals</div>
-              <div style="margin-bottom:1.5rem">
+              <div class="chart-box">
+                <div class="section-label" style="margin-top:0">Goals</div>
                 <div class="field"><label>Long term goals</label><textarea class="zc-input" id="cpf_long_term_goals" rows="3" placeholder='e.g. "qualify for Kona", "sub-4:30 70.3"' style="resize:vertical;height:80px"></textarea></div>
                 <div class="field"><label>Current training phase</label>
                   <select class="zc-select" id="cpf_current_phase">
@@ -493,16 +521,18 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               </div>
 
               <!-- Coach-only: permanent coaching notes -->
-              <div class="section-label" style="color:var(--tc3)">Coaching notes <span style="font-size:9px;letter-spacing:0.05em;text-transform:none;color:var(--tc3);font-family:'DM Sans',sans-serif">(coach only)</span></div>
-              <div class="field" style="margin-bottom:1.5rem">
-                <textarea class="zc-input" id="cpf_coach_notes" rows="5" placeholder="Private notes about this athlete — not visible to the athlete..." style="resize:vertical;height:120px"></textarea>
+              <div class="chart-box">
+                <div class="section-label" style="margin-top:0;color:var(--tc3)">Coaching notes <span style="font-size:9px;letter-spacing:0.05em;text-transform:none;color:var(--tc3);font-family:'DM Sans',sans-serif">(coach only)</span></div>
+                <div class="field">
+                  <textarea class="zc-input" id="cpf_coach_notes" rows="5" placeholder="Private notes about this athlete — not visible to the athlete..." style="resize:vertical;height:120px"></textarea>
+                </div>
               </div>
+            </div>
 
-              <div style="display:flex;align-items:center;gap:16px;margin-top:0.5rem">
-                <button class="btn" style="width:auto;padding:12px 32px" onclick="saveCoachProfile()">Save profile</button>
-                <span id="coachProfSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
-                <span id="coachProfErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
-              </div>
+            <div style="display:flex;align-items:center;gap:16px;margin-top:1.5rem">
+              <button class="btn" style="width:auto;padding:12px 32px" onclick="saveCoachProfile()">Save profile</button>
+              <span id="coachProfSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
+              <span id="coachProfErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
             </div>
           </div>
 
@@ -671,7 +701,14 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 let athletes=[];
 let selectedAthlete=null;
 let athleteData={}; // cache: { [id]: {ctl,atl,tsb,zones,acts} }
-let calMonth=new Date(); calMonth.setDate(1);
+function toYMD(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function mondayOf(d){
+  const m=new Date(d);
+  const dow=m.getDay(); // 0=Sun..6=Sat
+  m.setDate(m.getDate()-(dow===0?6:dow-1));
+  m.setHours(0,0,0,0);
+  return m;
+}
 let workoutsCache=[];
 let racesCache=[];
 let chatHistory=[];
@@ -750,7 +787,7 @@ async function selectAthlete(id){
   document.getElementById('chatHistoryList').innerHTML='';
   switchTab('overview');
   await Promise.all([loadAthleteMetrics(selectedAthlete), loadWorkouts(), loadRaces()]);
-  renderCalendar();
+  coachCalInit();
   updateARaceBadge();
   loadChatHistory();
 }
@@ -1054,11 +1091,6 @@ async function loadRaces(){
   }
 }
 
-function calShift(dir){
-  calMonth.setMonth(calMonth.getMonth()+dir);
-  renderCalendar();
-}
-
 function sportClass(sport){
   const s=(sport||'').toLowerCase();
   if(s==='cycling'||s==='bike')return'sport-cycling';
@@ -1080,109 +1112,427 @@ function icuTypeToSport(type){
 // athleteIcuActivities: array set when coach views an athlete with ICU connected
 let athleteIcuActivities=[];
 
-function renderCalendar(){
-  const grid=document.getElementById('calGrid');
+/* ---------- Calendar: infinite-scroll weeks + synced weekly summary (mirrors dashboard.html) ---------- */
+var coachCalWoByDate={};
+var coachCalRaceByDate={};
+var coachCalActCache={}; // date -> [activities], grows as the coach scrolls; reset on athlete switch
+var coachCalActFetchedFrom=null;
+var coachCalActFetchedTo=null;
+var coachCalEarliestMonday=null;
+var coachCalLatestMonday=null;
+var coachCalFocusedMondayKey=null;
+var coachCalLoadingTop=false;
+var coachCalLoadingBottom=false;
+var coachCalEdgeObserver=null;
+var coachCalScrollFocusBound=false;
+var coachCalScrollFocusRaf=null;
+var coachCalResizeBound=false;
+const COACH_CAL_BATCH=4;
+const COACH_CAL_INITIAL_BEFORE=2;
+const COACH_CAL_INITIAL_AFTER=5;
+
+function coachCalMonthKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+
+function coachCalFmtDist(m,sport){
+  if(!m)return'—';
+  if(sport==='swimming')return Math.round(m*1.09361)+' yd';
+  return(m/1609.34).toFixed(1)+' mi';
+}
+
+function coachCalRenderDay(d){
+  const key=toYMD(d);
+  const wos=coachCalWoByDate[key]||[];
+  const races=coachCalRaceByDate[key]||[];
+  const icuForDay=(coachCalActCache[key]||[]).slice();
+
+  const racesHtml=races.map(r=>{
+    const pri=r.priority||'C';
+    const safeId=String(r.id);
+    return '<div class="cal-race priority-'+pri+'" onclick="event.stopPropagation();openRaceEdit(\''+safeId+'\')" title="'+escAttr(r.name)+'">'
+      +'<span>&#9873;</span>'
+      +escHtml(r.name||'Race')
+      +'<span class="cal-race-badge">'+pri+'</span>'
+      +'</div>';
+  }).join('');
+
+  const matchedIcuIds=new Set();
+  const dayItems=[]; // {html, sortKey, createdAt}
+
+  wos.forEach(w=>{
+    const spClass='sport-'+(w.sport||'other');
+    const woIdStr=String(w.id);
+    const matchIdx=icuForDay.findIndex(a=>icuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
+    if(matchIdx!==-1){
+      const icu=icuForDay[matchIdx];
+      matchedIcuIds.add(icu.id);
+      const mins=Math.round((icu.moving_time||0)/60);
+      const tss=Math.round(icu.icu_training_load||0);
+      const timePrefix=_fmtBlockTime(icu.start_date_local);
+      const label=escHtml((timePrefix?timePrefix+' · ':'')+(icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+      const icuIdStr=String(icu.id);
+      dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:icu.start_date_local||''});
+    }else{
+      const label=escHtml(w.title||w.sport||'Workout');
+      dayItems.push({html:'<div class="cal-block planned '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:'',createdAt:w.created_at||''});
+    }
+  });
+
+  icuForDay.filter(a=>!matchedIcuIds.has(a.id)).forEach(a=>{
+    const sp=icuTypeToSport(a.type);
+    const spClass='sport-'+sp;
+    const mins=Math.round((a.moving_time||0)/60);
+    const tss=Math.round(a.icu_training_load||0);
+    const timePrefix=_fmtBlockTime(a.start_date_local);
+    const label=escHtml((timePrefix?timePrefix+' · ':'')+(a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+    const icuIdStr=String(a.id);
+    dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
+  });
+
+  dayItems.sort((a,b)=>{
+    const aT=a.sortKey,bT=b.sortKey;
+    if(aT&&bT)return aT.localeCompare(bT);
+    if(aT)return -1;
+    if(bT)return 1;
+    return (a.createdAt||'').localeCompare(b.createdAt||'');
+  });
+
+  const isToday=key===toYMD(new Date());
+  return '<div class="cal-cell'+(isToday?' is-today':'')+'" onclick="openDayModal(\''+key+'\')">'
+    +'<div class="cal-date">'+d.getDate()+'</div>'
+    +racesHtml+dayItems.map(x=>x.html).join('')
+    +'</div>';
+}
+
+function coachCalRenderWeek(monday){
+  let html='<div class="cal-week" data-week-key="'+toYMD(monday)+'">';
+  for(let i=0;i<7;i++){
+    const d=new Date(monday); d.setDate(d.getDate()+i);
+    html+=coachCalRenderDay(d);
+  }
+  return html+'</div>';
+}
+
+// Fetches the selected athlete's ICU activities for a date range not already
+// covered by coachCalActCache. Mirrors dashboard.html's incremental fetch.
+async function coachCalEnsureActivities(fromDate,toDate){
+  if(!selectedAthlete||!selectedAthlete.intervals_athlete_id||!selectedAthlete.intervals_api_key)return;
+  const ranges=[];
+  if(!coachCalActFetchedFrom||!coachCalActFetchedTo){
+    ranges.push([fromDate,toDate]);
+  }else{
+    if(fromDate<coachCalActFetchedFrom){
+      const extEnd=new Date(coachCalActFetchedFrom);extEnd.setDate(extEnd.getDate()-1);
+      ranges.push([fromDate,extEnd]);
+    }
+    if(toDate>coachCalActFetchedTo){
+      const extStart=new Date(coachCalActFetchedTo);extStart.setDate(extStart.getDate()+1);
+      ranges.push([extStart,toDate]);
+    }
+  }
+  if(!ranges.length)return;
+  for(const[start,end] of ranges){
+    if(start>end)continue;
+    try{
+      const data=await intervalsCall(selectedAthlete.intervals_athlete_id,selectedAthlete.intervals_api_key,'activities','oldest='+toYMD(start)+'&newest='+toYMD(end)+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load');
+      (Array.isArray(data)?data:[]).forEach(a=>{
+        const key=(a.start_date_local||'').slice(0,10);
+        if(!key)return;
+        if(!coachCalActCache[key])coachCalActCache[key]=[];
+        if(!coachCalActCache[key].some(x=>x.id===a.id))coachCalActCache[key].push(a);
+        if(!athleteIcuActivities.some(x=>x.id===a.id))athleteIcuActivities.push(a);
+      });
+    }catch(e){
+      console.error('coachCalEnsureActivities error:',e);
+    }
+  }
+  coachCalActFetchedFrom=coachCalActFetchedFrom?new Date(Math.min(coachCalActFetchedFrom,fromDate)):new Date(fromDate);
+  coachCalActFetchedTo=coachCalActFetchedTo?new Date(Math.max(coachCalActFetchedTo,toDate)):new Date(toDate);
+}
+
+// Sizes each week row to fill the visible calendar viewport, so roughly one
+// week is on screen at a time (bigger cells/text).
+function coachCalSizeWeeks(){
+  const scrollEl=document.getElementById('coachCalScroll');
   const headRow=document.getElementById('calHeadRow');
-  const title=document.getElementById('calTitle');
-  title.textContent=calMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  if(!scrollEl)return;
+  const h=scrollEl.clientHeight-(headRow?headRow.offsetHeight:0);
+  if(h>0)scrollEl.style.setProperty('--cal-week-h',h+'px');
+}
+
+async function coachCalInit(){
+  if(!selectedAthlete)return;
+  // Rebuild date lookups from the current caches and reset the incremental
+  // activity window -- this runs every time an athlete is (re)selected, so
+  // a previous athlete's cached activities must not leak into the new view.
+  coachCalWoByDate={};
+  workoutsCache.forEach(w=>{ (coachCalWoByDate[w.date]=coachCalWoByDate[w.date]||[]).push(w); });
+  coachCalRaceByDate={};
+  racesCache.forEach(r=>{ (coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r); });
+  coachCalActCache={};
+  coachCalActFetchedFrom=null;
+  coachCalActFetchedTo=null;
+
+  const headRow=document.getElementById('calHeadRow');
   const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   if(headRow)headRow.innerHTML=days.map(d=>'<div class="cal-head">'+d+'</div>').join('');
+  coachCalSizeWeeks();
+  if(!coachCalResizeBound){
+    window.addEventListener('resize',()=>{
+      if(document.getElementById('tab-calendar')?.classList.contains('active'))coachCalSizeWeeks();
+    });
+    coachCalResizeBound=true;
+  }
+
+  const weeksEl=document.getElementById('coachCalWeeks');
+  if(!weeksEl)return;
+
+  const todayMonday=mondayOf(new Date());
+  const startMonday=new Date(todayMonday);startMonday.setDate(startMonday.getDate()-7*COACH_CAL_INITIAL_BEFORE);
+  const endMonday=new Date(todayMonday);endMonday.setDate(endMonday.getDate()+7*COACH_CAL_INITIAL_AFTER);
+  const fetchEnd=new Date(endMonday);fetchEnd.setDate(fetchEnd.getDate()+6);
+
+  await coachCalEnsureActivities(startMonday,fetchEnd);
+
+  const totalWeeks=COACH_CAL_INITIAL_BEFORE+COACH_CAL_INITIAL_AFTER+1;
   let html='';
-
-  const firstOfMonth=new Date(calMonth);
-  const firstDow=(firstOfMonth.getDay()+6)%7;
-  const gridStart=new Date(firstOfMonth);
-  gridStart.setDate(gridStart.getDate()-firstDow);
-
-  const woByDate={};
-  workoutsCache.forEach(w=>{ (woByDate[w.date]=woByDate[w.date]||[]).push(w); });
-
-  const raceByDate={};
-  racesCache.forEach(r=>{ (raceByDate[r.date]=raceByDate[r.date]||[]).push(r); });
-
-  // Build ICU activities by date
-  const icuByDate={};
-  (athleteIcuActivities||[]).forEach(a=>{
-    const key=(a.start_date_local||'').slice(0,10);
-    if(!key)return;
-    (icuByDate[key]=icuByDate[key]||[]).push(a);
-  });
-  for(const d of Object.keys(icuByDate)){
-    icuByDate[d].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
+  let prevMonthKey=null;
+  for(let i=0;i<totalWeeks;i++){
+    const m=new Date(startMonday);m.setDate(m.getDate()+7*i);
+    const monthKey=coachCalMonthKey(m);
+    if(monthKey!==prevMonthKey){
+      html+='<div class="cal-month-divider">'+m.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</div>';
+      prevMonthKey=monthKey;
+    }
+    html+=coachCalRenderWeek(m);
   }
+  weeksEl.innerHTML=html;
+  coachCalEarliestMonday=startMonday;
+  coachCalLatestMonday=endMonday;
+  coachCalFocusedMondayKey=toYMD(todayMonday);
 
-  const _dim=new Date(calMonth.getFullYear(),calMonth.getMonth()+1,0).getDate();
-  const _cellCount=Math.ceil((firstDow+_dim)/7)*7;
-  for(let i=0;i<_cellCount;i++){
-    const d=new Date(gridStart);
-    d.setDate(gridStart.getDate()+i);
-    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    const otherMonth=d.getMonth()!==calMonth.getMonth();
-    const wos=woByDate[key]||[];
-    const races=raceByDate[key]||[];
-    const icuForDay=(icuByDate[key]||[]).slice(); // copy to track matched
+  coachCalUpdateTitle(todayMonday);
+  coachCalRenderSummary(todayMonday);
+  coachCalScrollToMonday(todayMonday);
+  coachCalSetupEdgeObserver();
+  coachCalUpdateFocusFromScroll();
+  setTimeout(()=>{
+    coachCalScrollToMonday(todayMonday);
+    coachCalUpdateFocusFromScroll();
+  },250);
+}
 
-    const racesHtml=races.map(r=>{
-      const pri=r.priority||'C';
-      const safeId=String(r.id);
-      return '<div class="cal-race priority-'+pri+'" onclick="event.stopPropagation();openRaceEdit(\''+safeId+'\')" title="'+escAttr(r.name)+'">'
-        +'<span>&#9873;</span>'
-        +escHtml(r.name||'Race')
-        +'<span class="cal-race-badge">'+pri+'</span>'
-        +'</div>';
-    }).join('');
+async function coachCalLoadMore(direction){
+  const weeksEl=document.getElementById('coachCalWeeks');
+  if(!weeksEl)return;
+  if(direction==='top'){
+    if(coachCalLoadingTop)return;
+    coachCalLoadingTop=true;
+    try{
+      const newEarliest=new Date(coachCalEarliestMonday);newEarliest.setDate(newEarliest.getDate()-7*COACH_CAL_BATCH);
+      const fetchEnd=new Date(coachCalEarliestMonday);fetchEnd.setDate(fetchEnd.getDate()-1);
+      await coachCalEnsureActivities(newEarliest,fetchEnd);
 
-    // Match planned workouts with ICU activities by sport, build merged sorted list
-    const matchedIcuIds=new Set();
-    const dayItems=[]; // {html, sortKey, createdAt}
+      const scrollEl=document.getElementById('coachCalScroll');
+      const prevScrollHeight=scrollEl.scrollHeight;
+      const prevScrollTop=scrollEl.scrollTop;
 
-    wos.forEach(w=>{
-      const spClass='sport-'+(w.sport||'other');
-      const woIdStr=String(w.id);
-      const matchIdx=icuForDay.findIndex(a=>icuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
-      if(matchIdx!==-1){
-        const icu=icuForDay[matchIdx];
-        matchedIcuIds.add(icu.id);
-        const mins=Math.round((icu.moving_time||0)/60);
-        const tss=Math.round(icu.icu_training_load||0);
-        const timePrefix=_fmtBlockTime(icu.start_date_local);
-        const label=escHtml((timePrefix?timePrefix+' · ':'')+(icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
-        const icuIdStr=String(icu.id);
-        dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:icu.start_date_local||''});
-      }else{
-        const label=escHtml(w.title||w.sport||'Workout');
-        dayItems.push({html:'<div class="cal-block planned '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:'',createdAt:w.created_at||''});
+      const firstWeekEl=weeksEl.querySelector('.cal-week');
+      const firstWeekMonth=firstWeekEl?firstWeekEl.dataset.weekKey.slice(0,7):null;
+      const existingDivider=(firstWeekEl&&firstWeekEl.previousElementSibling&&firstWeekEl.previousElementSibling.classList.contains('cal-month-divider'))?firstWeekEl.previousElementSibling:null;
+      let prevMonthKey=null;
+      let html='';
+      for(let i=COACH_CAL_BATCH-1;i>=0;i--){
+        const m=new Date(coachCalEarliestMonday);m.setDate(m.getDate()-7*(i+1));
+        const monthKey=coachCalMonthKey(m);
+        if(monthKey!==prevMonthKey){
+          html+='<div class="cal-month-divider">'+m.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</div>';
+          prevMonthKey=monthKey;
+        }
+        html+=coachCalRenderWeek(m);
       }
-    });
+      if(prevMonthKey===firstWeekMonth&&existingDivider)existingDivider.remove();
+      weeksEl.insertAdjacentHTML('afterbegin',html);
+      coachCalEarliestMonday=newEarliest;
+      scrollEl.scrollTop=prevScrollTop+(scrollEl.scrollHeight-prevScrollHeight);
+    }finally{
+      coachCalLoadingTop=false;
+    }
+  }else{
+    if(coachCalLoadingBottom)return;
+    coachCalLoadingBottom=true;
+    try{
+      const fetchStart=new Date(coachCalLatestMonday);fetchStart.setDate(fetchStart.getDate()+7);
+      const newLatest=new Date(coachCalLatestMonday);newLatest.setDate(newLatest.getDate()+7*COACH_CAL_BATCH);
+      const fetchEnd=new Date(newLatest);fetchEnd.setDate(fetchEnd.getDate()+6);
+      await coachCalEnsureActivities(fetchStart,fetchEnd);
 
-    // Unmatched ICU activities
-    icuForDay.filter(a=>!matchedIcuIds.has(a.id)).forEach(a=>{
-      const sp=icuTypeToSport(a.type);
-      const spClass='sport-'+sp;
-      const mins=Math.round((a.moving_time||0)/60);
-      const tss=Math.round(a.icu_training_load||0);
-      const timePrefix=_fmtBlockTime(a.start_date_local);
-      const label=escHtml((timePrefix?timePrefix+' · ':'')+(a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
-      const icuIdStr=String(a.id);
-      dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
-    });
-
-    // Sort: timed (completed) by start_date_local asc, untimed planned after by created_at asc
-    dayItems.sort((a,b)=>{
-      const aT=a.sortKey,bT=b.sortKey;
-      if(aT&&bT)return aT.localeCompare(bT);
-      if(aT)return -1;
-      if(bT)return 1;
-      return (a.createdAt||'').localeCompare(b.createdAt||'');
-    });
-
-    html+='<div class="cal-cell'+(otherMonth?' other-month':'')+'" onclick="openDayModal(\''+key+'\')">'
-      +'<div class="cal-date">'+d.getDate()+'</div>'
-      +racesHtml
-      +dayItems.map(x=>x.html).join('')
-      +'</div>';
+      const lastWeekEl=weeksEl.querySelector('.cal-week:last-child');
+      let prevMonthKey=lastWeekEl?lastWeekEl.dataset.weekKey.slice(0,7):null;
+      let html='';
+      for(let i=1;i<=COACH_CAL_BATCH;i++){
+        const m=new Date(coachCalLatestMonday);m.setDate(m.getDate()+7*i);
+        const monthKey=coachCalMonthKey(m);
+        if(monthKey!==prevMonthKey){
+          html+='<div class="cal-month-divider">'+m.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</div>';
+          prevMonthKey=monthKey;
+        }
+        html+=coachCalRenderWeek(m);
+      }
+      weeksEl.insertAdjacentHTML('beforeend',html);
+      coachCalLatestMonday=newLatest;
+    }finally{
+      coachCalLoadingBottom=false;
+    }
   }
-  grid.innerHTML=html;
+}
+
+function coachCalSetupEdgeObserver(){
+  const scrollEl=document.getElementById('coachCalScroll');
+  const topSentinel=document.getElementById('coachCalTopSentinel');
+  const bottomSentinel=document.getElementById('coachCalBottomSentinel');
+  if(coachCalEdgeObserver)coachCalEdgeObserver.disconnect();
+  coachCalEdgeObserver=new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(!entry.isIntersecting)return;
+      if(entry.target.id==='coachCalTopSentinel')coachCalLoadMore('top');
+      else if(entry.target.id==='coachCalBottomSentinel')coachCalLoadMore('bottom');
+    });
+  },{root:scrollEl,rootMargin:'200px 0px'});
+  if(topSentinel)coachCalEdgeObserver.observe(topSentinel);
+  if(bottomSentinel)coachCalEdgeObserver.observe(bottomSentinel);
+
+  if(!coachCalScrollFocusBound){
+    scrollEl.addEventListener('scroll',coachCalQueueFocusUpdate);
+    coachCalScrollFocusBound=true;
+  }
+}
+
+function coachCalQueueFocusUpdate(){
+  if(coachCalScrollFocusRaf)return;
+  coachCalScrollFocusRaf=requestAnimationFrame(()=>{
+    coachCalScrollFocusRaf=null;
+    coachCalUpdateFocusFromScroll();
+  });
+}
+
+function coachCalUpdateFocusFromScroll(){
+  const scrollEl=document.getElementById('coachCalScroll');
+  if(!scrollEl)return;
+  const scrollRect=scrollEl.getBoundingClientRect();
+  const centerY=scrollRect.top+scrollRect.height/2;
+  let bestKey=null,bestDist=Infinity;
+  document.querySelectorAll('.cal-week').forEach(w=>{
+    const r=w.getBoundingClientRect();
+    if(r.bottom<scrollRect.top||r.top>scrollRect.bottom)return;
+    const dist=Math.abs((r.top+r.height/2)-centerY);
+    if(dist<bestDist){bestDist=dist;bestKey=w.dataset.weekKey;}
+  });
+  if(bestKey&&bestKey!==coachCalFocusedMondayKey){
+    coachCalFocusedMondayKey=bestKey;
+    const monday=new Date(bestKey+'T00:00:00');
+    coachCalRenderSummary(monday);
+    coachCalUpdateTitle(monday);
+  }
+}
+
+function coachCalScrollToMonday(monday){
+  const scrollEl=document.getElementById('coachCalScroll');
+  const weekEl=document.querySelector('.cal-week[data-week-key="'+toYMD(monday)+'"]');
+  if(weekEl&&scrollEl){
+    const weekCenter=weekEl.offsetTop+weekEl.offsetHeight/2;
+    scrollEl.scrollTop=Math.max(0,weekCenter-scrollEl.clientHeight/2);
+  }
+}
+
+function coachCalGoToday(){
+  const todayMonday=mondayOf(new Date());
+  const weekEl=document.querySelector('.cal-week[data-week-key="'+toYMD(todayMonday)+'"]');
+  if(weekEl){
+    coachCalScrollToMonday(todayMonday);
+    coachCalUpdateFocusFromScroll();
+  }else{
+    coachCalInit();
+  }
+}
+
+function coachCalUpdateTitle(monday){
+  const title=document.getElementById('calTitle');
+  if(!title)return;
+  title.textContent=monday.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+}
+
+function coachCalFmtDur(mins){
+  if(!mins)return'0:00';
+  const h=Math.floor(mins/60),m=Math.round(mins%60);
+  return h+':'+String(m).padStart(2,'0');
+}
+
+function coachCalComputeWeekSummary(monday){
+  const days=[];
+  for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(d.getDate()+i);days.push(toYMD(d));}
+
+  const mkSport=()=>({dur:0,tss:0,dist:0});
+  const plannedBySport={cycling:mkSport(),running:mkSport(),swimming:mkSport(),other:mkSport()};
+  const actualBySport={cycling:mkSport(),running:mkSport(),swimming:mkSport(),other:mkSport()};
+  let plannedTotalDur=0,plannedTotalTss=0,actualTotalDur=0,actualTotalTss=0;
+
+  days.forEach(key=>{
+    (coachCalWoByDate[key]||[]).forEach(w=>{
+      const sp=plannedBySport[w.sport]?w.sport:'other';
+      const dur=Number(w.duration_minutes)||0;
+      const tss=Number(w.tss_target)||0;
+      plannedBySport[sp].dur+=dur;plannedBySport[sp].tss+=tss;
+      plannedTotalDur+=dur;plannedTotalTss+=tss;
+    });
+    (coachCalActCache[key]||[]).forEach(a=>{
+      const sp0=icuTypeToSport(a.type);
+      const sp=actualBySport[sp0]?sp0:'other';
+      const durMin=(a.moving_time||0)/60;
+      const tss=Number(a.icu_training_load)||0;
+      const dist=Number(a.distance)||0;
+      actualBySport[sp].dur+=durMin;actualBySport[sp].tss+=tss;actualBySport[sp].dist+=dist;
+      actualTotalDur+=durMin;actualTotalTss+=tss;
+    });
+  });
+
+  return{plannedBySport,actualBySport,plannedTotalDur,plannedTotalTss,actualTotalDur,actualTotalTss};
+}
+
+function coachCalRenderSummary(monday){
+  const el=document.getElementById('coachCalSummary');
+  if(!el)return;
+  const s=coachCalComputeWeekSummary(monday);
+  const sunday=new Date(monday);sunday.setDate(sunday.getDate()+6);
+  const rangeLabel=monday.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+sunday.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+  const todayKey=toYMD(new Date());
+  let fit=null;
+  for(let i=6;i>=0;i--){
+    const d=new Date(monday);d.setDate(d.getDate()+i);
+    const k=toYMD(d);
+    if(k<=todayKey&&coachFitByDate[k]){fit=coachFitByDate[k];break;}
+  }
+
+  const sportLabel={cycling:'Bike',running:'Run',swimming:'Swim',other:'Other'};
+  const sportRows=['cycling','running','swimming','other'].map(sp=>{
+    const p=s.plannedBySport[sp],a=s.actualBySport[sp];
+    if(!p.dur&&!a.dur)return'';
+    const distRow=(sp!=='other'&&a.dist)?'<div class="cal-sum-row"><span>'+sportLabel[sp]+' distance</span><span class="cal-sum-vals"><span class="actual">'+coachCalFmtDist(a.dist,sp)+'</span></span></div>':'';
+    return '<div class="cal-sum-row"><span>'+sportLabel[sp]+' duration</span><span class="cal-sum-vals"><span class="planned">'+coachCalFmtDur(p.dur)+'</span><span class="actual">'+coachCalFmtDur(a.dur)+'</span></span></div>'+distRow;
+  }).join('');
+
+  el.innerHTML=
+    '<div class="cal-sum-title">'+rangeLabel+'</div>'
+    +(fit?(
+      '<div class="cal-sum-fitness">'
+      +'<div><div class="val" style="color:#378ADD">'+Math.round(fit.ctl)+'</div><div class="lbl">Fitness</div></div>'
+      +'<div><div class="val" style="color:#E24B4A">'+Math.round(fit.atl)+'</div><div class="lbl">Fatigue</div></div>'
+      +'<div><div class="val" style="color:#c8f036">'+(Math.round(fit.tsb)>=0?'+':'')+Math.round(fit.tsb)+'</div><div class="lbl">Form</div></div>'
+      +'</div>'
+    ):'')
+    +'<div class="cal-sum-row total"><span>Total Duration</span><span class="cal-sum-vals"><span class="planned">'+coachCalFmtDur(s.plannedTotalDur)+'</span><span class="actual">'+coachCalFmtDur(s.actualTotalDur)+'</span></span></div>'
+    +'<div class="cal-sum-row total"><span>Total TSS</span><span class="cal-sum-vals"><span class="planned">'+Math.round(s.plannedTotalTss)+'</span><span class="actual">'+Math.round(s.actualTotalTss)+'</span></span></div>'
+    +'<div class="cal-sum-section">'+(sportRows||'<div class="cal-sum-row"><span>No activity this week</span></div>')+'</div>';
 }
 
 // Helper formatters for block modal
@@ -1381,7 +1731,7 @@ async function deleteCoachWorkout(id){
     if(!res.ok)throw new Error('Delete failed');
     closeBlockModal();
     await loadWorkouts();
-    renderCalendar();
+    coachCalInit();
   }catch(e){
     alert('Could not delete workout: '+e.message);
   }
@@ -1570,7 +1920,7 @@ async function saveWorkout(){
     if(!r.ok)throw new Error(data.error||'Could not save workout');
     closeDayModal();
     await loadWorkouts();
-    renderCalendar();
+    coachCalInit();
   }catch(err){
     errEl.textContent=err.message||'Could not save workout.';
     errEl.style.display='block';
@@ -1584,7 +1934,7 @@ async function deleteWorkout(){
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Could not delete workout');}
     closeDayModal();
     await loadWorkouts();
-    renderCalendar();
+    coachCalInit();
   }catch(err){
     const errEl=document.getElementById('woError');
     errEl.textContent=err.message||'Could not delete workout.';
@@ -1618,7 +1968,7 @@ async function saveRace(){
     if(!r.ok)throw new Error(data.error||'Could not save race');
     closeDayModal();
     await loadRaces();
-    renderCalendar();
+    coachCalInit();
     updateARaceBadge();
   }catch(err){
     errEl.textContent=err.message||'Could not save race.';
@@ -1633,7 +1983,7 @@ async function deleteRace(){
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Could not delete race');}
     closeDayModal();
     await loadRaces();
-    renderCalendar();
+    coachCalInit();
     updateARaceBadge();
   }catch(err){
     const errEl=document.getElementById('rcError');

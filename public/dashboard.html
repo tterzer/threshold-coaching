@@ -2573,10 +2573,7 @@ async function saveAthAddWorkout(){
     const data=await r.json();
     if(!r.ok)throw new Error(data.error||'Could not save session');
     closeAthAddWoModal();
-    // Refresh workout cache
-    const wr=await fetch('/api/workouts?athlete_id='+currentAthlete.id);
-    if(wr.ok){const d=await wr.json();athWorkoutsCache=d.workouts||[];}
-    renderAthCalendar();
+    await loadAthCal();
   }catch(err){
     errEl.textContent=err.message||'Could not save session.';
     errEl.style.display='block';
@@ -2590,9 +2587,7 @@ async function deleteAthAddWorkout(){
     const r=await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_athEditingWoId})});
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Delete failed');}
     closeAthAddWoModal();
-    const wr=await fetch('/api/workouts?athlete_id='+currentAthlete.id);
-    if(wr.ok){const d=await wr.json();athWorkoutsCache=d.workouts||[];}
-    renderAthCalendar();
+    await loadAthCal();
   }catch(err){
     alert('Could not delete: '+err.message);
   }
