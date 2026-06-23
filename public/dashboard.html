@@ -2835,6 +2835,32 @@ function calcCarbsGPerKg(carbMins,peakIntensity){
   else base=11;
   return Math.min(12,base+tierBoost);
 }
+// Carb-relevant minutes + peak intensity for a single planned day, used only
+// for the carb-preload lookahead below (mirrors the planned-workout branch
+// of calcDayTargets, but doesn't need the full kcal/TSS calculation).
+function calcDayCarbProfile(dateStr,plannedWorkouts){
+  const dayPlanned=(plannedWorkouts||[]).filter(w=>w.date===dateStr);
+  let carbMins=0,peakIntensity='easy';
+  const bumpPeak=tier=>{ if(INTENSITY_TIERS.indexOf(tier)>INTENSITY_TIERS.indexOf(peakIntensity))peakIntensity=tier; };
+  dayPlanned.forEach(w=>{
+    const mins=parseFloat(w.duration_minutes)||0;
+    const t=w.fuelpro_type?NUTR_SESSION_TYPES[Number(w.fuelpro_type)]:null;
+    if(t){
+      carbMins+=mins*t.glycogenCoeff;
+      bumpPeak(tssPerHourToIntensity(t.tssPerHour));
+      return;
+    }
+    const sport=(w.sport||'').toLowerCase();
+    const intensity=INTENSITY_TIERS.includes(w.intensity)?w.intensity:'endurance';
+    let carbWeight=0.5;
+    if(sport.includes('bike')||sport.includes('cycl')||sport.includes('ride'))carbWeight=1;
+    else if(sport.includes('run'))carbWeight=1;
+    else if(sport.includes('swim'))carbWeight=0.8;
+    carbMins+=mins*carbWeight;
+    bumpPeak(intensity);
+  });
+  return {carbMins,peakIntensity};
+}
 
 function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
   const today=new Date();
@@ -2950,7 +2976,23 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
   // used to land entirely on carbs. Fat absorbs the cut/build adjustment
   // instead (the standard sports-dietitian approach: protect carbohydrate
   // availability for training, create any deficit from discretionary fat).
-  const carbsGPerKg=calcCarbsGPerKg(carbMins,peakIntensity);
+  let carbsGPerKg=calcCarbsGPerKg(carbMins,peakIntensity);
+  // Carb-load preload: top off glycogen ahead of a big day rather than only
+  // fueling the day of. Modern carb-loading research (Bussau/Burke 2002)
+  // shows near-full glycogen supercompensation within ~36-48h of elevated
+  // intake -- hence a 2-day lookahead, tapered by distance (no published
+  // figure for the exact taper; this is a reasoned default, not a cited one).
+  // Only forward-looking -- nothing to preload before a day that already happened.
+  if(!isPast){
+    const d1=new Date(dateStr+'T00:00:00');d1.setDate(d1.getDate()+1);
+    const d2=new Date(dateStr+'T00:00:00');d2.setDate(d2.getDate()+2);
+    const p1=calcDayCarbProfile(toYMD(d1),plannedWorkouts);
+    const p2=calcDayCarbProfile(toYMD(d2),plannedWorkouts);
+    const g1=calcCarbsGPerKg(p1.carbMins,p1.peakIntensity);
+    const g2=calcCarbsGPerKg(p2.carbMins,p2.peakIntensity);
+    const preloadBoost=Math.max(0,g1-carbsGPerKg)*0.5+Math.max(0,g2-carbsGPerKg)*0.25;
+    carbsGPerKg=Math.min(12,carbsGPerKg+preloadBoost);
+  }
   const carbs=Math.round(carbsGPerKg*weight_kg);
 
   // Hard floor, not bodyweight-scaled -- below ~85g is impractical to hit
