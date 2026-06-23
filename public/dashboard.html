@@ -178,7 +178,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-month-divider{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;color:var(--tc2);background:var(--bc2);padding:6px 10px}
 .ath-cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;min-height:var(--ath-cal-week-h,480px)}
 .ath-cal-head{background:var(--bc3);padding:clamp(4px,1vh,8px) 4px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
-.ath-cal-cell{background:var(--bc2);min-height:64px;padding:7px 8px;display:flex;flex-direction:column;gap:4px;cursor:pointer;overflow:hidden}
+.ath-cal-cell{background:var(--bc2);min-height:64px;padding:7px 8px;display:flex;flex-direction:column;gap:4px;cursor:pointer;overflow:hidden;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .ath-cal-summary{width:230px;flex-shrink:0;background:var(--bc2);border:1px solid var(--border);padding:1rem;overflow-y:auto;font-family:'DM Mono',monospace}
 .ath-cal-sum-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--tc2)}
 .ath-cal-sum-row.total{font-weight:700;color:var(--tc)}
@@ -203,8 +203,8 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .ath-cal-wo.completed{opacity:0.55;text-decoration:line-through}
 /* Athlete calendar block styles */
-.ath-cal-block{font-family:'DM Mono',monospace;font-size:12px;padding:3px 6px;overflow:hidden;white-space:nowrap;cursor:pointer;height:auto;line-height:1.4;text-overflow:ellipsis;margin-bottom:3px;box-sizing:border-box;border-radius:2px;display:flex;align-items:center;gap:4px}
-.ath-cal-block .pill-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.ath-cal-block{font-family:'DM Mono',monospace;font-size:12px;padding:4px 6px;cursor:pointer;height:auto;line-height:1.4;margin-bottom:3px;box-sizing:border-box;border-radius:2px;display:flex;align-items:flex-start;gap:4px}
+.ath-cal-block .pill-title{white-space:normal;word-break:break-word;flex:1;min-width:0}
 .ath-cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
 .ath-cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
 .ath-cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
