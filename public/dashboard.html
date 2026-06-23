@@ -4200,6 +4200,10 @@ function nutrRenderProfile(){
           <input type="number" class="nutr-input" value="${currentAthlete?.age||''}" placeholder="e.g. 32" min="10" max="100" onchange="if(!currentAthlete)currentAthlete={};currentAthlete.age=Number(this.value)">
         </div>
         <div>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Sex</label>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc);padding:10px 12px;background:var(--bc3);border:1px solid var(--border);text-transform:capitalize">${currentAthlete?.sex||'—'} <span style="color:#555;font-size:10px;text-transform:none">(set in Profile tab)</span></div>
+        </div>
+        <div>
           <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Experience level</label>
           <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc);padding:10px 12px;background:var(--bc3);border:1px solid var(--border)">${currentAthlete?.experience_level||'intermediate'} <span style="color:#555;font-size:10px">(set in Profile tab)</span></div>
         </div>
