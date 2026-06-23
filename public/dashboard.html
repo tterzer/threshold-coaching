@@ -2767,6 +2767,10 @@ const NEAT_LEVELS={
   'desk':0.20,'light':0.30,'active':0.40,'manual':0.60
 };
 const INTENSITY_TIERS=['easy','endurance','tempo','threshold','intervals'];
+// SESSION_TYPES' kcalPerMin values are flat (not bodyweight-scaled) --
+// treat them as calibrated for a ~70kg reference athlete and scale by the
+// real athlete's weight so a specific FuelPro type stays weight-aware too.
+const REFERENCE_WEIGHT_KG=70;
 // MET values by sport+intensity (Compendium of Physical Activities, illustrative
 // starting bands -- tunable). Replaces four inconsistent ad hoc per-sport
 // formulas (bike previously had no bodyweight scaling at all, and none of
@@ -2897,6 +2901,19 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
     dayPlanned.forEach(w=>{
       const mins=parseFloat(w.duration_minutes)||0;
       const hours=mins/60;
+      // Prefer the specific FuelPro session type (42 types covering swim/
+      // bike/run/strength/yoga/hockey/etc.) when one was picked -- it
+      // already carries its own kcal/TSS/glycogen-depletion data, richer
+      // than the generic sport+intensity table below. That table is only
+      // the fallback for workouts where no specific type was chosen.
+      const t=w.fuelpro_type?NUTR_SESSION_TYPES[Number(w.fuelpro_type)]:null;
+      if(t){
+        exerciseKcal+=Math.round(t.kcalPerMin*(weight_kg/REFERENCE_WEIGHT_KG)*mins);
+        carbMins+=mins*t.glycogenCoeff;
+        totalTSS+=Math.round(t.tssPerHour*hours);
+        bumpPeak(tssPerHourToIntensity(t.tssPerHour));
+        return;
+      }
       const sport=(w.sport||'').toLowerCase();
       const intensity=INTENSITY_TIERS.includes(w.intensity)?w.intensity:'endurance';
       let sportKey='other',carbWeight=0.5,tssRate=0.5;
