@@ -2803,6 +2803,16 @@ function calcRequiredWeeklyRate(currentWeightLbs,goalWeightLbs,goalDateStr){
   const lbsToLose=currentWeightLbs-goalWeightLbs;
   return Math.min(Math.max(lbsToLose/weeksLeft,0),1.5);
 }
+// Mode (1=CUT/2=MAINTAIN/3=BUILD) is derived automatically from current vs
+// goal weight and the goal date -- no manual picker. No goal set, goal date
+// passed, or already at goal all fall back to MAINTAIN.
+function calcAutoMode(currentWeightLbs,goalWeightLbs,goalDateStr){
+  if(!goalWeightLbs||!goalDateStr)return 2;
+  if((new Date(goalDateStr)-new Date())<=0)return 2;
+  if(currentWeightLbs>goalWeightLbs)return 1;
+  if(currentWeightLbs<goalWeightLbs)return 3;
+  return 2;
+}
 // Daily carbohydrate need in g/kg bodyweight, per Burke/Hawley/Wong/
 // Jeukendrup (2011) "Carbohydrates for training and competition" -- the
 // standard sports-dietitian framework: light/rest ~3g/kg, moderate ~5g/kg,
@@ -2844,8 +2854,8 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
   const sex=(currentAthlete?.sex||'male').toLowerCase();
   const experience=currentAthlete?.experience_level||profile.experience_level||'intermediate';
   const activityLevel=currentAthlete?.activity_level||profile.activity_level||'light';
-  const mode=parseInt(profile.mode)||0;
   const goalWeight=parseFloat(profile.goal_weight_lbs)||weight_lbs;
+  const mode=calcAutoMode(weight_lbs,parseFloat(profile.goal_weight_lbs),profile.goal_date);
 
   const sexOffset=sex==='female'?-161:5;
   const bmrRaw=(10*weight_kg)+(6.25*height_cm)-(5*age)+sexOffset;
@@ -3439,7 +3449,6 @@ function nutrRenderToday(){
   const isToday=viewDate===todayStr;
   const isPast=viewDate<todayStr;
   const dayResult=calcDayTargets(viewDate,nutr.profile,nutr.weekWorkouts,allActivities);
-  const mode=nutr.profile.mode||1;
   const tdeeResult={tdee:dayResult.tdee,bmr:dayResult.bmr,neat:dayResult.neat,exercise:dayResult.exercise,cutDeficit:dayResult.cutDeficit,buildSurplus:dayResult.buildSurplus};
   const tdeeTarget=dayResult.tdeeTarget;
   const adjTotal=nutrAdjTotal();
@@ -3493,7 +3502,7 @@ function nutrRenderToday(){
       <span class="nutr-intent ${adj.intent.cls}">${adj.intent.label}</span>
     </div>
     <div style="font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-top:5px;line-height:1.5">
-      BMR: ${tdeeResult.bmr} + NEAT: ${tdeeResult.neat} + Exercise: ${tdeeResult.exercise} = ${tdeeResult.tdee}${mode===1?` − ${tdeeResult.cutDeficit} (cut)`:mode===3?` + ${tdeeResult.buildSurplus} (build)`:''}
+      BMR: ${tdeeResult.bmr} + NEAT: ${tdeeResult.neat} + Exercise: ${tdeeResult.exercise} = ${tdeeResult.tdee}${tdeeResult.cutDeficit>0?` − ${tdeeResult.cutDeficit} (cut)`:tdeeResult.buildSurplus>0?` + ${tdeeResult.buildSurplus} (build)`:''}
       = <span style="color:#c8f036;font-weight:700">${tdeeTarget} kcal target</span>
     </div>
   </div>`;
@@ -4193,6 +4202,15 @@ function nutrRenderProfile(){
   }else{
     weeklyCalc=calcRequiredWeeklyRate(currentWt,goalWt,goalDate).toFixed(2)+' lbs/week';
   }
+  // Mode is no longer a manual pick -- derived from current vs goal weight
+  // and the goal date (calcAutoMode, same function calcDayTargets uses).
+  // Synced onto nutr.profile.mode so nutrRenderToday/Week and the coach
+  // portal's read-only nutrition badge all see the same value.
+  const autoMode=calcAutoMode(currentWt,goalWt,goalDate);
+  nutr.profile.mode=autoMode;
+  const modeLabel={1:'CUT',2:'MAINTAIN',3:'BUILD'}[autoMode];
+  const modeColor={1:'#E24B4A',2:'#639922',3:'#378ADD'}[autoMode];
+  const modeReason=(autoMode===1||autoMode===3)?`${currentWt} lbs → ${goalWt} lbs by ${goalDate}`:(!goalWt||!goalDate)?'No goal weight/date set':'At or near goal weight';
   el.innerHTML=`
     <div class="nutr-card" style="max-width:700px;margin:0 auto">
       <div class="section-label" style="margin-top:0;margin-bottom:12px">Nutrition profile</div>
@@ -4219,12 +4237,8 @@ function nutrRenderProfile(){
           </select>
         </div>
         <div style="grid-column:1/-1">
-          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Mode</label>
-          <select class="nutr-select" style="width:100%" onchange="nutr.profile.mode=Number(this.value)">
-            <option value="1"${p.mode===1?' selected':''}>CUT — deficit on easy days</option>
-            <option value="2"${p.mode===2?' selected':''}>MAINTAIN — match TDEE</option>
-            <option value="3"${p.mode===3?' selected':''}>BUILD — surplus on hard days</option>
-          </select>
+          <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Mode (auto)</label>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${modeColor};padding:10px 14px;background:var(--bc3);border:1px solid var(--border)">${modeLabel} <span style="font-size:10px;color:var(--tc3);font-weight:400;text-transform:none">— ${modeReason}</span></div>
         </div>
         <div>
           <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Goal weight (lbs)</label>
@@ -4257,6 +4271,9 @@ async function nutrSaveWeight(){
   // Update in-memory profile weight so W/kg recalculates immediately
   nutr.profile.weight_lbs=savedWt;
   console.log('[nutrSaveWeight] nutr.profile.weight_lbs updated to:', nutr.profile.weight_lbs);
+  // Re-derive mode (CUT/MAINTAIN/BUILD) now that current weight changed --
+  // it's auto-computed from weight vs goal, not manually picked.
+  nutr.profile.mode=calcAutoMode(savedWt,nutr.profile.goal_weight_lbs,nutr.profile.goal_date);
   // Refresh weight log list
   nutr.weightLogs=await fetch('/api/nutrition-data?type=weight&athlete_id='+currentAthlete.id).then(r=>r.json()).catch(()=>[]);
   // Sync weight to athlete_profiles table
