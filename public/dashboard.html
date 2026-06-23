@@ -2924,7 +2924,9 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
   const carbsGPerKg=calcCarbsGPerKg(carbMins,peakIntensity);
   const carbs=Math.round(carbsGPerKg*weight_kg);
 
-  const fatFloor=Math.round(weight_kg*0.3);
+  // Hard floor, not bodyweight-scaled -- below ~85g is impractical to hit
+  // day to day and not something we want to push athletes toward.
+  const fatFloor=85;
   const fat=Math.max(fatFloor,Math.round((tdeeAdjusted-protein*4-carbs*4)/9));
 
   const kcal=Math.round(carbs*4+protein*4+fat*9);
