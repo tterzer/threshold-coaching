@@ -89,16 +89,16 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;flex-shrink:0}
 .cal-layout{flex:1;display:flex;gap:1px;min-height:420px;overflow:hidden}
 .cal-scroll{position:relative;flex:1;overflow-y:auto;min-height:0;background:var(--border);border:1px solid var(--border)}
-#calHeadRow{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border)}
+#calHeadRow{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:repeat(7,1fr) 230px;gap:1px;background:var(--border)}
 .cal-sentinel{height:1px}
 .cal-month-divider{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;color:var(--tc2);background:var(--bc2);padding:6px 10px}
-.cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;min-height:var(--cal-week-h,480px)}
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr) 230px;gap:1px;min-height:var(--cal-week-h,480px)}
 .cal-head{background:var(--bc3);padding:clamp(4px,1vh,8px) 8px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--tc3);text-align:center}
 .cal-cell{background:var(--bc2);min-height:64px;padding:7px 8px;display:flex;flex-direction:column;gap:4px;cursor:pointer;overflow:hidden;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .cal-cell:hover{background:var(--bc3)}
 .cal-cell.is-today{box-shadow:inset 0 0 0 1.5px var(--acc)}
 .cal-date{font-family:'DM Mono',monospace;font-size:14px;color:var(--tc3)}
-.cal-summary{width:230px;flex-shrink:0;background:var(--bc2);border:1px solid var(--border);padding:1rem;overflow-y:auto;font-family:'DM Mono',monospace}
+.cal-summary{background:var(--bc2);padding:0.85rem;overflow-y:auto;font-family:'DM Mono',monospace;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .cal-sum-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--tc2)}
 .cal-sum-row.total{font-weight:700;color:var(--tc)}
 .cal-sum-vals{display:flex;gap:8px;font-size:11px}
@@ -372,7 +372,6 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
                 <div id="coachCalWeeks"></div>
                 <div id="coachCalBottomSentinel" class="cal-sentinel"></div>
               </div>
-              <div class="cal-summary" id="coachCalSummary"></div>
             </div>
             <p style="font-size:11px;color:var(--tc3);margin-top:0.5rem;flex-shrink:0">Click a day to add a workout or race. Click an item to edit it.</p>
           </div>
@@ -1209,6 +1208,7 @@ function coachCalRenderWeek(monday){
     const d=new Date(monday); d.setDate(d.getDate()+i);
     html+=coachCalRenderDay(d);
   }
+  html+=coachCalWeekSummaryHtml(monday);
   return html+'</div>';
 }
 
@@ -1274,7 +1274,7 @@ async function coachCalInit(){
 
   const headRow=document.getElementById('calHeadRow');
   const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  if(headRow)headRow.innerHTML=days.map(d=>'<div class="cal-head">'+d+'</div>').join('');
+  if(headRow)headRow.innerHTML=days.map(d=>'<div class="cal-head">'+d+'</div>').join('')+'<div class="cal-head">Week totals</div>';
   coachCalSizeWeeks();
   if(!coachCalResizeBound){
     window.addEventListener('resize',()=>{
@@ -1311,7 +1311,6 @@ async function coachCalInit(){
   coachCalFocusedMondayKey=toYMD(todayMonday);
 
   coachCalUpdateTitle(todayMonday);
-  coachCalRenderSummary(todayMonday);
   coachCalScrollToMonday(todayMonday);
   coachCalSetupEdgeObserver();
   coachCalUpdateFocusFromScroll();
@@ -1430,7 +1429,6 @@ function coachCalUpdateFocusFromScroll(){
   if(bestKey&&bestKey!==coachCalFocusedMondayKey){
     coachCalFocusedMondayKey=bestKey;
     const monday=new Date(bestKey+'T00:00:00');
-    coachCalRenderSummary(monday);
     coachCalUpdateTitle(monday);
   }
 }
@@ -1498,9 +1496,10 @@ function coachCalComputeWeekSummary(monday){
   return{plannedBySport,actualBySport,plannedTotalDur,plannedTotalTss,actualTotalDur,actualTotalTss};
 }
 
-function coachCalRenderSummary(monday){
-  const el=document.getElementById('coachCalSummary');
-  if(!el)return;
+// Builds the per-week "Week totals" column rendered as the 8th grid cell in
+// coachCalRenderWeek, so each week's summary scrolls along with that week
+// instead of living in a separate sidebar that cycles its content.
+function coachCalWeekSummaryHtml(monday){
   const s=coachCalComputeWeekSummary(monday);
   const sunday=new Date(monday);sunday.setDate(sunday.getDate()+6);
   const rangeLabel=monday.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' – '+sunday.toLocaleDateString('en-US',{month:'short',day:'numeric'});
@@ -1521,8 +1520,8 @@ function coachCalRenderSummary(monday){
     return '<div class="cal-sum-row"><span>'+sportLabel[sp]+' duration</span><span class="cal-sum-vals"><span class="planned">'+coachCalFmtDur(p.dur)+'</span><span class="actual">'+coachCalFmtDur(a.dur)+'</span></span></div>'+distRow;
   }).join('');
 
-  el.innerHTML=
-    '<div class="cal-sum-title">'+rangeLabel+'</div>'
+  return '<div class="cal-summary">'
+    +'<div class="cal-sum-title">'+rangeLabel+'</div>'
     +(fit?(
       '<div class="cal-sum-fitness">'
       +'<div><div class="val" style="color:#378ADD">'+Math.round(fit.ctl)+'</div><div class="lbl">Fitness</div></div>'
@@ -1532,7 +1531,8 @@ function coachCalRenderSummary(monday){
     ):'')
     +'<div class="cal-sum-row total"><span>Total Duration</span><span class="cal-sum-vals"><span class="planned">'+coachCalFmtDur(s.plannedTotalDur)+'</span><span class="actual">'+coachCalFmtDur(s.actualTotalDur)+'</span></span></div>'
     +'<div class="cal-sum-row total"><span>Total TSS</span><span class="cal-sum-vals"><span class="planned">'+Math.round(s.plannedTotalTss)+'</span><span class="actual">'+Math.round(s.actualTotalTss)+'</span></span></div>'
-    +'<div class="cal-sum-section">'+(sportRows||'<div class="cal-sum-row"><span>No activity this week</span></div>')+'</div>';
+    +'<div class="cal-sum-section">'+(sportRows||'<div class="cal-sum-row"><span>No activity this week</span></div>')+'</div>'
+    +'</div>';
 }
 
 // Helper formatters for block modal
