@@ -584,104 +584,110 @@ window.applyTierGating = function() {
     </div>
 
     <div class="dash-panel" id="dtp-profile">
-      <div style="max-width:680px">
-        <div class="section-label">Athlete profile</div>
+      <div class="section-label">Athlete profile</div>
 
-        <!-- W/kg banner -->
-        <div id="profWkg" style="display:none;background:var(--bc3);border:1px solid var(--border);padding:14px 20px;margin-bottom:1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--acc)">
-          <span id="profWkgVal">—</span> <span style="font-size:14px;font-family:'DM Mono',monospace;color:var(--tc3);font-weight:400">w/kg</span>
-        </div>
+      <!-- W/kg banner -->
+      <div id="profWkg" style="display:none;background:var(--bc3);border:1px solid var(--border);padding:14px 20px;margin-bottom:1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--acc)">
+        <span id="profWkgVal">—</span> <span style="font-size:14px;font-family:'DM Mono',monospace;color:var(--tc3);font-weight:400">w/kg</span>
+      </div>
 
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;align-items:start">
         <!-- Personal Info -->
-        <div class="section-label" style="margin-top:0">Personal info</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem">
-          <div class="field"><label>Age</label><input class="zc-input" type="number" id="pf_age" min="10" max="100" placeholder="e.g. 32"></div>
-          <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="pf_weight_lbs" min="80" max="400" placeholder="e.g. 165"></div>
-          <div class="field"><label>Height — feet</label>
-            <select class="zc-select" id="pf_height_feet">
-              <option value="">—</option>
-              <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
-            </select>
+        <div class="chart-box">
+          <div class="section-label" style="margin-top:0">Personal info</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="field"><label>Age</label><input class="zc-input" type="number" id="pf_age" min="10" max="100" placeholder="e.g. 32"></div>
+            <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="pf_weight_lbs" min="80" max="400" placeholder="e.g. 165"></div>
+            <div class="field"><label>Height — feet</label>
+              <select class="zc-select" id="pf_height_feet">
+                <option value="">—</option>
+                <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+              </select>
+            </div>
+            <div class="field"><label>Height — inches</label>
+              <select class="zc-select" id="pf_height_inches">
+                <option value="">—</option>
+                <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
+                <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                <option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
+              </select>
+            </div>
+            <div class="field"><label>Experience level</label>
+              <select class="zc-select" id="pf_experience_level">
+                <option value="">—</option>
+                <option value="Beginner">Beginner</option><option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option><option value="Elite">Elite</option>
+              </select>
+            </div>
+            <div class="field"><label>Years of endurance training</label><input class="zc-input" type="number" id="pf_years_training" min="0" max="50" placeholder="e.g. 5"></div>
           </div>
-          <div class="field"><label>Height — inches</label>
-            <select class="zc-select" id="pf_height_inches">
-              <option value="">—</option>
-              <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option>
-              <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
-              <option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option>
-            </select>
-          </div>
-          <div class="field"><label>Experience level</label>
-            <select class="zc-select" id="pf_experience_level">
-              <option value="">—</option>
-              <option value="Beginner">Beginner</option><option value="Intermediate">Intermediate</option>
-              <option value="Advanced">Advanced</option><option value="Elite">Elite</option>
-            </select>
-          </div>
-          <div class="field"><label>Years of endurance training</label><input class="zc-input" type="number" id="pf_years_training" min="0" max="50" placeholder="e.g. 5"></div>
         </div>
 
         <!-- Training Constraints -->
-        <div class="section-label">Training constraints</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
-          <div class="field"><label>Available training days / week</label><input class="zc-input" type="number" id="pf_available_days_per_week" min="1" max="7" placeholder="e.g. 6"></div>
-          <div class="field"><label>Max weekly training hours</label><input class="zc-input" type="number" id="pf_max_weekly_hours" min="1" max="40" placeholder="e.g. 12"></div>
-          <div class="field"><label>Preferred training time</label>
-            <select class="zc-select" id="pf_preferred_time">
-              <option value="">—</option>
-              <option value="Early morning">Early morning</option><option value="Morning">Morning</option>
-              <option value="Lunch">Lunch</option><option value="Afternoon">Afternoon</option>
-              <option value="Evening">Evening</option><option value="Flexible">Flexible</option>
-            </select>
+        <div class="chart-box">
+          <div class="section-label" style="margin-top:0">Training constraints</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+            <div class="field"><label>Available training days / week</label><input class="zc-input" type="number" id="pf_available_days_per_week" min="1" max="7" placeholder="e.g. 6"></div>
+            <div class="field"><label>Max weekly training hours</label><input class="zc-input" type="number" id="pf_max_weekly_hours" min="1" max="40" placeholder="e.g. 12"></div>
+            <div class="field"><label>Preferred training time</label>
+              <select class="zc-select" id="pf_preferred_time">
+                <option value="">—</option>
+                <option value="Early morning">Early morning</option><option value="Morning">Morning</option>
+                <option value="Lunch">Lunch</option><option value="Afternoon">Afternoon</option>
+                <option value="Evening">Evening</option><option value="Flexible">Flexible</option>
+              </select>
+            </div>
+            <div class="field"><label>Pool access days / week</label><input class="zc-input" type="number" id="pf_pool_days_per_week" min="0" max="7" placeholder="e.g. 3"></div>
           </div>
-          <div class="field"><label>Pool access days / week</label><input class="zc-input" type="number" id="pf_pool_days_per_week" min="0" max="7" placeholder="e.g. 3"></div>
-        </div>
-        <div class="field" style="margin-bottom:1rem">
-          <label>Rest days</label>
-          <div id="pf_rest_days" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
-            <label class="prof-check"><input type="checkbox" value="Mon"> Mon</label>
-            <label class="prof-check"><input type="checkbox" value="Tue"> Tue</label>
-            <label class="prof-check"><input type="checkbox" value="Wed"> Wed</label>
-            <label class="prof-check"><input type="checkbox" value="Thu"> Thu</label>
-            <label class="prof-check"><input type="checkbox" value="Fri"> Fri</label>
-            <label class="prof-check"><input type="checkbox" value="Sat"> Sat</label>
-            <label class="prof-check"><input type="checkbox" value="Sun"> Sun</label>
+          <div class="field" style="margin-bottom:1rem">
+            <label>Rest days</label>
+            <div id="pf_rest_days" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+              <label class="prof-check"><input type="checkbox" value="Mon"> Mon</label>
+              <label class="prof-check"><input type="checkbox" value="Tue"> Tue</label>
+              <label class="prof-check"><input type="checkbox" value="Wed"> Wed</label>
+              <label class="prof-check"><input type="checkbox" value="Thu"> Thu</label>
+              <label class="prof-check"><input type="checkbox" value="Fri"> Fri</label>
+              <label class="prof-check"><input type="checkbox" value="Sat"> Sat</label>
+              <label class="prof-check"><input type="checkbox" value="Sun"> Sun</label>
+            </div>
           </div>
-        </div>
-        <div style="display:flex;gap:24px;margin-bottom:1.5rem;flex-wrap:wrap">
-          <label class="prof-toggle"><input type="checkbox" id="pf_has_indoor_trainer"> Has indoor trainer</label>
-          <label class="prof-toggle"><input type="checkbox" id="pf_has_track_access"> Has track access</label>
+          <div style="display:flex;gap:24px;flex-wrap:wrap">
+            <label class="prof-toggle"><input type="checkbox" id="pf_has_indoor_trainer"> Has indoor trainer</label>
+            <label class="prof-toggle"><input type="checkbox" id="pf_has_track_access"> Has track access</label>
+          </div>
         </div>
 
         <!-- Athletic Profile -->
-        <div class="section-label">Athletic profile</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
-          <div class="field"><label>Primary limiter</label>
-            <select class="zc-select" id="pf_primary_limiter">
-              <option value="">—</option>
-              <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
-              <option value="Running">Running</option><option value="Strength">Strength</option>
-              <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
-            </select>
+        <div class="chart-box">
+          <div class="section-label" style="margin-top:0">Athletic profile</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+            <div class="field"><label>Primary limiter</label>
+              <select class="zc-select" id="pf_primary_limiter">
+                <option value="">—</option>
+                <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
+                <option value="Running">Running</option><option value="Strength">Strength</option>
+                <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
+              </select>
+            </div>
+            <div class="field"><label>Secondary limiter</label>
+              <select class="zc-select" id="pf_secondary_limiter">
+                <option value="">—</option>
+                <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
+                <option value="Running">Running</option><option value="Strength">Strength</option>
+                <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
+              </select>
+            </div>
           </div>
-          <div class="field"><label>Secondary limiter</label>
-            <select class="zc-select" id="pf_secondary_limiter">
-              <option value="">—</option>
-              <option value="Swimming">Swimming</option><option value="Cycling">Cycling</option>
-              <option value="Running">Running</option><option value="Strength">Strength</option>
-              <option value="Nutrition">Nutrition</option><option value="Recovery">Recovery</option><option value="Mental">Mental</option>
-            </select>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="field"><label>Injury history</label><textarea class="zc-input" id="pf_injury_history" rows="3" placeholder="Past recurring issues..." style="resize:vertical;height:80px"></textarea></div>
+            <div class="field"><label>Current injuries / niggles</label><textarea class="zc-input" id="pf_current_injuries" rows="3" placeholder="Anything bothering you right now..." style="resize:vertical;height:80px"></textarea></div>
+            <div class="field" style="grid-column:span 2"><label>Strengths</label><textarea class="zc-input" id="pf_strengths" rows="2" placeholder="What are you good at?" style="resize:vertical;height:64px"></textarea></div>
           </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1.5rem">
-          <div class="field"><label>Injury history</label><textarea class="zc-input" id="pf_injury_history" rows="3" placeholder="Past recurring issues..." style="resize:vertical;height:80px"></textarea></div>
-          <div class="field"><label>Current injuries / niggles</label><textarea class="zc-input" id="pf_current_injuries" rows="3" placeholder="Anything bothering you right now..." style="resize:vertical;height:80px"></textarea></div>
-          <div class="field" style="grid-column:span 2"><label>Strengths</label><textarea class="zc-input" id="pf_strengths" rows="2" placeholder="What are you good at?" style="resize:vertical;height:64px"></textarea></div>
         </div>
 
         <!-- Goals -->
-        <div class="section-label">Goals</div>
-        <div style="margin-bottom:1rem">
+        <div class="chart-box">
+          <div class="section-label" style="margin-top:0">Goals</div>
           <div class="field"><label>Long term goals</label><textarea class="zc-input" id="pf_long_term_goals" rows="3" placeholder='e.g. "qualify for Kona", "sub-4:30 70.3"' style="resize:vertical;height:80px"></textarea></div>
           <div class="field"><label>Current training phase</label>
             <select class="zc-select" id="pf_current_phase">
@@ -691,18 +697,18 @@ window.applyTierGating = function() {
             </select>
           </div>
         </div>
+      </div>
 
-        <div style="display:flex;align-items:center;gap:16px;margin-top:1.5rem">
-          <button class="btn" style="width:auto;padding:12px 32px" onclick="saveAthProfile()">Save profile</button>
-          <span id="profSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
-          <span id="profErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
-        </div>
+      <div style="display:flex;align-items:center;gap:16px;margin-top:1.5rem">
+        <button class="btn" style="width:auto;padding:12px 32px" onclick="saveAthProfile()">Save profile</button>
+        <span id="profSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
+        <span id="profErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
       </div>
     </div>
 
     <!-- NUTRITION TAB -->
     <div class="dash-panel" id="dtp-nutrition">
-      <div style="max-width:700px">
+      <div style="max-width:1200px;margin:0 auto">
 
         <!-- Nutrition sub-tabs -->
         <div class="sub-tabs" id="nutrSubTabs" style="margin-bottom:1.5rem">
@@ -3230,23 +3236,26 @@ function nutrRenderWeightLog(){
       <td style="padding:7px 6px"><button onclick="nutrDeleteWeightLog('${l.id}')" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px" title="Delete">✕</button></td>
     </tr>`;
   }).join('');
-  el.innerHTML=`<div class="nutr-card">
-    <div class="section-label" style="margin-top:0;margin-bottom:12px">Log weight</div>
-    <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px">
-      <div style="flex:1">
+  el.innerHTML=`<div class="nutr-card" style="display:grid;grid-template-columns:minmax(240px,320px) 1fr;gap:28px;align-items:start">
+    <div>
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">Log weight</div>
+      <div style="margin-bottom:12px">
         <label style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;display:block;margin-bottom:4px">Weight (lbs)</label>
         <input type="number" class="nutr-input" placeholder="168.0" id="nutrWtInput" value="${nutr.newWeight||''}" oninput="nutr.newWeight=this.value">
       </div>
-      <button class="nutr-btn" style="padding:10px 20px;white-space:nowrap" onclick="nutrSaveWeight()">LOG WEIGHT</button>
+      <button class="nutr-btn" style="width:100%;padding:10px 20px" onclick="nutrSaveWeight()">LOG WEIGHT</button>
     </div>
-    ${logs.length?`<table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
-      <thead><tr>
-        <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Date &amp; Time</th>
-        <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Weight (lbs)</th>
-        <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Change</th>
-      </tr></thead>
-      <tbody>${wtRows}</tbody>
-    </table>`:`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3)">No entries yet.</div>`}
+    <div>
+      <div class="section-label" style="margin-top:0;margin-bottom:12px">History</div>
+      ${logs.length?`<table style="width:100%;border-collapse:collapse;border-top:1px solid var(--border)">
+        <thead><tr>
+          <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Date &amp; Time</th>
+          <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Weight (lbs)</th>
+          <th style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-align:left;text-transform:uppercase">Change</th>
+        </tr></thead>
+        <tbody>${wtRows}</tbody>
+      </table>`:`<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3)">No entries yet.</div>`}
+    </div>
   </div>`;
 }
 
@@ -3458,7 +3467,10 @@ function nutrRenderToday(){
     <button onclick="nutrSetViewDate(1)" style="background:none;border:1px solid var(--border);color:var(--tc2);width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1">›</button>
   </div>`;
 
-  el.innerHTML=navHtml+macroStrip+sessSection+fuelHtml+foodLogHtml;
+  el.innerHTML=navHtml
+    +`<div class="nutr-grid-2">${macroStrip}${sessSection}</div>`
+    +`<div class="nutr-grid-fuel">${fuelHtml}</div>`
+    +foodLogHtml;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -4066,7 +4078,7 @@ function nutrRenderProfile(){
     else weeklyCalc='Already at/below goal';
   }
   el.innerHTML=`
-    <div class="nutr-card">
+    <div class="nutr-card" style="max-width:700px;margin:0 auto">
       <div class="section-label" style="margin-top:0;margin-bottom:12px">Nutrition profile</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
         <div>
@@ -5237,6 +5249,8 @@ function _applyFitnessToUI(){
 <!-- ── Nutrition tab ──────────────────────────────────────────────── -->
 <style>
 .nutr-card{background:var(--bc2);border:1px solid var(--border);padding:1.5rem;margin-bottom:14px}
+.nutr-grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;align-items:start;margin-bottom:6px}
+.nutr-grid-fuel{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:6px}
 .nutr-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
 .nutr-row:last-child{border-bottom:none}
 .nutr-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-size:13px;font-family:'DM Mono',monospace;outline:none}
