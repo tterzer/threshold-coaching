@@ -2806,11 +2806,13 @@ function calcRequiredWeeklyRate(currentWeightLbs,goalWeightLbs,goalDateStr){
 // Mode (1=CUT/2=MAINTAIN/3=BUILD) is derived automatically from current vs
 // goal weight and the goal date -- no manual picker. No goal set, goal date
 // passed, or already at goal all fall back to MAINTAIN.
+const MAINTAIN_BAND_LBS=2; // within this many lbs of goal counts as "there" -- avoids flipping CUT/BUILD on normal day-to-day water/glycogen fluctuation
 function calcAutoMode(currentWeightLbs,goalWeightLbs,goalDateStr){
   if(!goalWeightLbs||!goalDateStr)return 2;
   if((new Date(goalDateStr)-new Date())<=0)return 2;
-  if(currentWeightLbs>goalWeightLbs)return 1;
-  if(currentWeightLbs<goalWeightLbs)return 3;
+  const diff=currentWeightLbs-goalWeightLbs;
+  if(diff>MAINTAIN_BAND_LBS)return 1;
+  if(diff<-MAINTAIN_BAND_LBS)return 3;
   return 2;
 }
 // Daily carbohydrate need in g/kg bodyweight, per Burke/Hawley/Wong/
