@@ -417,6 +417,13 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
                 <div class="section-label" style="margin-top:0">Personal info</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                   <div class="field"><label>Age</label><input class="zc-input" type="number" id="cpf_age" min="10" max="100" placeholder="e.g. 32"></div>
+                  <div class="field"><label>Sex</label>
+                    <select class="zc-select" id="cpf_sex">
+                      <option value="">—</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
                   <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="cpf_weight_lbs" min="80" max="400" placeholder="e.g. 165" oninput="coachUpdateWkg()"></div>
                   <div class="field"><label>FTP (watts)</label><input class="zc-input" type="number" id="cpf_ftp_watts" min="50" max="700" placeholder="e.g. 280" oninput="coachUpdateWkg()"></div>
                   <div class="field"><label>Height — feet</label>
@@ -842,6 +849,7 @@ function fillCoachProfileForm(p){
   const set=(id,val)=>{const el=document.getElementById(id);if(el&&val!=null)el.value=val;};
   const setChk=(id,val)=>{const el=document.getElementById(id);if(el)el.checked=!!val;};
   set('cpf_age',p.age);
+  set('cpf_sex',p.sex);
   set('cpf_weight_lbs',p.weight_lbs);
   set('cpf_height_feet',p.height_feet);
   set('cpf_height_inches',p.height_inches);
@@ -890,6 +898,7 @@ async function saveCoachProfile(){
   const payload={
     athlete_id:selectedAthlete.id,
     age:getN('cpf_age'),
+    sex:get('cpf_sex'),
     weight_lbs:getN('cpf_weight_lbs'),
     height_feet:getN('cpf_height_feet'),
     height_inches:getN('cpf_height_inches'),
