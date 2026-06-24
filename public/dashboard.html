@@ -2917,7 +2917,12 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
       if(type.includes('ride')||type.includes('virtual')){sportKey='bike';carbWeight=1;}
       else if(type.includes('run')){sportKey='run';carbWeight=1;}
       else if(type.includes('swim')){sportKey='swim';carbWeight=0.8;}
-      exerciseKcal+=Math.round(metExerciseKcal(sportKey,intensity,weight_kg,hours));
+      // Real power-meter data (kJ of mechanical work) beats any type/MET
+      // estimate for cycling -- Coggan's kcal~=kJ rule (~1:1, baking in
+      // ~24% gross efficiency) is the standard used by Strava/TrainingPeaks/
+      // intervals.icu. Only applies when the ride actually has work data.
+      const kj=sportKey==='bike'?parseFloat(a.work)||0:0;
+      exerciseKcal+=kj>0?Math.round(kj):Math.round(metExerciseKcal(sportKey,intensity,weight_kg,hours));
       carbMins+=mins*carbWeight;
       bumpPeak(intensity);
       totalTSS+=tss;
