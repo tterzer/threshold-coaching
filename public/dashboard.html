@@ -2523,18 +2523,12 @@ function closeAthModal(){
   athViewingWo=null;
 }
 
+// Clicking the dead space of a day cell always opens the add-session form
+// for that date -- existing activities only open via their own block click
+// (event.stopPropagation() in athCalRenderDay), never by guessing which
+// one the click "meant."
 function openAthDayModal(dateStr){
-  const wo=(athWorkoutsCache||[]).find(w=>w.date===dateStr);
-  const act=(allActivities||[]).find(a=>(a.start_date_local||'').slice(0,10)===dateStr);
-  if(wo&&act){
-    openAthBlockModal('completed',String(wo.id),String(act.id));
-  } else if(wo){
-    openAthBlockModal('planned',String(wo.id),null);
-  } else if(act){
-    openAthBlockModal('icu_only',null,String(act.id));
-  } else {
-    openAthAddWoModal(dateStr);
-  }
+  openAthAddWoModal(dateStr);
 }
 
 let _athEditingWoId=null;
