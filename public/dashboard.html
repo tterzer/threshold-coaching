@@ -604,6 +604,7 @@ window.applyTierGating = function() {
               </select>
             </div>
             <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="pf_weight_lbs" min="80" max="400" placeholder="e.g. 165"></div>
+            <div class="field"><label>FTP (watts)</label><input class="zc-input" type="number" id="pf_ftp_watts" min="50" max="700" placeholder="e.g. 280"></div>
             <div class="field"><label>Height — feet</label>
               <select class="zc-select" id="pf_height_feet">
                 <option value="">—</option>
@@ -2732,15 +2733,15 @@ const SESSION_TYPES = [
   { id:13, name:'VO2 / Speed Swim',                tssPerHour:80,  glycogenCoeff:0.80, kcalPerMin:13,   intraCarbs:20, quality:true  },
   { id:14, name:'Open Water Swim',                 tssPerHour:55,  glycogenCoeff:0.60, kcalPerMin:10,   intraCarbs:0,  quality:false },
   { id:15, name:'Race Simulation Swim',            tssPerHour:75,  glycogenCoeff:0.75, kcalPerMin:12,   intraCarbs:20, quality:true  },
-  { id:16, name:'Recovery Ride',                   tssPerHour:25,  glycogenCoeff:0.25, kcalPerMin:5,    intraCarbs:0,  quality:false },
-  { id:17, name:'Aerobic Base / Z2 Ride',          tssPerHour:55,  glycogenCoeff:0.55, kcalPerMin:8,    intraCarbs:40, quality:false },
-  { id:18, name:'Tempo / Sweet Spot Ride',         tssPerHour:75,  glycogenCoeff:0.70, kcalPerMin:10,   intraCarbs:60, quality:true  },
-  { id:19, name:'Threshold / FTP Intervals',       tssPerHour:90,  glycogenCoeff:0.85, kcalPerMin:12,   intraCarbs:80, quality:true  },
-  { id:20, name:'VO2max Intervals',                tssPerHour:100, glycogenCoeff:0.90, kcalPerMin:13,   intraCarbs:80, quality:true  },
-  { id:21, name:'Neuromuscular / Cadence Drills',  tssPerHour:45,  glycogenCoeff:0.40, kcalPerMin:7,    intraCarbs:20, quality:false },
-  { id:22, name:'Sprint / Power Work',             tssPerHour:80,  glycogenCoeff:0.70, kcalPerMin:11,   intraCarbs:40, quality:true  },
-  { id:23, name:'Long Endurance Ride',             tssPerHour:60,  glycogenCoeff:0.65, kcalPerMin:9,    intraCarbs:60, quality:false },
-  { id:24, name:'Race Simulation Ride',            tssPerHour:85,  glycogenCoeff:0.80, kcalPerMin:11,   intraCarbs:90, quality:true  },
+  { id:16, name:'Recovery Ride',                   tssPerHour:25,  glycogenCoeff:0.25, kcalPerMin:5,    intraCarbs:0,  quality:false, sport:'bike' },
+  { id:17, name:'Aerobic Base / Z2 Ride',          tssPerHour:55,  glycogenCoeff:0.55, kcalPerMin:8,    intraCarbs:40, quality:false, sport:'bike' },
+  { id:18, name:'Tempo / Sweet Spot Ride',         tssPerHour:75,  glycogenCoeff:0.70, kcalPerMin:10,   intraCarbs:60, quality:true,  sport:'bike' },
+  { id:19, name:'Threshold / FTP Intervals',       tssPerHour:90,  glycogenCoeff:0.85, kcalPerMin:12,   intraCarbs:80, quality:true,  sport:'bike' },
+  { id:20, name:'VO2max Intervals',                tssPerHour:100, glycogenCoeff:0.90, kcalPerMin:13,   intraCarbs:80, quality:true,  sport:'bike' },
+  { id:21, name:'Neuromuscular / Cadence Drills',  tssPerHour:45,  glycogenCoeff:0.40, kcalPerMin:7,    intraCarbs:20, quality:false, sport:'bike' },
+  { id:22, name:'Sprint / Power Work',             tssPerHour:80,  glycogenCoeff:0.70, kcalPerMin:11,   intraCarbs:40, quality:true,  sport:'bike' },
+  { id:23, name:'Long Endurance Ride',             tssPerHour:60,  glycogenCoeff:0.65, kcalPerMin:9,    intraCarbs:60, quality:false, sport:'bike' },
+  { id:24, name:'Race Simulation Ride',            tssPerHour:85,  glycogenCoeff:0.80, kcalPerMin:11,   intraCarbs:90, quality:true,  sport:'bike' },
   { id:25, name:'Recovery Run',                    tssPerHour:30,  glycogenCoeff:0.30, kcalPerMin:7,    intraCarbs:0,  quality:false },
   { id:26, name:'Easy Base Run',                   tssPerHour:45,  glycogenCoeff:0.45, kcalPerMin:9,    intraCarbs:0,  quality:false },
   { id:27, name:'Easy Base Run — Short Brick',     tssPerHour:40,  glycogenCoeff:0.40, kcalPerMin:9,    intraCarbs:0,  quality:false },
@@ -2785,6 +2786,25 @@ function metExerciseKcal(sportKey,intensity,weight_kg,hours){
   const met=(MET_TABLE[sportKey]&&MET_TABLE[sportKey][intensity])||MET_TABLE.other.endurance;
   return met*weight_kg*hours;
 }
+// Power-based cycling calorie estimate using the athlete's actual FTP --
+// strictly better than a generic per-kg/per-type guess for a power-based
+// sport, since cycling calorie burn is essentially watts x time. Estimated
+// watts = FTP x intensity factor; kcal ~= kJ (Coggan's ~1:1 rule, the same
+// one used for completed rides with real power data) = watts x minutes x 0.06.
+function estimateBikeKcalFromFtp(ftpWatts,intensityFactor,mins){
+  return ftpWatts*intensityFactor*mins*0.06;
+}
+// IF (intensity factor = NP/FTP) for a session, derived from Coggan's own
+// TSS definition (TSS_per_hour = IF^2 x 100) so this reuses each FuelPro
+// type's existing tssPerHour rather than inventing a parallel %FTP table.
+// Confirms type 21 (Neuromuscular/Cadence Drills) -> IF .67, correctly low
+// despite the "neuromuscular" name suggesting the high-power Z7 sprint zone.
+function ifFromTssPerHour(tssPerHour){
+  return Math.sqrt(tssPerHour/100);
+}
+// Same idea for workouts with no specific FuelPro type chosen, keyed off the
+// generic 5-tier intensity field instead.
+const BIKE_IF_BY_INTENSITY={easy:0.50,endurance:0.70,tempo:0.85,threshold:0.95,intervals:1.00};
 // Intensity tier inferred from TSS/hour for completed activities (no
 // explicit intensity field on a finished ride/run the way planned
 // workouts have one).
@@ -2938,8 +2958,14 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
       // than the generic sport+intensity table below. That table is only
       // the fallback for workouts where no specific type was chosen.
       const t=w.fuelpro_type?NUTR_SESSION_TYPES[Number(w.fuelpro_type)]:null;
+      const ftp=parseFloat(currentAthlete?.ftp_watts)||0;
       if(t){
-        exerciseKcal+=Math.round(t.kcalPerMin*(weight_kg/REFERENCE_WEIGHT_KG)*mins);
+        // Cycling types get a power-based estimate when the athlete has an
+        // FTP on file -- strictly more accurate than the flat kcalPerMin
+        // guess for a power-based sport. Falls back to kcalPerMin otherwise.
+        exerciseKcal+=Math.round(t.sport==='bike'&&ftp>0
+          ?estimateBikeKcalFromFtp(ftp,ifFromTssPerHour(t.tssPerHour),mins)
+          :t.kcalPerMin*(weight_kg/REFERENCE_WEIGHT_KG)*mins);
         carbMins+=mins*t.glycogenCoeff;
         totalTSS+=Math.round(t.tssPerHour*hours);
         bumpPeak(tssPerHourToIntensity(t.tssPerHour));
@@ -2951,7 +2977,9 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
       if(sport.includes('bike')||sport.includes('cycl')||sport.includes('ride')){sportKey='bike';carbWeight=1;tssRate=0.8;}
       else if(sport.includes('run')){sportKey='run';carbWeight=1;tssRate=0.7;}
       else if(sport.includes('swim')){sportKey='swim';carbWeight=0.8;tssRate=0.5;}
-      exerciseKcal+=Math.round(metExerciseKcal(sportKey,intensity,weight_kg,hours));
+      exerciseKcal+=Math.round(sportKey==='bike'&&ftp>0
+        ?estimateBikeKcalFromFtp(ftp,BIKE_IF_BY_INTENSITY[intensity]||0.70,mins)
+        :metExerciseKcal(sportKey,intensity,weight_kg,hours));
       carbMins+=mins*carbWeight;
       bumpPeak(intensity);
       totalTSS+=Math.round(mins*tssRate);
@@ -4952,6 +4980,7 @@ function fillProfileForm(p){
   set('pf_age', p.age);
   set('pf_sex', p.sex);
   set('pf_weight_lbs', p.weight_lbs);
+  set('pf_ftp_watts', p.ftp_watts);
   set('pf_height_feet', p.height_feet);
   set('pf_height_inches', p.height_inches);
   set('pf_experience_level', p.experience_level);
@@ -5002,6 +5031,7 @@ async function saveAthProfile(){
     age: getN('pf_age'),
     sex: get('pf_sex'),
     weight_lbs: getN('pf_weight_lbs'),
+    ftp_watts: getN('pf_ftp_watts'),
     height_feet: getN('pf_height_feet'),
     height_inches: getN('pf_height_inches'),
     experience_level: get('pf_experience_level'),
