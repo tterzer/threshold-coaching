@@ -604,7 +604,6 @@ window.applyTierGating = function() {
               </select>
             </div>
             <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="pf_weight_lbs" min="80" max="400" placeholder="e.g. 165"></div>
-            <div class="field"><label>FTP (watts)</label><input class="zc-input" type="number" id="pf_ftp_watts" min="50" max="700" placeholder="e.g. 280"></div>
             <div class="field"><label>Height — feet</label>
               <select class="zc-select" id="pf_height_feet">
                 <option value="">—</option>
@@ -2958,7 +2957,11 @@ function calcDayTargets(dateStr,profile,plannedWorkouts,completedActivities){
       // than the generic sport+intensity table below. That table is only
       // the fallback for workouts where no specific type was chosen.
       const t=w.fuelpro_type?NUTR_SESSION_TYPES[Number(w.fuelpro_type)]:null;
-      const ftp=parseFloat(currentAthlete?.ftp_watts)||0;
+      // FTP comes from the zone calculator (zs.cycling.ftp) -- the athlete's
+      // real, actively-maintained threshold, same source the W/kg banner
+      // already uses. Not athlete_profiles.ftp_watts (coach-only field,
+      // rarely populated for an athlete who manages their own zones).
+      const ftp=(typeof zs!=='undefined'?parseFloat(zs.cycling.ftp):0)||0;
       if(t){
         // Cycling types get a power-based estimate when the athlete has an
         // FTP on file -- strictly more accurate than the flat kcalPerMin
@@ -4980,7 +4983,6 @@ function fillProfileForm(p){
   set('pf_age', p.age);
   set('pf_sex', p.sex);
   set('pf_weight_lbs', p.weight_lbs);
-  set('pf_ftp_watts', p.ftp_watts);
   set('pf_height_feet', p.height_feet);
   set('pf_height_inches', p.height_inches);
   set('pf_experience_level', p.experience_level);
@@ -5031,7 +5033,6 @@ async function saveAthProfile(){
     age: getN('pf_age'),
     sex: get('pf_sex'),
     weight_lbs: getN('pf_weight_lbs'),
-    ftp_watts: getN('pf_ftp_watts'),
     height_feet: getN('pf_height_feet'),
     height_inches: getN('pf_height_inches'),
     experience_level: get('pf_experience_level'),
