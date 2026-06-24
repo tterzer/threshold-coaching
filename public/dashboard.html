@@ -5174,7 +5174,6 @@ async function _setupDetailStreams(actId, sport, act) {
       if (!act.laps.length) console.log('[laps] no laps/icu_intervals/intervals field found; raw keys:', lapData?Object.keys(lapData):lapData);
     } catch(e) {}
   }
-  _renderLaps(act, sport);
 
   await Promise.all(streams.map(async (streamType) => {
     // Check Supabase cache first
@@ -5215,6 +5214,7 @@ async function _setupDetailStreams(actId, sport, act) {
 
   chartContainer.style.opacity = '1';
   _renderDetailChart(sport);
+  _renderLaps(act, sport); // after streams: running's mile-split calc reads _detailStreams
 }
 
 function _renderDetailChart(sport) {
@@ -5289,6 +5289,12 @@ function _renderDetailChart(sport) {
       elements: { line:{capBezierPoints:false} },
     }
   });
+  // responsive:true sizes the chart via an async ResizeObserver, so
+  // chartArea (and therefore getValueForPixel) is still zero-width right
+  // after construction -- forcing a synchronous resize here is what makes
+  // drag-select usable immediately instead of only after some unrelated
+  // resize/redraw happens to fire first.
+  _detailChart.resize();
   _setupDetailSelectionHandlers();
 }
 
@@ -5422,41 +5428,87 @@ function _renderDetailSelectionStats() {
   row.style.display = 'block';
 }
 
+// Auto mile splits for running, computed from the velocity_smooth stream
+// rather than intervals.icu's own laps array -- the user wants splits at
+// fixed 1-mile boundaries regardless of whether/how laps were marked on
+// the device, since auto-lap behavior varies by watch and isn't reliable.
+function _calcRunMileSplits() {
+  const vel = _detailStreams.velocity_smooth;
+  if (!vel || !vel.length) return [];
+  const MILE_M = 1609.34;
+  const splits = [];
+  let cumDist = 0, segStart = 0, segDistAtStart = 0, nextBoundary = MILE_M;
+  for (let i = 0; i < vel.length; i++) {
+    cumDist += Number(vel[i]) || 0; // 1 sample/sec -> m/s sums directly to meters
+    if (cumDist >= nextBoundary) {
+      splits.push({ startIdx: segStart, endIdx: i, distM: cumDist - segDistAtStart });
+      segStart = i + 1;
+      segDistAtStart = cumDist;
+      nextBoundary += MILE_M;
+    }
+  }
+  if (segStart <= vel.length - 1) splits.push({ startIdx: segStart, endIdx: vel.length - 1, distM: cumDist - segDistAtStart });
+  return splits;
+}
+
 function _renderLaps(act, sport) {
   const lapsEl = document.getElementById('detailLapsSection');
-  const laps = act.laps;
+  const titleEl = document.getElementById('detailLapsTitle');
+
+  if (sport === 'cycling') {
+    titleEl.textContent = 'Lap Splits';
+    lapsEl.style.display = 'block';
+    document.getElementById('detailLapsTable').innerHTML = `<div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--tc3);padding:4px 0">Coming soon.</div>`;
+    return;
+  }
+
+  if (sport === 'running') {
+    titleEl.textContent = 'Mile Splits';
+    const splits = _calcRunMileSplits();
+    if (!splits.length) { lapsEl.style.display = 'none'; return; }
+    lapsEl.style.display = 'block';
+    const headers = ['Mile','Duration','Distance','Avg Pace','Avg HR','Cadence','Elev Gain'];
+    const altArr = _detailStreams.altitude;
+    const rows = splits.map((sp, i) => {
+      const durSecs = sp.endIdx - sp.startIdx + 1;
+      const hrSlice = (_detailStreams.heartrate || []).slice(sp.startIdx, sp.endIdx + 1).map(v => Number(v) || 0).filter(v => v > 0);
+      const cadSlice = (_detailStreams.cadence || []).slice(sp.startIdx, sp.endIdx + 1).map(v => Number(v) || 0).filter(v => v > 0);
+      const avgHr = hrSlice.length ? Math.round(hrSlice.reduce((s, v) => s + v, 0) / hrSlice.length) : null;
+      const avgCad = cadSlice.length ? Math.round(cadSlice.reduce((s, v) => s + v, 0) / cadSlice.length * 2) : null;
+      let elevGain = 0;
+      if (altArr && altArr.length > sp.endIdx) {
+        for (let j = sp.startIdx + 1; j <= sp.endIdx; j++) {
+          const d = (Number(altArr[j]) || 0) - (Number(altArr[j - 1]) || 0);
+          if (d > 0) elevGain += d;
+        }
+      }
+      let pace = '—';
+      if (sp.distM > 0) { const spmi = durSecs / (sp.distM / 1609.34), mm = Math.floor(spmi / 60), ss = Math.round(spmi % 60); pace = mm + ':' + (ss < 10 ? '0' : '') + ss + '/mi'; }
+      return [
+        i + 1, _fmtDurPrecise(durSecs), (sp.distM / 1609.34).toFixed(2) + ' mi', pace,
+        avgHr != null ? avgHr + ' bpm' : '—', avgCad != null ? String(avgCad) : '—',
+        elevGain > 0 ? Math.round(elevGain * 3.28084) + "'" : '—',
+      ];
+    });
+    document.getElementById('detailLapsTable').innerHTML = `<table class="laps-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    return;
+  }
+
+  // Swimming (and any other remaining sport): use intervals.icu's own laps.
+  // For swimming specifically, intervals.icu includes a 0-distance "lap" for
+  // each rest-at-the-wall pause between reps -- not a real swim interval.
+  titleEl.textContent = 'Lap Splits';
+  const laps = sport === 'swimming' ? (act.laps || []).filter(lap => (lap.distance || 0) > 0) : act.laps;
   if (!laps || !laps.length) { lapsEl.style.display = 'none'; return; }
   lapsEl.style.display = 'block';
 
-  let headers, rows;
-  if (sport === 'cycling') {
-    headers = ['Lap','Duration','Distance','Avg Power','NP','Avg HR','Avg Speed','Cadence','TSS'];
-    rows = laps.map((lap,i) => [
-      i+1, _fmtDur(lap.moving_time||lap.elapsed_time),
-      lap.distance?(lap.distance/1609.34).toFixed(2)+' mi':'—',
-      lap.average_watts?Math.round(lap.average_watts)+'w':'—',
-      lap.normalized_power?Math.round(lap.normalized_power)+'w':'—',
-      lap.average_heartrate?Math.round(lap.average_heartrate)+' bpm':'—',
-      lap.average_speed?(lap.average_speed*2.23694).toFixed(1)+' mph':'—',
-      lap.average_cadence?Math.round(lap.average_cadence):'—',
-      lap.training_stress_score?Math.round(lap.training_stress_score):'—',
-    ]);
-  } else if (sport === 'running') {
-    headers = ['Lap','Duration','Distance','Avg Pace','Avg HR','Cadence','Elev Gain'];
-    rows = laps.map((lap,i) => {
-      let pace='—';
-      if(lap.average_speed&&lap.average_speed>0){const spmi=1609.34/lap.average_speed,mm=Math.floor(spmi/60),ss=Math.round(spmi%60);pace=mm+':'+(ss<10?'0':'')+ss+'/mi';}
-      return [i+1,_fmtDur(lap.moving_time||lap.elapsed_time),lap.distance?(lap.distance/1609.34).toFixed(2)+' mi':'—',pace,lap.average_heartrate?Math.round(lap.average_heartrate)+' bpm':'—',lap.average_cadence?Math.round(lap.average_cadence*2):'—',lap.total_elevation_gain?Math.round(lap.total_elevation_gain*3.28084)+"'":"—"];
-    });
-  } else {
-    headers = ['Lap','Duration','Distance','Avg Pace','Avg HR'];
-    rows = laps.map((lap,i) => [
-      i+1, _fmtDur(lap.moving_time||lap.elapsed_time),
-      lap.distance?Math.round(lap.distance*1.09361)+' yd':'—',
-      lap.average_speed&&lap.average_speed>0.01?(()=>{const spyd=91.44/lap.average_speed,mm=Math.floor(spyd/60),ss=Math.round(spyd%60);return mm+':'+(ss<10?'0':'')+ss+'/100yd';})():'—',
-      lap.average_heartrate?Math.round(lap.average_heartrate)+' bpm':'—',
-    ]);
-  }
+  const headers = ['Lap','Duration','Distance','Avg Pace','Avg HR'];
+  const rows = laps.map((lap,i) => [
+    i+1, _fmtDur(lap.moving_time||lap.elapsed_time),
+    lap.distance?Math.round(lap.distance*1.09361)+' yd':'—',
+    lap.average_speed&&lap.average_speed>0.01?(()=>{const spyd=91.44/lap.average_speed,mm=Math.floor(spyd/60),ss=Math.round(spyd%60);return mm+':'+(ss<10?'0':'')+ss+'/100yd';})():'—',
+    lap.average_heartrate?Math.round(lap.average_heartrate)+' bpm':'—',
+  ]);
 
   document.getElementById('detailLapsTable').innerHTML = `<table class="laps-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
@@ -5622,7 +5674,7 @@ function _applyFitnessToUI(){
       <div id="detailSelectionMetrics" style="display:flex;gap:1px"></div>
     </div>
     <div id="detailLapsSection">
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Lap Splits</div>
+      <div id="detailLapsTitle" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Lap Splits</div>
       <div id="detailLapsTable" style="overflow-x:auto"></div>
     </div>
   </div>
