@@ -5083,9 +5083,14 @@ let _detailStreams = {};
 let _detailAct = null;
 let _detailSport = null;
 let _detailVisible = {};
+let _detailSelRange = null; // {startIdx,endIdx} once a drag-selection is finalized
+let _detailSelDragging = false;
+let _detailSelStartX = null;
+let _detailSelMoved = false;
 
 function openDetailView(actId, sport) {
   const overlay = document.getElementById('detailOverlay');
+  _clearDetailSelection();
   overlay.style.display = 'block';
   document.body.style.overflow = 'hidden';
 
@@ -5284,6 +5289,7 @@ function _renderDetailChart(sport) {
       elements: { line:{capBezierPoints:false} },
     }
   });
+  _setupDetailSelectionHandlers();
 }
 
 function _toggleDetailStream(stream) {
@@ -5291,6 +5297,129 @@ function _toggleDetailStream(stream) {
   const btn = document.getElementById('dtoggle_' + stream);
   if (btn) btn.classList.toggle('active', _detailVisible[stream]);
   _renderDetailChart(_detailSport);
+  if (_detailSelRange) _renderDetailSelectionStats();
+}
+
+// ── Detail chart drag-to-select: highlight a sub-range of the chart and
+// show stats for just that range, computed from the already-fetched
+// _detailStreams (no extra fetch needed). Uses Chart.js's own pixel<->index
+// mapping (category scale -> getValueForPixel returns the array index
+// directly) instead of a zoom/selection plugin.
+function _detailIndexFromClientX(clientX) {
+  if (!_detailChart) return null;
+  const rect = document.getElementById('detailChart').getBoundingClientRect();
+  const val = _detailChart.scales.x.getValueForPixel(clientX - rect.left);
+  return val == null ? null : Math.round(val);
+}
+
+function _setupDetailSelectionHandlers() {
+  const wrap = document.getElementById('detailChartWrap');
+  if (!wrap || wrap._selBound) return;
+  wrap._selBound = true;
+  const ov = document.getElementById('detailSelOverlay');
+  wrap.addEventListener('mousedown', (e) => {
+    _detailSelDragging = true;
+    _detailSelMoved = false;
+    _detailSelStartX = e.clientX;
+    const rect = wrap.getBoundingClientRect();
+    ov.style.display = 'block';
+    ov.style.left = (e.clientX - rect.left) + 'px';
+    ov.style.width = '0px';
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!_detailSelDragging) return;
+    if (Math.abs(e.clientX - _detailSelStartX) > 3) _detailSelMoved = true;
+    const rect = wrap.getBoundingClientRect();
+    const x1 = Math.max(0, Math.min(rect.width, _detailSelStartX - rect.left));
+    const x2 = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+    ov.style.left = Math.min(x1, x2) + 'px';
+    ov.style.width = Math.abs(x2 - x1) + 'px';
+  });
+  window.addEventListener('mouseup', (e) => {
+    if (!_detailSelDragging) return;
+    _detailSelDragging = false;
+    if (!_detailSelMoved) { _clearDetailSelection(); return; }
+    const i1 = _detailIndexFromClientX(_detailSelStartX);
+    const i2 = _detailIndexFromClientX(e.clientX);
+    if (i1 == null || i2 == null) { _clearDetailSelection(); return; }
+    const startIdx = Math.max(0, Math.min(i1, i2));
+    const endIdx = Math.max(i1, i2);
+    if (endIdx <= startIdx) { _clearDetailSelection(); return; }
+    _detailSelRange = { startIdx, endIdx };
+    _renderDetailSelectionStats();
+  });
+}
+
+function _clearDetailSelection() {
+  _detailSelRange = null;
+  const ov = document.getElementById('detailSelOverlay');
+  if (ov) ov.style.display = 'none';
+  const row = document.getElementById('detailSelectionRow');
+  if (row) row.style.display = 'none';
+}
+
+// _fmtDur only shows whole minutes (fine for a full activity), which would
+// show "0m" for any drag-selection under a minute -- selections are often
+// short, so this needs second-level precision.
+function _fmtDurPrecise(secs) {
+  secs = Math.round(secs);
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  return (h > 0 ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+}
+
+// Coggan's Normalized Power: 30s rolling average of power, raised to the
+// 4th power, averaged, then 4th-rooted. No existing implementation in this
+// codebase (rollingMax elsewhere is a plain rolling max, not this).
+function _calcNP(powerArr, startIdx, endIdx) {
+  const slice = powerArr.slice(startIdx, endIdx + 1).map(v => Number(v) || 0);
+  if (slice.length < 30) return null;
+  const rolling = [];
+  let sum = 0;
+  for (let i = 0; i < slice.length; i++) {
+    sum += slice[i];
+    if (i >= 30) sum -= slice[i - 30];
+    if (i >= 29) rolling.push(sum / 30);
+  }
+  if (!rolling.length) return null;
+  const avgQuad = rolling.reduce((s, v) => s + Math.pow(v, 4), 0) / rolling.length;
+  return Math.pow(avgQuad, 0.25);
+}
+
+function _renderDetailSelectionStats() {
+  const row = document.getElementById('detailSelectionRow');
+  const el = document.getElementById('detailSelectionMetrics');
+  if (!_detailSelRange) { row.style.display = 'none'; return; }
+  const { startIdx, endIdx } = _detailSelRange;
+  const durSecs = endIdx - startIdx + 1;
+  const metrics = [{ label: 'Duration', val: _fmtDurPrecise(durSecs) }];
+
+  if (_detailStreams.watts && _detailVisible.watts) {
+    const slice = _detailStreams.watts.slice(startIdx, endIdx + 1).map(v => Number(v) || 0);
+    const avg = slice.length ? Math.round(slice.reduce((s, v) => s + v, 0) / slice.length) : null;
+    metrics.push({ label: 'Avg Power', val: avg != null ? avg + 'w' : '—' });
+    const np = _calcNP(_detailStreams.watts, startIdx, endIdx);
+    metrics.push({ label: 'NP', val: np != null ? Math.round(np) + 'w' : '—' });
+  }
+  if (_detailStreams.heartrate && _detailVisible.heartrate) {
+    const slice = _detailStreams.heartrate.slice(startIdx, endIdx + 1).map(v => Number(v) || 0).filter(v => v > 0);
+    const avg = slice.length ? Math.round(slice.reduce((s, v) => s + v, 0) / slice.length) : null;
+    metrics.push({ label: 'Avg HR', val: avg != null ? avg + ' bpm' : '—' });
+  }
+  if (_detailStreams.velocity_smooth && _detailVisible.velocity_smooth) {
+    const slice = _detailStreams.velocity_smooth.slice(startIdx, endIdx + 1).map(v => Number(v) || 0);
+    const avgSpeed = slice.length ? slice.reduce((s, v) => s + v, 0) / slice.length : 0;
+    const distM = slice.reduce((s, v) => s + v, 0); // 1 sample/sec -> sum of m/s = total meters
+    metrics.push({ label: _detailSport === 'running' ? 'Avg Pace' : 'Avg Speed', val: _fmtPaceOrSpeed(avgSpeed, _detailSport) });
+    metrics.push({ label: 'Distance', val: _fmtDist(distM) });
+  }
+  if (_detailStreams.cadence && _detailVisible.cadence) {
+    const slice = _detailStreams.cadence.slice(startIdx, endIdx + 1).map(v => Number(v) || 0).filter(v => v > 0);
+    const avg = slice.length ? Math.round(slice.reduce((s, v) => s + v, 0) / slice.length) : null;
+    metrics.push({ label: 'Cadence', val: avg != null ? String(avg) : '—' });
+  }
+
+  el.innerHTML = metrics.map(m => `<div class="detail-metric"><div class="detail-metric-val">${m.val}</div><div class="detail-metric-label">${m.label}</div></div>`).join('');
+  row.style.display = 'block';
 }
 
 function _renderLaps(act, sport) {
@@ -5479,8 +5608,18 @@ function _applyFitnessToUI(){
     </div>
     <div id="detailMetricsStrip" style="display:flex;gap:1px;margin-bottom:28px"></div>
     <div id="detailToggles" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap"></div>
-    <div style="background:var(--bc2);border:1px solid var(--border);padding:20px;margin-bottom:24px">
-      <div style="position:relative;height:300px"><canvas id="detailChart"></canvas></div>
+    <div style="background:var(--bc2);border:1px solid var(--border);padding:20px;margin-bottom:12px">
+      <div style="position:relative;height:300px;cursor:crosshair" id="detailChartWrap">
+        <canvas id="detailChart"></canvas>
+        <div id="detailSelOverlay" style="position:absolute;top:0;bottom:0;display:none;background:rgba(200,240,54,0.12);border-left:1px solid var(--acc);border-right:1px solid var(--acc);pointer-events:none;z-index:5"></div>
+      </div>
+    </div>
+    <div id="detailSelectionRow" style="display:none;margin-bottom:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em">Selection</div>
+        <a href="#" onclick="_clearDetailSelection();return false" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.06em">✕ Clear selection</a>
+      </div>
+      <div id="detailSelectionMetrics" style="display:flex;gap:1px"></div>
     </div>
     <div id="detailLapsSection">
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Lap Splits</div>
