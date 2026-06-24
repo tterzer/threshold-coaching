@@ -1594,7 +1594,8 @@ async function openBlockModal(evt, mode, woId, icuId){
     {label:'TSS',val:act&&act.icu_training_load?Math.round(act.icu_training_load):'—'},
     {label:'Avg HR',val:(act&&(act.average_heartrate||act.avg_heart_rate))?Math.round(act.average_heartrate||act.avg_heart_rate)+' bpm':'—'},
     {label:sport==='running'?'Avg Pace':'Avg Speed',val:paceVal},
-    {label:'Avg Power',val:(()=>{if(!act)return'—';const pw=act.average_watts||act.weighted_average_watts||act.icu_weighted_avg_watts||act.icu_average_watts;console.log('[power fields]',{average_watts:act.average_watts,weighted_average_watts:act.weighted_average_watts,icu_weighted_avg_watts:act.icu_weighted_avg_watts,icu_average_watts:act.icu_average_watts,max_watts:act.max_watts,device_watts:act.device_watts,used:pw});return pw?Math.round(pw)+' w':'—';})()},
+    {label:'Avg Power',val:(()=>{if(!act)return'—';const pw=act.average_watts||act.icu_average_watts;return pw?Math.round(pw)+' w':'—';})()},
+    {label:'NP',val:(()=>{if(!act)return'—';const np=act.weighted_average_watts||act.icu_weighted_avg_watts;return np?Math.round(np)+' w':'—';})()},
   ];
 
   let html='<button class="modal-close-x" onclick="closeBlockModal()">&times;</button>'
@@ -2178,7 +2179,8 @@ function openDetailView(actId, sport) {
     { label:'TSS',      val: act.icu_training_load ? Math.round(act.icu_training_load) : '—' },
     { label:'Avg HR',   val: (act.average_heartrate || act.avg_heart_rate) ? Math.round(act.average_heartrate || act.avg_heart_rate) + ' bpm' : '—' },
     { label: sport==='running'?'Avg Pace':'Avg Speed', val: _fmtPaceOrSpeed(act.average_speed, sport) },
-    { label:'Avg Power', val: (()=>{ const pw=act.average_watts||act.weighted_average_watts||act.icu_weighted_avg_watts||act.icu_average_watts; return pw?Math.round(pw)+'w':'—'; })() },
+    { label:'Avg Power', val: (()=>{ const pw=act.average_watts||act.icu_average_watts; return pw?Math.round(pw)+'w':'—'; })() },
+    { label:'NP', val: (()=>{ const np=act.weighted_average_watts||act.icu_weighted_avg_watts; return np?Math.round(np)+'w':'—'; })() },
   ];
   metricsEl.innerHTML = metrics.map(m => `<div class="detail-metric"><div class="detail-metric-val">${m.val}</div><div class="detail-metric-label">${m.label}</div></div>`).join('');
 
