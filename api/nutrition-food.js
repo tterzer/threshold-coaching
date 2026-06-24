@@ -1,7 +1,7 @@
 // ?type=search  GET ?q=  — USDA food search
 // ?type=search  POST {barcode}  — Open Food Facts barcode lookup
-// ?type=history GET ?q=&athlete_id=&is_favorite=true&limit=8  — food history search
-// ?type=history POST {food,athlete_id}  — upsert food history
+// ?type=history GET ?q=&athlete_id=&is_favorite=true&is_combo=true|false&limit=8  — food history search
+// ?type=history POST {food,athlete_id,is_combo,combo_name,combo_items}  — upsert food history / combo
 // ?type=history PATCH ?id=xxx  {is_favorite: bool}  — toggle favorite by id
 import { supabase } from './supabase.js';
 
@@ -17,17 +17,22 @@ export default async function handler(req, res) {
     // ── FOOD HISTORY ──────────────────────────────────────────────
     if (type === 'history') {
       if (req.method === 'GET') {
-        const { q = '', athlete_id, limit: limitParam, is_favorite } = req.query;
+        const { q = '', athlete_id, limit: limitParam, is_favorite, is_combo } = req.query;
         const limit = Math.min(parseInt(limitParam) || 8, 50);
         const orderCol = q ? 'use_count' : 'last_used';
         let query = supabase
           .from('food_history')
-          .select('id,name,per100g,serving_size,serving_unit,use_count,last_used,is_favorite,is_combo,combo_name')
+          .select('id,name,per100g,serving_size,serving_unit,use_count,last_used,is_favorite,is_combo,combo_name,combo_items')
           .ilike('name', `%${q}%`)
           .order(orderCol, { ascending: false })
           .limit(limit);
         if (athlete_id) query = query.eq('athlete_id', athlete_id);
         if (is_favorite === 'true') query = query.eq('is_favorite', true);
+        // Recent/favorites should exclude combos (they get their own tab);
+        // is_combo can be null on rows inserted before this column existed,
+        // so "false" has to match null too, not just exclude true.
+        if (is_combo === 'true') query = query.eq('is_combo', true);
+        else if (is_combo === 'false') query = query.or('is_combo.is.null,is_combo.eq.false');
         const { data, error } = await query;
         console.log('food_history GET athlete_id:', athlete_id, '| rows:', data?.length, '| error:', error?.message);
         if (error) { console.error('food_history GET error:', error); return res.status(200).json([]); }
@@ -52,7 +57,7 @@ export default async function handler(req, res) {
       if (req.method === 'POST') {
         let body = req.body;
         if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
-        const { food, athlete_id, set_favorite, name, per100g, serving_size, serving_unit, is_combo, combo_name, is_favorite } = body || {};
+        const { food, athlete_id, set_favorite, name, per100g, serving_size, serving_unit, is_combo, combo_name, is_favorite, combo_items } = body || {};
         // Accept flat format (name/per100g at top level) or legacy nested {food:{}}
         const fname = name || food?.name;
         const fper100g = per100g || food?.per100g;
@@ -67,9 +72,16 @@ export default async function handler(req, res) {
         const { data: existing } = await query;
 
         if (existing && existing.length > 0) {
-          const upd = set_favorite !== undefined
-            ? { is_favorite: is_favorite ?? food?.is_favorite ?? false, last_used: new Date().toISOString() }
-            : { use_count: existing[0].use_count + 1, last_used: new Date().toISOString() };
+          let upd;
+          if (combo_items) {
+            // Re-saving a combo under the same name -- replace its contents
+            // instead of just bumping use_count, otherwise edits are silently lost.
+            upd = { per100g: fper100g, is_combo: true, combo_name: combo_name || fname, combo_items, last_used: new Date().toISOString() };
+          } else if (set_favorite !== undefined) {
+            upd = { is_favorite: is_favorite ?? food?.is_favorite ?? false, last_used: new Date().toISOString() };
+          } else {
+            upd = { use_count: existing[0].use_count + 1, last_used: new Date().toISOString() };
+          }
           await supabase.from('food_history').update(upd).eq('id', existing[0].id);
         } else {
           await supabase.from('food_history').insert({
@@ -82,6 +94,7 @@ export default async function handler(req, res) {
             use_count: 1,
             is_favorite: is_favorite || food?.is_favorite || false,
             is_combo: is_combo || food?.is_combo || false,
+            combo_items: combo_items || food?.combo_items || null,
             combo_name: combo_name || food?.combo_name || null,
             last_used: new Date().toISOString(),
           });

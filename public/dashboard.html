@@ -3299,7 +3299,7 @@ const nutr={
   foodModalOpen:false,foodModalWindow:'unassigned',
   selectedFood:null,searchResults:[],searchQuery:'',searchError:'',
   foodQty:'',foodUnit:'g',foodOverrides:{},recentsTab:'recent',
-  saveAsCombo:false,comboName:'',
+  buildingCombo:false,comboItems:[],comboName:'',
   searchTimer:null,
   // week view
   weekSelectedDay:Math.max(0,new Date().getDay()-1),
@@ -3358,11 +3358,11 @@ async function loadNutritionTab(){
       fetch('/api/nutrition-data?type=log&athlete_id='+aid+'&date='+today).then(r=>r.json()).catch(()=>({})),
       fetch('/api/nutrition-data?type=log&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
       fetch('/api/nutrition-data?type=weight&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
-      fetch('/api/nutrition-food?type=history&q=&athlete_id='+aid).then(r=>r.json()).catch(()=>[]),
+      nutrFetchFoodLists(aid).catch(()=>({recent:[],favorites:[],combos:[]})),
       iId&&iKey?fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=activities&qs=oldest='+today+'%26newest='+tomStr).then(r=>r.json()).catch(()=>[]):Promise.resolve([]),
       iId&&iKey?fetch('/api/intervals?athleteId='+encodeURIComponent(iId)+'&apiKey='+encodeURIComponent(iKey)+'&path=wellness.json&qs=oldest='+today+'%26newest='+today).then(r=>r.json()).catch(()=>[]):Promise.resolve([]),
     ];
-    const[prof,todayWoResp,weekWoResp,todayLog,allLogs,weights,foodHist,activities,wellnessArr]=await Promise.all(fetches);
+    const[prof,todayWoResp,weekWoResp,todayLog,allLogs,weights,foodLists,activities,wellnessArr]=await Promise.all(fetches);
     if(prof&&!prof.error)nutr.profile=prof;
     nutr.viewDate=today;
     // Today's planned workouts → sessions for algorithm
@@ -3391,12 +3391,11 @@ async function loadNutritionTab(){
     nutr.logHistory=(Array.isArray(allLogs)?allLogs:[]).filter(l=>l.log_date!==today);
     // Weight
     nutr.weightLogs=Array.isArray(weights)?weights:[];
-    // Food history, favorites & combos
-    const fh=Array.isArray(foodHist)?foodHist:[];
-    const nonCombo=fh.filter(f=>!f.is_combo);
-    nutr.foodHistory=nonCombo.slice(0,8);
-    nutr.foodFavorites=nonCombo.filter(f=>f.is_favorite);
-    nutr.combos=fh.filter(f=>f.is_combo).slice(0,5);
+    // Food history, favorites & combos -- 3 independent queries (see
+    // nutrFetchFoodLists) so favorites/combos aren't capped by the recent-8 limit.
+    nutr.foodHistory=foodLists?.recent||[];
+    nutr.foodFavorites=foodLists?.favorites||[];
+    nutr.combos=foodLists?.combos||[];
     // intervals.icu data
     nutr.completedActivities=Array.isArray(activities)?activities:[];
     nutr.wellness=Array.isArray(wellnessArr)?(wellnessArr.find(w=>w.id===today)||null):null;
@@ -3727,27 +3726,42 @@ function nutrParseSearchInput(raw){
   return{qty:null,unit:null,foodName:s};
 }
 
+// Recent/favorites/combos are 3 independent queries, not one query split
+// client-side -- a single shared limit meant favorites and combos got
+// silently crowded out by whatever was merely most recent.
+function nutrFetchFoodLists(athleteId){
+  const aid=athleteId||'';
+  return Promise.all([
+    fetch('/api/nutrition-food?type=history&athlete_id='+aid+'&limit=8&is_combo=false').then(r=>r.json()).catch(()=>[]),
+    fetch('/api/nutrition-food?type=history&athlete_id='+aid+'&is_favorite=true&is_combo=false&limit=50').then(r=>r.json()).catch(()=>[]),
+    fetch('/api/nutrition-food?type=history&athlete_id='+aid+'&is_combo=true&limit=20').then(r=>r.json()).catch(()=>[]),
+  ]).then(([recent,favorites,combos])=>({
+    recent:Array.isArray(recent)?recent:[],
+    favorites:Array.isArray(favorites)?favorites:[],
+    combos:Array.isArray(combos)?combos:[],
+  }));
+}
+
 function nutrOpenFoodModal(windowId){
   nutr.foodModalOpen=true;
   nutr.foodModalWindow=windowId||'unassigned';
   nutr.selectedFood=null;nutr.searchQuery='';nutr.searchResults=[];nutr.searchError='';
   nutr.foodQty='';nutr.foodUnit='g';nutr.foodOverrides={};nutr.parsedQty=null;nutr.parsedUnit=null;
-  nutr.saveAsCombo=false;nutr.comboName='';nutr.barcodeWarning='';
+  nutr.buildingCombo=false;nutr.comboItems=[];nutr.comboName='';nutr.barcodeWarning='';
   document.getElementById('nutrFoodModal').classList.add('show');
   document.getElementById('nutrFoodModalOverlay').classList.add('show');
   document.body.style.overflow='hidden';
   nutrRenderFoodModal();
   setTimeout(()=>{const inp=document.getElementById('nutrFoodSearchInput');if(inp)inp.focus();},120);
-  // Fetch fresh recents + favorites on every open
+  // Fetch fresh recents + favorites + combos on every open
   const aid=currentAthlete?.id||'';
-  fetch('/api/nutrition-food?type=history&q=&athlete_id='+aid+'&limit=20')
-    .then(r=>r.json()).then(data=>{
-      if(!Array.isArray(data))return;
-      nutr.foodHistory=data;
-      nutr.foodFavorites=data.filter(h=>h.is_favorite);
-      if(!nutr.searchQuery)nutrUpdateSearchResults();
-      nutrRenderRecentsPanel();
-    }).catch(()=>{});
+  nutrFetchFoodLists(aid).then(({recent,favorites,combos})=>{
+    nutr.foodHistory=recent;
+    nutr.foodFavorites=favorites;
+    nutr.combos=combos;
+    if(!nutr.searchQuery)nutrUpdateSearchResults();
+    nutrRenderRecentsPanel();
+  }).catch(()=>{});
 }
 
 function nutrCloseFoodModal(){
@@ -3891,7 +3905,7 @@ function nutrRenderConfirm(){
       }).join('')}
     </div>
     <div style="display:flex;gap:8px">
-      <button class="nutr-btn" style="flex:1;padding:13px;font-size:14px" onclick="nutrAddFoodFromModal()">ADD TO LOG</button>
+      <button class="nutr-btn" style="flex:1;padding:13px;font-size:14px" onclick="${nutr.buildingCombo?'nutrAddItemToCombo()':'nutrAddFoodFromModal()'}">${nutr.buildingCombo?'ADD TO COMBO':'ADD TO LOG'}</button>
       <button class="nutr-btn-ghost" style="padding:13px 18px" onclick="nutrClearFoodModal()">← Back</button>
     </div>`;
   setTimeout(()=>{const inp=document.getElementById('nutrQtyInput');if(inp)inp.focus();},40);
@@ -3902,11 +3916,24 @@ function nutrRenderFoodModal(){
   if(!content)return;
   if(nutr.selectedFood){nutrRenderConfirm();return;}
 
+  const comboBar=nutr.buildingCombo?`
+    <div style="background:var(--bc3);border:1px solid #c8f036;padding:10px 12px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#c8f036;text-transform:uppercase;letter-spacing:.08em">Building combo · ${nutr.comboItems.length} item${nutr.comboItems.length===1?'':'s'}</div>
+        <a href="#" onmousedown="event.preventDefault()" onclick="nutrCancelCombo()" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)">Cancel</a>
+      </div>
+      ${nutr.comboItems.length?`<div style="font-size:11px;color:var(--tc2);margin-bottom:8px">${nutr.comboItems.map(i=>athEscHtml(i.name)).join(', ')}</div>`:''}
+      <input id="nutrComboNameInput" type="text" class="nutr-input" placeholder="Combo name (e.g. Pre-ride breakfast)" value="${(nutr.comboName||'').replace(/"/g,'&quot;')}" oninput="nutr.comboName=this.value" autocomplete="off" style="margin-bottom:8px">
+      <button class="nutr-btn" style="width:100%;padding:10px;font-size:13px" onclick="nutrSaveCombo()">SAVE COMBO${nutr.comboItems.length?' ('+nutr.comboItems.length+')':''}</button>
+    </div>`:`
+    <button onclick="nutrStartCombo()" style="background:none;border:1px dashed var(--border);color:var(--tc3);width:100%;padding:8px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.04em;cursor:pointer;margin-bottom:10px">+ Build a combo</button>`;
+
   content.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase">Add Food</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase">${nutr.buildingCombo?'Add To Combo':'Add Food'}</div>
       <button onclick="nutrCloseFoodModal()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:24px;line-height:1;padding:4px 8px">✕</button>
     </div>
+    ${comboBar}
     <button onclick="nutrOpenBarcode(nutr.foodModalWindow)" class="nutr-scan-btn">SCAN BARCODE</button>
     <input id="nutrFoodSearchInput" type="text" class="nutr-input nutr-modal-search"
       placeholder="Search food… or try '100g oats', '2 eggs'" value="${nutr.searchQuery.replace(/"/g,'&quot;')}"
@@ -3925,7 +3952,8 @@ function nutrRenderRecentsPanel(){
   if(!el)return;
   const tab=nutr.recentsTab||'recent';
   const recents=nutr.foodHistory||[];
-  const favs=(nutr.foodHistory||[]).filter(h=>h.is_favorite);
+  const favs=nutr.foodFavorites||[];
+  const combos=nutr.combos||[];
   const tabBtn=(id,label)=>`<button onmousedown="event.preventDefault()" onclick="nutr.recentsTab='${id}';nutrRenderRecentsPanel()"
     style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:none;border:none;border-bottom:2px solid ${tab===id?'#c8f036':'transparent'};color:${tab===id?'#c8f036':'#555'};padding:6px 0;margin-right:16px;cursor:pointer">${label}</button>`;
   const rowHtml=(f)=>{
@@ -3940,16 +3968,30 @@ function nutrRenderRecentsPanel(){
       <button onmousedown="event.preventDefault()" onclick='nutrToggleFavoriteInline(${js})' style="background:none;border:none;cursor:pointer;font-size:18px;color:${starCol};padding:4px 6px;flex-shrink:0">${star}</button>
     </div>`;
   };
+  const comboRowHtml=(c)=>{
+    const items=c.combo_items||[];
+    const t=items.reduce((s,it)=>({carbs:s.carbs+(it.carbs||0),protein:s.protein+(it.protein||0),fat:s.fat+(it.fat||0)}),{carbs:0,protein:0,fat:0});
+    return`<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid var(--bc3);cursor:pointer" onmousedown="event.preventDefault()" onclick="nutrLogCombo(${JSON.stringify(c.id)})">
+      <div style="flex:1;min-width:0">
+        <div style="color:#f0f0f0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.combo_name||c.name}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#555;margin-top:2px">${items.length} item${items.length===1?'':'s'} · ${t.carbs}g C · ${t.protein}g P · ${t.fat}g F</div>
+      </div>
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:#c8f036;letter-spacing:.06em;padding:4px 6px;flex-shrink:0">TAP TO LOG</span>
+    </div>`;
+  };
   let listHtml='';
   if(tab==='recent'){
     listHtml=recents.length?recents.map(rowHtml).join('')
       :'<div style="font-size:12px;color:#555;padding:10px 0">No recent foods yet — foods you log will appear here</div>';
-  }else{
+  }else if(tab==='saved'){
     listHtml=favs.length?favs.map(rowHtml).join('')
       :'<div style="font-size:12px;color:#555;padding:10px 0">No saved foods yet — star a food to save it</div>';
+  }else{
+    listHtml=combos.length?combos.map(comboRowHtml).join('')
+      :'<div style="font-size:12px;color:#555;padding:10px 0">No combos yet — tap "+ Build a combo" below the search to save one</div>';
   }
   el.innerHTML=`<div style="margin-top:12px;border-bottom:1px solid var(--bc3);margin-bottom:2px">
-    ${tabBtn('recent','Recent')}${tabBtn('saved','Saved')}
+    ${tabBtn('recent','Recent')}${tabBtn('saved','Saved')}${tabBtn('combos','Combos')}
   </div>
   <div style="max-height:260px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#555 #333">${listHtml}</div>`;
 }
@@ -3957,10 +3999,17 @@ function nutrRenderRecentsPanel(){
 function nutrToggleFavoriteInline(foodJson){
   const food=typeof foodJson==='string'?JSON.parse(foodJson):foodJson;
   const newFav=!food.is_favorite;
-  // Update in-memory state
-  const idx=nutr.foodHistory.findIndex(h=>h.id===food.id||h.name===food.name);
+  // foodHistory and foodFavorites are independent lists now (separate
+  // queries, see nutrFetchFoodLists) -- re-deriving favorites from history
+  // would silently drop anything not in the recent-8 window.
+  const matches=h=>h.id===food.id||h.name===food.name;
+  const idx=nutr.foodHistory.findIndex(matches);
   if(idx>=0)nutr.foodHistory[idx]={...nutr.foodHistory[idx],is_favorite:newFav};
-  nutr.foodFavorites=nutr.foodHistory.filter(h=>h.is_favorite);
+  if(newFav){
+    if(!nutr.foodFavorites.some(matches))nutr.foodFavorites=[...nutr.foodFavorites,{...food,is_favorite:true}];
+  }else{
+    nutr.foodFavorites=nutr.foodFavorites.filter(h=>!matches(h));
+  }
   nutrRenderRecentsPanel();
   // Persist
   if(food.id){
@@ -4042,25 +4091,65 @@ async function nutrAddFoodFromModal(){
     per100g:nutr.selectedFood?nutr.selectedFood.per100g:{carbs:entry.carbs,protein:entry.protein,fat:entry.fat,calories:entry.calories},
     serving_size:nutr.selectedFood?(nutr.selectedFood.serving_size||100):100,
     serving_unit:nutr.selectedFood?(nutr.selectedFood.serving_unit||'g'):'g'};
-  console.log('HISTORY POST sending:', JSON.stringify(histBody));
   fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(histBody)}).then(function(r){return r.json();}).then(function(d){console.log('HISTORY POST response:', JSON.stringify(d));}).catch(function(e){console.error('HISTORY POST error:',e);});
-  if(nutr.saveAsCombo&&nutr.comboName){
-    fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({athlete_id:aid,name:nutr.comboName,per100g:nutr.selectedFood?.per100g||{},
-        serving_size:nutr.selectedFood?.serving_size||100,serving_unit:nutr.selectedFood?.serving_unit||'g',
-        is_combo:true,combo_name:nutr.comboName})}).catch(()=>{});
-  }
-  console.log('SAVE CALLED FROM:', new Error().stack);
+    body:JSON.stringify(histBody)}).catch(()=>{});
   nutrSaveTodayLog();
   nutrCloseFoodModal();
 }
 
-async function nutrAddCombo(comboId){
-  const c=nutr.combos.find(x=>x.id===comboId);if(!c)return;
-  nutr.selectedFood={...c,name:c.combo_name||c.name};
-  nutr.foodQty=String(c.serving_size||100);nutr.foodUnit='g';nutr.foodOverrides={};nutr.barcodeWarning='';
-  nutrRenderConfirm();
+// While building a combo, picking a food goes through the same qty/macro
+// confirm screen but stages the item instead of logging it immediately --
+// lets multiple foods (toast + banana + coffee) get bundled into one combo.
+function nutrAddItemToCombo(){
+  if(!nutr.selectedFood||!nutr.foodQty)return;
+  const f=nutr.selectedFood,qty=nutr.foodQty,unit=nutr.foodUnit,ov={...nutr.foodOverrides};
+  const mult=nutrCalcMult(qty,unit,nutrEffectiveServingSize(f));
+  nutr.comboItems=[...nutr.comboItems,{name:f.name,qty,unit,
+    calories:ov.calories??Math.round((f.per100g?.calories||0)*mult),
+    carbs:ov.carbs??Math.round((f.per100g?.carbs||0)*mult),
+    protein:ov.protein??Math.round((f.per100g?.protein||0)*mult),
+    fat:ov.fat??Math.round((f.per100g?.fat||0)*mult)}];
+  const aid=currentAthlete?.id||'';
+  fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({athlete_id:aid,name:f.name,per100g:f.per100g,serving_size:f.serving_size||100,serving_unit:f.serving_unit||'g'})}).catch(()=>{});
+  nutr.selectedFood=null;nutr.foodQty='';nutr.foodOverrides={};nutr.searchQuery='';nutr.searchResults=[];
+  nutrRenderFoodModal();
+}
+
+function nutrStartCombo(){
+  nutr.buildingCombo=true;nutr.comboItems=[];nutr.comboName='';
+  nutrRenderFoodModal();
+}
+
+function nutrCancelCombo(){
+  nutr.buildingCombo=false;nutr.comboItems=[];nutr.comboName='';
+  nutrRenderFoodModal();
+}
+
+function nutrSaveCombo(){
+  const nameInput=document.getElementById('nutrComboNameInput');
+  if(nameInput)nutr.comboName=nameInput.value.trim();
+  if(!nutr.comboName||!nutr.comboItems.length)return;
+  const aid=currentAthlete?.id||'';
+  const totals=nutr.comboItems.reduce((s,it)=>({calories:s.calories+(it.calories||0),carbs:s.carbs+(it.carbs||0),protein:s.protein+(it.protein||0),fat:s.fat+(it.fat||0)}),{calories:0,carbs:0,protein:0,fat:0});
+  fetch('/api/nutrition-food?type=history',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({athlete_id:aid,name:nutr.comboName,combo_name:nutr.comboName,is_combo:true,
+      combo_items:nutr.comboItems,per100g:totals,serving_size:1,serving_unit:'combo'})})
+    .then(()=>nutrFetchFoodLists(aid)).then(({recent,favorites,combos})=>{
+      nutr.foodHistory=recent;nutr.foodFavorites=favorites;nutr.combos=combos;
+      nutr.recentsTab='combos';
+      nutrCancelCombo();
+    }).catch(()=>{nutrCancelCombo();});
+}
+
+function nutrLogCombo(comboId){
+  const c=nutr.combos.find(x=>String(x.id)===String(comboId));
+  if(!c||!c.combo_items||!c.combo_items.length)return;
+  const newEntries=c.combo_items.map(it=>({id:crypto.randomUUID(),windowId:nutr.foodModalWindow||'unassigned',
+    name:it.name,qty:it.qty,unit:it.unit,calories:it.calories,carbs:it.carbs,protein:it.protein,fat:it.fat}));
+  nutr.foodEntries=[...nutr.foodEntries,...newEntries];
+  nutrSaveTodayLog();
+  nutrCloseFoodModal();
 }
 
 function nutrRemoveFood(id){
