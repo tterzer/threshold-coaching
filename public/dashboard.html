@@ -5157,11 +5157,16 @@ async function _setupDetailStreams(actId, sport, act) {
 
   _detailStreams = {};
 
-  // Fetch laps first
+  // Fetch laps first. intervals.icu only includes interval/lap splits on the
+  // activity endpoint when explicitly asked via ?intervals=true -- without
+  // it this always came back empty, which is why laps looked like they
+  // never existed. Field name isn't 100% confirmed from docs alone, so try
+  // the plausible candidates and log the raw keys for one-time verification.
   if (!act.laps && curId && curKey) {
     try {
-      const lapData = await apiCall(curId, curKey, actId, null, 'activity');
-      act.laps = (lapData && lapData.laps) || [];
+      const lapData = await apiCall(curId, curKey, actId, 'intervals=true', 'activity');
+      act.laps = (lapData && (lapData.laps || lapData.icu_intervals || lapData.intervals)) || [];
+      if (!act.laps.length) console.log('[laps] no laps/icu_intervals/intervals field found; raw keys:', lapData?Object.keys(lapData):lapData);
     } catch(e) {}
   }
   _renderLaps(act, sport);
