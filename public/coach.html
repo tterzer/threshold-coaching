@@ -439,10 +439,11 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 
             <div class="chart-card" style="margin-top:1px">
               <div class="chart-card-header">
+                <input class="zc-input" type="text" id="coachDecAeroNameFilter" placeholder="Filter ride name (e.g. TT)" style="width:160px;padding:6px 10px;font-size:11px">
                 <button class="btn btn-sm btn-ghost" id="coachDecAeroBuildBtn" onclick="coachDecRenderAeroTrend()" style="padding:4px 10px;font-size:10px">Build trend</button>
                 <span class="chart-card-label">Aero (CdA / Crr) estimate</span>
               </div>
-              <div id="coachDecAeroBox"><div class="empty-note">Estimates CdA/Crr from steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Click "Build trend" to analyze.</div></div>
+              <div id="coachDecAeroBox"><div class="empty-note">Estimates CdA/Crr from steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Mixing road and TT bike rides will make this bounce around a lot since they have very different drag — use the name filter above if ride titles distinguish them. Click "Build trend" to analyze.</div></div>
             </div>
           </div>
 
@@ -1044,7 +1045,7 @@ async function loadAthleteMetrics(athlete){
     const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-1095);
     const fitOldestStr=fitOldest.toISOString().split('T')[0];
     const[acts,fitActs]=await Promise.all([
-      intervalsCall(id,key,'activities','oldest='+oldest90Str+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts'),
+      intervalsCall(id,key,'activities','oldest='+oldest90Str+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name'),
       intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
     ]);
     const sorted=[...acts].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
@@ -1479,9 +1480,13 @@ async function coachDecRenderAeroTrend(){
   btn.disabled=true;
   box.innerHTML='<div class="empty-note">Estimating aero drag from steady rides… 0%</div>';
   try{
-    const candidates=coachDecGetCandidates('cycling').slice(0,COACH_AERO_MAX_CANDIDATES);
+    const nameFilter=(document.getElementById('coachDecAeroNameFilter')?.value||'').trim().toLowerCase();
+    let allCandidates=coachDecGetCandidates('cycling');
+    if(allCandidates.length)console.log('[aero] gear fields on candidate rides:',allCandidates.map(({act})=>({name:act.name,gear_id:act.gear_id,gear_name:act.gear_name})));
+    if(nameFilter)allCandidates=allCandidates.filter(({act})=>(act.name||'').toLowerCase().includes(nameFilter));
+    const candidates=allCandidates.slice(0,COACH_AERO_MAX_CANDIDATES);
     if(!candidates.length){
-      box.innerHTML='<div class="empty-note">No qualifying steady rides found in the last 90 days (40+ min).</div>';
+      box.innerHTML='<div class="empty-note">No qualifying steady rides'+(nameFilter?' matching "'+nameFilter+'"':'')+' found in the last 90 days (40+ min).</div>';
       return;
     }
     const weightLbs=parseFloat(document.getElementById('cpf_weight_lbs')?.value)||168;

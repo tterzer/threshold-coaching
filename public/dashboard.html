@@ -628,6 +628,7 @@ window.applyTierGating = function() {
       <div class="chart-box" style="margin-top:1px">
         <div class="chart-title">Aero (CdA / Crr) estimate
           <div class="zd-controls">
+            <input class="zc-input" type="text" id="decAeroNameFilter" placeholder="Filter ride name (e.g. TT)" style="width:160px;padding:6px 10px;font-size:11px">
             <button class="unit-toggle" id="decAeroBuildBtn" onclick="decRenderAeroTrend()">Build trend</button>
           </div>
         </div>
@@ -635,7 +636,7 @@ window.applyTierGating = function() {
           <div class="leg-item"><span class="leg-line" style="background:#378ADD"></span>CdA (drag area)</div>
           <div class="leg-item"><span class="leg-line leg-dashed" style="border-bottom:2px dashed #E24B4A;background:transparent;height:0"></span>Crr (rolling resistance)</div>
         </div>
-        <div id="decAeroBox"><div class="empty-note">Estimates CdA/Crr from your steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Click "Build trend" to analyze.</div></div>
+        <div id="decAeroBox"><div class="empty-note">Estimates CdA/Crr from your steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Mixing road and TT bike rides will make this bounce around a lot since they have very different drag — use the name filter above if your ride titles distinguish them (e.g. name your TT rides with "TT" in the title). Click "Build trend" to analyze.</div></div>
       </div>
     </div>
 
@@ -2214,9 +2215,17 @@ async function decRenderAeroTrend(){
   box.innerHTML='<div class="curve-loading">Estimating aero drag from steady rides…'
     +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="decAeroProg" style="width:0%"></div></div></div>';
   try{
-    const candidates=decGetCandidates('cycling').slice(0,DEC_AERO_MAX_CANDIDATES);
+    const nameFilter=(document.getElementById('decAeroNameFilter')?.value||'').trim().toLowerCase();
+    let allCandidates=decGetCandidates('cycling');
+    // One-time spike: does intervals.icu actually return gear info? If so,
+    // a proper "which bike" dropdown can replace this name filter later --
+    // log raw values once so this can be confirmed from the console rather
+    // than guessed at.
+    if(allCandidates.length)console.log('[aero] gear fields on candidate rides:',allCandidates.map(({act})=>({name:act.name,gear_id:act.gear_id,gear_name:act.gear_name})));
+    if(nameFilter)allCandidates=allCandidates.filter(({act})=>(act.name||'').toLowerCase().includes(nameFilter));
+    const candidates=allCandidates.slice(0,DEC_AERO_MAX_CANDIDATES);
     if(!candidates.length){
-      box.innerHTML='<div class="empty-note">No qualifying steady rides found in the last 90 days (40+ min, no hard intervals tagged).</div>';
+      box.innerHTML='<div class="empty-note">No qualifying steady rides'+(nameFilter?' matching "'+nameFilter+'"':'')+' found in the last 90 days (40+ min, no hard intervals tagged).</div>';
       return;
     }
     const weightLbs=(currentAthlete&&currentAthlete.weight_lbs)||168;
@@ -5346,7 +5355,7 @@ async function loadDashboard(){
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
     const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
       apiCall(id,key,'profile'),
-      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts'),
+      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name'),
       apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type'),
       apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local')
     ]);
