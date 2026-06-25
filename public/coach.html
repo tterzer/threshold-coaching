@@ -365,6 +365,13 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               </div>
               <div id="coachDecBox"><div class="empty-note">Steady aerobic workouts only (rides/runs without hard intervals, 40+ min). Click "Build trend" to fetch and analyze — only needs to run once per workout, then it's cached.</div></div>
             </div>
+            <div class="chart-card" style="margin-top:1px">
+              <div class="chart-card-header">
+                <button class="btn btn-sm btn-ghost" id="coachDecAeroBuildBtn" onclick="coachDecRenderAeroTrend()" style="padding:4px 10px;font-size:10px">Build trend</button>
+                <span class="chart-card-label">Aero (CdA / Crr) estimate</span>
+              </div>
+              <div id="coachDecAeroBox"><div class="empty-note">Estimates CdA/Crr from steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Click "Build trend" to analyze.</div></div>
+            </div>
             <div style="margin-top:1.5rem">
               <div class="section-label">Recent activities</div>
               <div id="ovActs"><div class="empty-note">—</div></div>
@@ -1327,6 +1334,170 @@ function coachDrawDecouplingChart(box,points,sport){
         x:{ticks:{color:'#666',font:{size:9},maxRotation:0,autoSkip:true},grid:{color:'rgba(42,42,42,0.5)'}},
         yEf:{type:'linear',position:'left',ticks:{color:'#378ADD',font:{size:9}},grid:{color:'rgba(42,42,42,0.5)'}},
         yDec:{type:'linear',position:'right',ticks:{color:'#E24B4A',font:{size:9}},grid:{display:false}},
+      },
+    }
+  });
+}
+
+// ── Aero (CdA/Crr) estimation -- Chung "virtual elevation" method ──────
+// Mirrors dashboard.html's implementation exactly (same formula, same
+// verification against synthetic ground-truth data). See dashboard.html
+// for the full derivation comment. No wind data is incorporated (calm-air
+// assumption) -- a known per-ride noise source, not estimated around.
+const COACH_AERO_G=9.8067;
+function coachEstimateCdaCrr(powerStream,speedStream,altitudeStream,opts){
+  opts=opts||{};
+  const mass=opts.mass||75;
+  const rho=opts.rho||1.225;
+  const eta=opts.eta||0.975;
+  const dt=opts.dt||1;
+  const n=Math.min(powerStream.length,speedStream.length,altitudeStream.length);
+  if(n<300/dt)return null;
+
+  function buildVirtualElevation(cda,crr){
+    const ve=new Array(n);
+    ve[0]=0;
+    let cum=0;
+    for(let i=1;i<n;i++){
+      const v=Number(speedStream[i])||0,p=Number(powerStream[i])||0;
+      if(v>=0.5){
+        const pAero=0.5*rho*cda*v*v*v;
+        const pRR=crr*mass*COACH_AERO_G*v;
+        const pWheel=p*eta;
+        const pGrade=pWheel-pAero-pRR;
+        const gradeImplied=pGrade/(mass*COACH_AERO_G*v);
+        cum+=gradeImplied*v*dt;
+      }
+      ve[i]=cum;
+    }
+    return ve;
+  }
+  function sseAgainstActual(ve){
+    let meanVe=0,meanAct=0;
+    for(let i=0;i<n;i++){meanVe+=ve[i];meanAct+=Number(altitudeStream[i])||0;}
+    meanVe/=n;meanAct/=n;
+    let sse=0;
+    for(let i=0;i<n;i++){
+      const dv=(ve[i]-meanVe)-((Number(altitudeStream[i])||0)-meanAct);
+      sse+=dv*dv;
+    }
+    return sse;
+  }
+  function scoreOf(cda,crr){return sseAgainstActual(buildVirtualElevation(cda,crr));}
+
+  let best={cda:0.30,crr:0.004,err:Infinity};
+  for(let cda=0.15;cda<=0.45+1e-9;cda+=0.02){
+    for(let crr=0.0020;crr<=0.0070+1e-9;crr+=0.0005){
+      const err=scoreOf(cda,crr);
+      if(err<best.err)best={cda,crr,err};
+    }
+  }
+  let fine={...best};
+  for(let cda=best.cda-0.04;cda<=best.cda+0.04+1e-9;cda+=0.002){
+    for(let crr=best.crr-0.0015;crr<=best.crr+0.0015+1e-9;crr+=0.00005){
+      if(cda<=0||crr<=0)continue;
+      const err=scoreOf(cda,crr);
+      if(err<fine.err)fine={cda,crr,err};
+    }
+  }
+  return{cda:fine.cda,crr:fine.crr,rmse:Math.sqrt(fine.err/n)};
+}
+
+function coachDecDownsample(arr,factor,mode){
+  const out=[];
+  for(let i=0;i<arr.length;i+=factor){
+    const end=Math.min(i+factor,arr.length);
+    if(mode==='last'){out.push(arr[end-1]);}
+    else{
+      let sum=0,count=0;
+      for(let j=i;j<end;j++){sum+=Number(arr[j])||0;count++;}
+      out.push(count?sum/count:0);
+    }
+  }
+  return out;
+}
+
+const COACH_AERO_MIN_ELEV_RANGE_M=20;
+const COACH_AERO_MAX_CANDIDATES=15;
+const COACH_AERO_DOWNSAMPLE=5;
+
+async function coachDecRenderAeroTrend(){
+  const box=document.getElementById('coachDecAeroBox');
+  const btn=document.getElementById('coachDecAeroBuildBtn');
+  btn.disabled=true;
+  box.innerHTML='<div class="empty-note">Estimating aero drag from steady rides… 0%</div>';
+  try{
+    const candidates=coachDecGetCandidates('cycling').slice(0,COACH_AERO_MAX_CANDIDATES);
+    if(!candidates.length){
+      box.innerHTML='<div class="empty-note">No qualifying steady rides found in the last 90 days (40+ min).</div>';
+      return;
+    }
+    const weightLbs=parseFloat(document.getElementById('cpf_weight_lbs')?.value)||168;
+    const riderKg=weightLbs/2.20462;
+    const bikeKg=9; // road bike + pedals + cages + gear -- a flagged assumption, not athlete-specific data this app tracks
+    const mass=riderKg+bikeKg;
+    let done=0;
+    const points=[];
+    await Promise.all(candidates.map(async({act})=>{
+      try{
+        const[watts,speed,altitude]=await Promise.all([coachFetchStream(act.id,'watts'),coachFetchStream(act.id,'velocity_smooth'),coachFetchStream(act.id,'altitude')]);
+        done++;
+        const prog=box.querySelector('.empty-note');
+        if(prog)prog.textContent='Estimating aero drag from steady rides… '+Math.round(done/candidates.length*100)+'%';
+        if(!watts||!speed||!altitude||!watts.length||!speed.length||!altitude.length)return;
+        let altMin=Infinity,altMax=-Infinity;
+        for(let i=0;i<altitude.length;i++){const v=Number(altitude[i]);if(v<altMin)altMin=v;if(v>altMax)altMax=v;}
+        const elevRange=altMax-altMin;
+        if(!(elevRange>=COACH_AERO_MIN_ELEV_RANGE_M))return;
+        const meanAlt=altitude.reduce((s,v)=>s+(Number(v)||0),0)/altitude.length;
+        const rho=1.225*Math.exp(-meanAlt/8434);
+        const wattsDs=coachDecDownsample(watts,COACH_AERO_DOWNSAMPLE,'avg');
+        const speedDs=coachDecDownsample(speed,COACH_AERO_DOWNSAMPLE,'avg');
+        const altDs=coachDecDownsample(altitude,COACH_AERO_DOWNSAMPLE,'last');
+        const r=coachEstimateCdaCrr(wattsDs,speedDs,altDs,{mass,rho,dt:COACH_AERO_DOWNSAMPLE});
+        if(!r)return;
+        points.push({date:(act.start_date_local||'').slice(0,10),cda:r.cda,crr:r.crr,name:act.name||act.type});
+      }catch(e){
+        done++;
+      }
+    }));
+    points.sort((a,b)=>a.date.localeCompare(b.date));
+    if(!points.length){
+      box.innerHTML='<div class="empty-note">Found '+candidates.length+' candidate ride(s), but none had enough elevation variation ('+COACH_AERO_MIN_ELEV_RANGE_M+'m+ range) to reliably separate aero drag from rolling resistance.</div>';
+      return;
+    }
+    coachDrawAeroChart(box,points);
+  }catch(e){
+    box.innerHTML='<div class="empty-note">Could not build trend: '+(e.message||'error')+'</div>';
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function coachDrawAeroChart(box,points){
+  box.innerHTML='<div style="position:relative;height:240px;width:100%"><canvas id="coachDecAeroChart"></canvas></div>'
+    +'<div class="empty-note" style="margin-top:6px">'+points.length+' ride'+(points.length===1?'':'s')+' analyzed (20m+ elevation range required) — hover a point for the ride name</div>'
+    +'<div class="empty-note" style="margin-top:8px;line-height:1.6">'
+    +'<b style="color:#378ADD">CdA</b> — drag area (m²). <b>Lower is faster</b> for the same power. Typical road position ~0.30-0.36, aero bars/TT ~0.21-0.27. Watch for drops after a position or equipment change.<br>'
+    +'<b style="color:#E24B4A">Crr</b> — rolling resistance coefficient. <b>Lower is faster</b>. Typically 0.003-0.006; shouldn\'t change much unless tires or road conditions did.<br>'
+    +'Estimates assume calm wind and a 9kg bike+gear default (not athlete-specific) — treat single points as noisy, the trend across several rides is what matters.'
+    +'</div>';
+  const ctx=document.getElementById('coachDecAeroChart').getContext('2d');
+  const labels=points.map(p=>coachDecFmtDate(p.date));
+  if(window._coachDecAeroChartInstance)window._coachDecAeroChartInstance.destroy();
+  window._coachDecAeroChartInstance=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'CdA (m²)',data:points.map(p=>p.cda),borderColor:'#378ADD',backgroundColor:'transparent',tension:0.2,pointRadius:3,borderWidth:2,yAxisID:'yCda'},
+      {label:'Crr',data:points.map(p=>p.crr),borderColor:'#E24B4A',backgroundColor:'transparent',borderDash:[5,3],tension:0.2,pointRadius:3,borderWidth:1.5,yAxisID:'yCrr'},
+    ]},
+    options:{
+      animation:false,responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'bottom',labels:{color:'#aaa',font:{size:10}}},tooltip:{callbacks:{afterTitle:(items)=>points[items[0].dataIndex].name}}},
+      scales:{
+        x:{ticks:{color:'#666',font:{size:9},maxRotation:0,autoSkip:true},grid:{color:'rgba(42,42,42,0.5)'}},
+        yCda:{type:'linear',position:'left',ticks:{color:'#378ADD',font:{size:9}},grid:{color:'rgba(42,42,42,0.5)'}},
+        yCrr:{type:'linear',position:'right',ticks:{color:'#E24B4A',font:{size:9}},grid:{display:false}},
       },
     }
   });
