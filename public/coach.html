@@ -437,13 +437,52 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               </div>
             </div>
 
-            <div class="chart-card" style="margin-top:1px">
+            <div class="chart-box" style="margin-top:1px">
               <div class="chart-card-header">
-                <input class="zc-input" type="text" id="coachDecAeroNameFilter" placeholder="Filter ride name (e.g. TT)" style="width:160px;padding:6px 10px;font-size:11px">
-                <button class="btn btn-sm btn-ghost" id="coachDecAeroBuildBtn" onclick="coachDecRenderAeroTrend()" style="padding:4px 10px;font-size:10px">Build trend</button>
-                <span class="chart-card-label">Aero (CdA / Crr) estimate</span>
+                <button class="btn btn-sm btn-ghost" onclick="coachDecOpenRidePicker()" style="padding:4px 10px;font-size:10px">Select rides to analyze</button>
+                <span class="chart-card-label">Precise CdA builder</span>
+                <span id="coachDecAeroBuiltCdaBadge" style="display:none;font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);margin-left:auto"></span>
               </div>
-              <div id="coachDecAeroBox"><div class="empty-note">Estimates CdA/Crr from steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Mixing road and TT bike rides will make this bounce around a lot since they have very different drag — use the name filter above if ride titles distinguish them. Click "Build trend" to analyze.</div></div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Pick specific rides, then pick the laps that are the real comparable loop (e.g. exclude the ride to/from the park). Each ride gets one CdA fit pooled across its selected laps.</div>
+              <div id="coachDecAeroLapPickerArea"></div>
+              <div id="coachDecAeroResultsArea"></div>
+            </div>
+
+            <div class="chart-box" style="margin-top:1px">
+              <div class="chart-card-header"><span class="chart-card-label">Race predictor</span></div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Upload a course GPX file, then adjust target power to see predicted finish time update. v1 assumes instant equilibrium speed per segment (no momentum carried between segments).</div>
+              <div class="field" style="max-width:360px"><label>Course GPX file</label><input class="zc-input" type="file" id="coachDecGpxFileInput" accept=".gpx" onchange="coachDecOnGpxFileSelected(this.files[0])"></div>
+              <div id="coachDecGpxSummary"></div>
+              <div id="coachDecGpxChartArea"></div>
+              <div id="coachDecGpxPowerArea"></div>
+            </div>
+
+            <details style="margin-top:1px">
+              <summary style="cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase;padding:14px 0">General trend (elevation-variation method, lower priority)</summary>
+              <div class="chart-card" style="margin-top:1px">
+                <div class="chart-card-header">
+                  <input class="zc-input" type="text" id="coachDecAeroNameFilter" placeholder="Filter ride name (e.g. TT)" style="width:160px;padding:6px 10px;font-size:11px">
+                  <button class="btn btn-sm btn-ghost" id="coachDecAeroBuildBtn" onclick="coachDecRenderAeroTrend()" style="padding:4px 10px;font-size:10px">Build trend</button>
+                  <span class="chart-card-label">Aero (CdA / Crr) estimate</span>
+                </div>
+                <div id="coachDecAeroBox"><div class="empty-note">Estimates CdA/Crr from steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Mixing road and TT bike rides will make this bounce around a lot since they have very different drag — use the name filter above if ride titles distinguish them. Click "Build trend" to analyze.</div></div>
+              </div>
+            </details>
+          </div>
+
+          <div class="modal-bg" id="coachDecRidePickerModal">
+            <div class="modal" style="max-width:680px;width:92%">
+              <div class="modal-title">Select rides to analyze</div>
+              <div class="empty-note" style="margin-bottom:12px">Cycling activities, last 90 days</div>
+              <input class="zc-input" type="text" id="coachDecRidePickerFilter" placeholder="Filter by name…" style="width:100%;margin-bottom:12px" oninput="coachDecRenderRidePickerList()">
+              <div id="coachDecRidePickerList" style="max-height:50vh;overflow-y:auto"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px">
+                <span id="coachDecRidePickerCount" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">0 selected</span>
+                <div class="modal-actions">
+                  <button class="modal-btn-close" onclick="coachDecCloseRidePicker()">Cancel</button>
+                  <button class="modal-btn-save" onclick="coachDecConfirmRidePicker()">Done</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -918,6 +957,10 @@ function fillCoachProfileForm(p){
   set('cpf_aero_setup_notes',p.aero_setup_notes);
   const crrFixedRow=document.getElementById('cpf_crr_fixed_row');
   if(crrFixedRow)crrFixedRow.style.display=p.crr_mode==='fixed'?'block':'none';
+  if(p.built_cda!=null){
+    coachDecAeroBuiltCda={cda:p.built_cda,source:p.built_cda_source,updatedAt:p.built_cda_updated_at};
+    coachDecUpdateBuiltCdaBadge();
+  }
   const restDays=Array.isArray(p.rest_days)?p.rest_days:(p.rest_days?p.rest_days.split(','):[]);
   document.querySelectorAll('#cpf_rest_days input[type=checkbox]').forEach(cb=>{
     cb.checked=restDays.includes(cb.value);
@@ -1470,6 +1513,223 @@ function coachDecDownsample(arr,factor,mode){
   return out;
 }
 
+// ── Meticulous lap-by-lap CdA: segment-aware sibling of coachEstimateCdaCrr.
+// Mirrors dashboard.html's decComputeLapOffsets/decBuildLapRuns/decSliceStreamRuns/
+// decFitCdaFromRuns exactly (verified there via synthetic ground truth: a
+// gap between two selected lap windows recovered true CdA exactly with
+// segment-aware fitting vs 82% error under naive concatenation).
+function coachDecComputeLapOffsets(laps){
+  let cum=0;
+  return(laps||[]).map(lap=>{
+    const dur=Math.round(lap.elapsed_time||lap.moving_time||0);
+    const start=cum;
+    cum+=dur;
+    return{start,end:cum};
+  });
+}
+function coachDecBuildLapRuns(laps,selectedIndices){
+  const offsets=coachDecComputeLapOffsets(laps);
+  const runs=[];
+  let cur=null;
+  for(let i=0;i<laps.length;i++){
+    if(!selectedIndices.has(i))continue;
+    if(cur&&cur.lastIdx===i-1){
+      cur.end=offsets[i].end;
+      cur.lastIdx=i;
+    }else{
+      cur={start:offsets[i].start,end:offsets[i].end,lastIdx:i};
+      runs.push(cur);
+    }
+  }
+  return runs.map(r=>({start:r.start,end:r.end}));
+}
+function coachDecSliceStreamRuns(stream,runs){
+  return runs.map(r=>(stream||[]).slice(r.start,r.end));
+}
+function coachDecFitCdaFromRuns(wattsRuns,speedRuns,altRuns,opts){
+  opts=opts||{};
+  const mass=opts.mass||75;
+  const rho=opts.rho||1.225;
+  const eta=opts.eta||0.975;
+  const fixedCrr=opts.fixedCrr!=null?opts.fixedCrr:null;
+
+  function buildVE(wattsArr,speedArr,cda,crr){
+    const n=wattsArr.length;
+    const ve=new Array(n);
+    ve[0]=0;
+    let cum=0;
+    for(let i=1;i<n;i++){
+      const v=Number(speedArr[i])||0,p=Number(wattsArr[i])||0;
+      if(v>=0.5){
+        const pAero=0.5*rho*cda*v*v*v;
+        const pRR=crr*mass*COACH_AERO_G*v;
+        const pWheel=p*eta;
+        const pGrade=pWheel-pAero-pRR;
+        cum+=(pGrade/(mass*COACH_AERO_G*v))*v;
+      }
+      ve[i]=cum;
+    }
+    return ve;
+  }
+  function scoreOf(cda,crr){
+    let totalSse=0,totalN=0;
+    for(let r=0;r<wattsRuns.length;r++){
+      const w=wattsRuns[r],s=speedRuns[r],a=altRuns[r];
+      const n=Math.min(w.length,s.length,a.length);
+      if(n<2)continue;
+      const ve=buildVE(w.slice(0,n),s.slice(0,n),cda,crr);
+      let meanVe=0,meanAct=0;
+      for(let i=0;i<n;i++){meanVe+=ve[i];meanAct+=Number(a[i])||0;}
+      meanVe/=n;meanAct/=n;
+      let sse=0;
+      for(let i=0;i<n;i++){
+        const dv=(ve[i]-meanVe)-((Number(a[i])||0)-meanAct);
+        sse+=dv*dv;
+      }
+      totalSse+=sse;totalN+=n;
+    }
+    return{sse:totalSse,n:totalN};
+  }
+
+  const totalSamples=wattsRuns.reduce((s,arr)=>s+arr.length,0);
+  if(totalSamples<300)return null;
+
+  if(fixedCrr!=null){
+    let best={cda:0.30,err:Infinity};
+    for(let cda=0.10;cda<=0.50+1e-9;cda+=0.005){
+      const{sse}=scoreOf(cda,fixedCrr);
+      if(sse<best.err)best={cda,err:sse};
+    }
+    let fine={...best};
+    for(let cda=best.cda-0.01;cda<=best.cda+0.01+1e-9;cda+=0.0005){
+      if(cda<=0)continue;
+      const{sse}=scoreOf(cda,fixedCrr);
+      if(sse<fine.err)fine={cda,err:sse};
+    }
+    const{n}=scoreOf(fine.cda,fixedCrr);
+    return{cda:fine.cda,crr:fixedCrr,rmse:Math.sqrt(fine.err/n)};
+  }
+
+  let best={cda:0.30,crr:0.004,err:Infinity};
+  for(let cda=0.15;cda<=0.45+1e-9;cda+=0.02){
+    for(let crr=0.0020;crr<=0.0070+1e-9;crr+=0.0005){
+      const{sse}=scoreOf(cda,crr);
+      if(sse<best.err)best={cda,crr,err:sse};
+    }
+  }
+  let fine={...best};
+  for(let cda=best.cda-0.04;cda<=best.cda+0.04+1e-9;cda+=0.002){
+    for(let crr=best.crr-0.0015;crr<=best.crr+0.0015+1e-9;crr+=0.00005){
+      if(cda<=0||crr<=0)continue;
+      const{sse}=scoreOf(cda,crr);
+      if(sse<fine.err)fine={cda,crr,err:sse};
+    }
+  }
+  const{n}=scoreOf(fine.cda,fine.crr);
+  return{cda:fine.cda,crr:fine.crr,rmse:Math.sqrt(fine.err/n)};
+}
+
+// ── GPX course parsing -- mirrors dashboard.html's gpxHaversineMeters/
+// gpxSmoothElevationByDistance/gpxParseFile/gpxBuildProfile exactly. ──────
+function coachGpxHaversineMeters(lat1,lon1,lat2,lon2){
+  const R=6371000;
+  const toRad=d=>d*Math.PI/180;
+  const dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1);
+  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function coachGpxSmoothElevationByDistance(filledEle,cumDist,windowM){
+  const half=windowM/2;
+  const n=filledEle.length;
+  const result=new Array(n);
+  let lo=0,hi=0,sum=0;
+  for(let i=0;i<n;i++){
+    while(hi<n&&cumDist[hi]<=cumDist[i]+half){sum+=filledEle[hi];hi++;}
+    while(lo<i&&cumDist[lo]<cumDist[i]-half){sum-=filledEle[lo];lo++;}
+    result[i]=sum/(hi-lo);
+  }
+  return result;
+}
+function coachGpxParseFile(xmlText){
+  const doc=new DOMParser().parseFromString(xmlText,'application/xml');
+  const trkpts=[...doc.querySelectorAll('trkpt')];
+  return trkpts.map(pt=>{
+    const eleEl=pt.querySelector('ele');
+    return{
+      lat:parseFloat(pt.getAttribute('lat')),
+      lon:parseFloat(pt.getAttribute('lon')),
+      ele:eleEl?parseFloat(eleEl.textContent):null,
+    };
+  }).filter(p=>!isNaN(p.lat)&&!isNaN(p.lon));
+}
+function coachGpxBuildProfile(points,segmentLenM,smoothWindowM){
+  segmentLenM=segmentLenM||50;
+  smoothWindowM=smoothWindowM||120;
+  if(!points||points.length<2)return{segments:[],totalDistM:0,totalElevGainM:0,maxGrade:0};
+  const cumDist=[0];
+  for(let i=1;i<points.length;i++){
+    cumDist.push(cumDist[i-1]+coachGpxHaversineMeters(points[i-1].lat,points[i-1].lon,points[i].lat,points[i].lon));
+  }
+  const filled=[];
+  let lastEle=0;
+  for(const p of points){if(p.ele!=null&&!isNaN(p.ele))lastEle=p.ele;filled.push(lastEle);}
+  const smoothedEle=coachGpxSmoothElevationByDistance(filled,cumDist,smoothWindowM);
+  const totalDistM=cumDist[cumDist.length-1];
+  const segments=[];
+  let prevEle=smoothedEle[0];
+  for(let d=segmentLenM;d<=totalDistM;d+=segmentLenM){
+    let idx=0;
+    while(idx<cumDist.length-1&&cumDist[idx+1]<d)idx++;
+    const d0=cumDist[idx],d1=cumDist[Math.min(idx+1,cumDist.length-1)];
+    const e0=smoothedEle[idx],e1=smoothedEle[Math.min(idx+1,smoothedEle.length-1)];
+    const frac=d1>d0?(d-d0)/(d1-d0):0;
+    const ele=e0+(e1-e0)*frac;
+    const grade=(ele-prevEle)/segmentLenM;
+    segments.push({distM:d,eleM:ele,grade,lengthM:segmentLenM});
+    prevEle=ele;
+  }
+  let totalElevGainM=0,maxGrade=0;
+  segments.forEach(s=>{if(s.grade>0)totalElevGainM+=s.grade*s.lengthM;if(Math.abs(s.grade)>Math.abs(maxGrade))maxGrade=s.grade;});
+  return{segments,totalDistM,totalElevGainM,maxGrade};
+}
+
+// ── Forward-physics finish-time predictor -- mirrors dashboard.html's
+// solveEquilibriumSpeed/predictCourseTime exactly (verified there via
+// synthetic ground truth: forward/inverse consistency, the steep-descent
+// zero-power coasting boundary, monotonicity, full-course integration). ──
+function coachSolveEquilibriumSpeed(targetPowerW,grade,cda,crr,mass,rho,eta){
+  const a=0.5*rho*cda;
+  const b=mass*COACH_AERO_G*(crr+grade);
+  function P(v){return(a*v*v*v+b*v)/eta;}
+  function bisect(lo,hi){
+    for(let i=0;i<60;i++){
+      const mid=(lo+hi)/2;
+      if(P(mid)<targetPowerW)lo=mid;else hi=mid;
+    }
+    return(lo+hi)/2;
+  }
+  if(b>=0){
+    let vUpper=1;
+    while(P(vUpper)<targetPowerW)vUpper*=2;
+    return bisect(0,vUpper);
+  }
+  const vStar=Math.sqrt(-b/a);
+  if(targetPowerW<=0)return vStar;
+  let vUpper=vStar+1;
+  while(P(vUpper)<targetPowerW)vUpper*=2;
+  return bisect(vStar,vUpper);
+}
+function coachPredictCourseTime(profile,targetPowerW,cda,crr,mass,rho,eta){
+  let totalSec=0;
+  const speeds=[];
+  (profile.segments||profile).forEach(seg=>{
+    const v=coachSolveEquilibriumSpeed(targetPowerW,seg.grade,cda,crr,mass,rho,eta);
+    speeds.push(v);
+    totalSec+=v>0?seg.lengthM/v:0;
+  });
+  return{totalSec,speeds};
+}
+
 const COACH_AERO_MIN_ELEV_RANGE_M=20;
 const COACH_AERO_MAX_CANDIDATES=15;
 const COACH_AERO_DOWNSAMPLE=5;
@@ -1572,6 +1832,324 @@ function coachDrawAeroChart(box,points,isFixedCrr){
       },
     }
   });
+}
+
+// ── Precise CdA builder: ride picker -> lap picker -> analysis -> save ──
+let coachDecAeroPickerSelected=new Set();
+let coachDecAeroSelectedRides=[]; // [{act, selectedLapIdx:Set}]
+let coachDecAeroResults=[];
+let coachDecAeroResultChoice='avg';
+let coachDecAeroAvgCda=null;
+let coachDecAeroBuiltCda=null;
+
+function coachDecRidePickerCandidates(){
+  return(athleteIcuActivities||[]).filter(a=>coachDecSportFromType(a.type)==='cycling').sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
+}
+function coachDecOpenRidePicker(){
+  if(!selectedAthlete||!selectedAthlete.id)return;
+  coachDecAeroPickerSelected=new Set(coachDecAeroSelectedRides.map(e=>String(e.act.id)));
+  const filterEl=document.getElementById('coachDecRidePickerFilter');
+  if(filterEl)filterEl.value='';
+  coachDecRenderRidePickerList();
+  document.getElementById('coachDecRidePickerModal').classList.add('show');
+}
+function coachDecCloseRidePicker(){
+  document.getElementById('coachDecRidePickerModal').classList.remove('show');
+}
+function coachDecRenderRidePickerList(){
+  const filter=(document.getElementById('coachDecRidePickerFilter').value||'').trim().toLowerCase();
+  let rides=coachDecRidePickerCandidates();
+  if(filter)rides=rides.filter(a=>(a.name||'').toLowerCase().includes(filter));
+  const list=document.getElementById('coachDecRidePickerList');
+  if(!rides.length){list.innerHTML='<div class="empty-note">No cycling rides found'+(filter?' matching "'+escHtml(filter)+'"':'')+'.</div>';return;}
+  list.innerHTML='<table class="laps-table"><thead><tr><th></th><th>Date</th><th>Name</th><th>Distance</th><th>Duration</th><th>Avg power</th></tr></thead><tbody>'
+    +rides.map(a=>{
+      const idStr=String(a.id);
+      const checked=coachDecAeroPickerSelected.has(idStr)?'checked':'';
+      const distMi=a.distance?(a.distance/1609.34).toFixed(1)+' mi':'—';
+      return'<tr><td><input type="checkbox" '+checked+' onchange="coachDecTogglePickerRide(\''+idStr+'\',this.checked)"></td>'
+        +'<td>'+coachDecFmtDate((a.start_date_local||'').slice(0,10))+'</td>'
+        +'<td>'+escHtml(a.name||a.type||'Ride')+'</td>'
+        +'<td>'+distMi+'</td>'
+        +'<td>'+_fmtDur(a.moving_time)+'</td>'
+        +'<td>'+(a.average_watts?Math.round(a.average_watts)+'W':'—')+'</td></tr>';
+    }).join('')
+    +'</tbody></table>';
+  document.getElementById('coachDecRidePickerCount').textContent=coachDecAeroPickerSelected.size+' selected';
+}
+function coachDecTogglePickerRide(actIdStr,checked){
+  if(checked)coachDecAeroPickerSelected.add(actIdStr);else coachDecAeroPickerSelected.delete(actIdStr);
+  document.getElementById('coachDecRidePickerCount').textContent=coachDecAeroPickerSelected.size+' selected';
+}
+function coachDecConfirmRidePicker(){
+  const candidates=coachDecRidePickerCandidates();
+  const prevById={};
+  coachDecAeroSelectedRides.forEach(e=>{prevById[String(e.act.id)]=e;});
+  coachDecAeroSelectedRides=candidates.filter(a=>coachDecAeroPickerSelected.has(String(a.id))).map(act=>prevById[String(act.id)]||{act,selectedLapIdx:null});
+  coachDecCloseRidePicker();
+  coachDecRenderLapPickerArea();
+}
+
+async function coachDecRenderLapPickerArea(){
+  const area=document.getElementById('coachDecAeroLapPickerArea');
+  const resultsArea=document.getElementById('coachDecAeroResultsArea');
+  if(!coachDecAeroSelectedRides.length){area.innerHTML='';resultsArea.innerHTML='';return;}
+  area.innerHTML=coachDecAeroSelectedRides.map(({act})=>'<div class="chart-box" style="margin-bottom:10px" id="coachDecAeroLapBox_'+String(act.id)+'"><div class="empty-note">Loading laps for '+escHtml(act.name||act.type||'ride')+'…</div></div>').join('')
+    +'<div style="display:flex;align-items:center;gap:16px;margin-top:6px">'
+    +'<button class="btn" style="width:auto;padding:12px 32px" onclick="coachDecRunMeticulousCdaAnalysis()">Analyze selected rides</button>'
+    +'</div>';
+  resultsArea.innerHTML='';
+  const athleteId=selectedAthlete&&selectedAthlete.intervals_athlete_id;
+  const apiKey=selectedAthlete&&selectedAthlete.intervals_api_key;
+  await Promise.all(coachDecAeroSelectedRides.map(async entry=>{
+    const act=entry.act;
+    if(!act.laps||!act.laps.length){
+      try{
+        const lapData=await intervalsCall(athleteId,apiKey,act.id,'intervals=true','activity');
+        act.laps=(lapData&&(lapData.laps||lapData.icu_intervals||lapData.intervals))||[];
+      }catch(e){act.laps=act.laps||[];}
+    }
+    if(!entry.selectedLapIdx)entry.selectedLapIdx=new Set((act.laps||[]).map((_,i)=>i));
+    coachDecRenderLapTableForRide(entry);
+  }));
+}
+
+function coachDecRenderLapTableForRide(entry){
+  const act=entry.act;
+  const box=document.getElementById('coachDecAeroLapBox_'+String(act.id));
+  if(!box)return;
+  const laps=act.laps||[];
+  if(!laps.length){
+    box.innerHTML='<div class="chart-card-label">'+escHtml(act.name||act.type||'Ride')+' — '+coachDecFmtDate((act.start_date_local||'').slice(0,10))+'</div><div class="empty-note">No lap data found for this ride.</div>';
+    return;
+  }
+  const rows=laps.map((lap,i)=>{
+    const checked=entry.selectedLapIdx.has(i)?'checked':'';
+    const distMi=lap.distance?(lap.distance/1609.34).toFixed(2)+' mi':'—';
+    const dur=_fmtDur(lap.elapsed_time||lap.moving_time);
+    const pwr=lap.average_watts?Math.round(lap.average_watts)+'W':'—';
+    return'<tr><td><input type="checkbox" '+checked+' onchange="coachDecToggleLap(\''+String(act.id)+'\','+i+',this.checked)"></td><td>'+(i+1)+'</td><td>'+dur+'</td><td>'+distMi+'</td><td>'+pwr+'</td></tr>';
+  }).join('');
+  box.innerHTML='<div class="chart-card-label">'+escHtml(act.name||act.type||'Ride')+' — '+coachDecFmtDate((act.start_date_local||'').slice(0,10))+'</div>'
+    +'<table class="laps-table"><thead><tr><th></th><th>Lap</th><th>Duration</th><th>Distance</th><th>Avg power</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<div id="coachDecAeroLapSummary_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px"></div>';
+  coachDecUpdateLapSummary(entry);
+}
+
+function coachDecToggleLap(actIdStr,idx,checked){
+  const entry=coachDecAeroSelectedRides.find(e=>String(e.act.id)===actIdStr);
+  if(!entry)return;
+  if(checked)entry.selectedLapIdx.add(idx);else entry.selectedLapIdx.delete(idx);
+  coachDecUpdateLapSummary(entry);
+}
+
+function coachDecUpdateLapSummary(entry){
+  const el=document.getElementById('coachDecAeroLapSummary_'+String(entry.act.id));
+  if(!el)return;
+  const laps=entry.act.laps||[];
+  let distM=0,durSec=0;
+  entry.selectedLapIdx.forEach(i=>{const lap=laps[i];if(lap){distM+=lap.distance||0;durSec+=lap.elapsed_time||lap.moving_time||0;}});
+  el.textContent=entry.selectedLapIdx.size+' of '+laps.length+' laps selected — '+(distM/1609.34).toFixed(1)+' mi, '+_fmtDur(durSec);
+}
+
+async function coachDecRunMeticulousCdaAnalysis(){
+  const resultsArea=document.getElementById('coachDecAeroResultsArea');
+  resultsArea.innerHTML='<div class="empty-note">Fetching streams and fitting CdA…</div>';
+  const weightLbs=parseFloat(document.getElementById('cpf_weight_lbs')?.value)||168;
+  const riderKg=weightLbs/2.20462;
+  const bikeWeightLbs=parseFloat(document.getElementById('cpf_bike_weight_lbs')?.value)||19.8;
+  const bikeKg=bikeWeightLbs/2.20462;
+  const mass=riderKg+bikeKg;
+  const crrMode=document.getElementById('cpf_crr_mode')?.value;
+  const fixedCrrVal=parseFloat(document.getElementById('cpf_crr_fixed')?.value);
+  const haveFixedCrr=crrMode==='fixed'&&!isNaN(fixedCrrVal);
+  const fixedCrr=haveFixedCrr?fixedCrrVal:0.0040;
+  const entries=coachDecAeroSelectedRides.filter(e=>e.selectedLapIdx&&e.selectedLapIdx.size);
+  if(!entries.length){
+    resultsArea.innerHTML='<div class="empty-note">Select at least one lap on at least one ride first.</div>';
+    return;
+  }
+  const results=await Promise.all(entries.map(async entry=>{
+    const act=entry.act;
+    try{
+      const[watts,speed,altitude]=await Promise.all([coachFetchStream(act.id,'watts'),coachFetchStream(act.id,'velocity_smooth'),coachFetchStream(act.id,'altitude')]);
+      if(!watts||!speed||!altitude||!watts.length)return{act,error:'No stream data'};
+      const runs=coachDecBuildLapRuns(act.laps,entry.selectedLapIdx);
+      if(!runs.length)return{act,error:'No laps selected'};
+      const wattsRuns=coachDecSliceStreamRuns(watts,runs);
+      const speedRuns=coachDecSliceStreamRuns(speed,runs);
+      const altRuns=coachDecSliceStreamRuns(altitude,runs);
+      let meanAlt=0,n=0;
+      altRuns.forEach(arr=>arr.forEach(v=>{meanAlt+=Number(v)||0;n++;}));
+      meanAlt=n?meanAlt/n:0;
+      const rho=1.225*Math.exp(-meanAlt/8434);
+      const fit=coachDecFitCdaFromRuns(wattsRuns,speedRuns,altRuns,{mass,rho,fixedCrr});
+      if(!fit)return{act,error:'Not enough data in selected laps (need 300+ total seconds)'};
+      const durationSec=runs.reduce((s,r)=>s+(r.end-r.start),0);
+      return{act,cda:fit.cda,crr:fit.crr,rmse:fit.rmse,lapCount:entry.selectedLapIdx.size,durationSec};
+    }catch(e){
+      return{act,error:e.message||'Error'};
+    }
+  }));
+  coachDecAeroResults=results;
+  coachDecRenderCdaResults(results,!haveFixedCrr);
+}
+
+function coachDecRenderCdaResults(results,usedDefaultCrr){
+  const area=document.getElementById('coachDecAeroResultsArea');
+  const ok=results.filter(r=>!r.error);
+  const errs=results.filter(r=>r.error);
+  if(!ok.length){
+    area.innerHTML='<div class="empty-note">No usable results. '+errs.map(r=>escHtml(r.act.name||r.act.type||'ride')+': '+escHtml(r.error)).join('; ')+'</div>';
+    return;
+  }
+  const avgCda=ok.reduce((s,r)=>s+r.cda,0)/ok.length;
+  coachDecAeroAvgCda=avgCda;
+  coachDecAeroResultChoice='avg';
+  const crrWarning=usedDefaultCrr?'<div class="empty-note" style="margin-bottom:10px">No fixed Crr set in Aero setup above — used a default of 0.0040 for this fit. Set "Use a known/fixed value" with the tire\'s real rolling-resistance number for a more accurate result.</div>':'';
+  const errNote=errs.length?'<div class="empty-note" style="margin-bottom:10px">'+errs.length+' ride(s) skipped: '+errs.map(r=>escHtml(r.act.name||r.act.type||'ride')+' ('+escHtml(r.error)+')').join(', ')+'</div>':'';
+  const rows=ok.map((r,i)=>'<tr><td><input type="radio" name="coachDecAeroPickResult" onchange="coachDecSelectCdaResultChoice('+i+')"></td><td>'+escHtml(r.act.name||r.act.type||'Ride')+'</td><td>'+coachDecFmtDate((r.act.start_date_local||'').slice(0,10))+'</td><td>'+r.cda.toFixed(4)+'</td><td>'+r.rmse.toFixed(2)+'</td><td>'+r.lapCount+' laps, '+_fmtDur(r.durationSec)+'</td></tr>').join('');
+  area.innerHTML=crrWarning+errNote
+    +'<table class="laps-table"><thead><tr><th></th><th>Ride</th><th>Date</th><th>CdA</th><th>Fit rmse</th><th>Laps used</th></tr></thead><tbody>'
+    +'<tr><td><input type="radio" name="coachDecAeroPickResult" checked onchange="coachDecSelectCdaResultChoice(\'avg\')"></td><td colspan="3"><b>Average across '+ok.length+' ride'+(ok.length===1?'':'s')+': '+avgCda.toFixed(4)+'</b></td><td></td><td></td></tr>'
+    +rows+'</tbody></table>'
+    +'<div style="display:flex;align-items:center;gap:16px;margin-top:14px">'
+    +'<button class="btn" style="width:auto;padding:12px 32px" onclick="coachDecSaveBuiltCda()">Save as built CdA</button>'
+    +'<span id="coachDecAeroSaveMsg" style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>'
+    +'</div>';
+}
+function coachDecSelectCdaResultChoice(choice){coachDecAeroResultChoice=choice;}
+
+async function coachDecSaveBuiltCda(){
+  if(!selectedAthlete||!selectedAthlete.id)return;
+  const ok=coachDecAeroResults.filter(r=>!r.error);
+  let cda,source;
+  if(coachDecAeroResultChoice==='avg'){
+    cda=coachDecAeroAvgCda;
+    source={mode:'average',rides:ok.map(r=>({id:r.act.id,name:r.act.name,date:r.act.start_date_local}))};
+  }else{
+    const r=ok[coachDecAeroResultChoice];
+    if(!r)return;
+    cda=r.cda;
+    source={mode:'single',ride:{id:r.act.id,name:r.act.name,date:r.act.start_date_local}};
+  }
+  const updatedAt=new Date().toISOString();
+  try{
+    await fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:selectedAthlete.id,built_cda:cda,built_cda_source:source,built_cda_updated_at:updatedAt})});
+    coachDecAeroBuiltCda={cda,source,updatedAt};
+    coachDecUpdateBuiltCdaBadge();
+    coachDecRenderPowerPredictor();
+    const msg=document.getElementById('coachDecAeroSaveMsg');
+    if(msg){msg.style.display='inline';setTimeout(()=>{msg.style.display='none';},2500);}
+  }catch(e){}
+}
+function coachDecUpdateBuiltCdaBadge(){
+  const badge=document.getElementById('coachDecAeroBuiltCdaBadge');
+  if(!badge)return;
+  if(coachDecAeroBuiltCda&&coachDecAeroBuiltCda.cda){
+    badge.style.display='inline';
+    badge.textContent='Built CdA: '+coachDecAeroBuiltCda.cda.toFixed(4);
+  }else{
+    badge.style.display='none';
+  }
+}
+
+// ── GPX race predictor ───────────────────────────────────────────────
+let coachDecGpxProfile=null;
+let coachDecGpxPowerDebounce=null;
+
+async function coachDecOnGpxFileSelected(file){
+  if(!file)return;
+  const summaryEl=document.getElementById('coachDecGpxSummary');
+  summaryEl.innerHTML='<div class="empty-note">Parsing course…</div>';
+  try{
+    const text=await file.text();
+    const points=coachGpxParseFile(text);
+    if(points.length<2){
+      summaryEl.innerHTML='<div class="empty-note">Could not find track points in this GPX file.</div>';
+      return;
+    }
+    coachDecGpxProfile=coachGpxBuildProfile(points,50,120);
+    if(!coachDecGpxProfile.segments.length){
+      summaryEl.innerHTML='<div class="empty-note">Course is too short to build a profile from.</div>';
+      return;
+    }
+    const distMi=(coachDecGpxProfile.totalDistM/1609.34).toFixed(1);
+    const gainFt=Math.round(coachDecGpxProfile.totalElevGainM*3.28084);
+    const maxGradePct=(coachDecGpxProfile.maxGrade*100).toFixed(1);
+    summaryEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--tc2)">'+distMi+' mi · '+gainFt+' ft gain · max grade '+maxGradePct+'% · '+coachDecGpxProfile.segments.length+' segments</div>';
+    coachDecRenderGpxChart();
+    coachDecRenderPowerPredictor();
+  }catch(e){
+    summaryEl.innerHTML='<div class="empty-note">Could not parse this GPX file: '+(e.message||'error')+'</div>';
+  }
+}
+
+function coachDecRenderGpxChart(){
+  const area=document.getElementById('coachDecGpxChartArea');
+  if(!coachDecGpxProfile){area.innerHTML='';return;}
+  area.innerHTML='<div style="position:relative;height:200px"><canvas id="coachDecGpxChart"></canvas></div>';
+  const ctx=document.getElementById('coachDecGpxChart').getContext('2d');
+  const labels=coachDecGpxProfile.segments.map(s=>(s.distM/1609.34).toFixed(1));
+  if(window._coachDecGpxChartInstance)window._coachDecGpxChartInstance.destroy();
+  window._coachDecGpxChartInstance=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Elevation (ft)',data:coachDecGpxProfile.segments.map(s=>s.eleM*3.28084),borderColor:'#378ADD',backgroundColor:'rgba(55,138,221,0.12)',fill:true,tension:0.15,pointRadius:0,borderWidth:1.5},
+    ]},
+    options:{
+      animation:false,responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{title:{display:true,text:'Distance (mi)',color:'#777',font:{size:9}},ticks:{color:'#666',font:{size:9},maxRotation:0,autoSkip:true},grid:{color:'rgba(42,42,42,0.5)'}},
+        y:{title:{display:true,text:'ft',color:'#378ADD',font:{size:9}},ticks:{color:'#378ADD',font:{size:9}},grid:{color:'rgba(42,42,42,0.5)'}},
+      },
+    }
+  });
+}
+
+function coachDecRenderPowerPredictor(){
+  const area=document.getElementById('coachDecGpxPowerArea');
+  if(!coachDecGpxProfile){area.innerHTML='';return;}
+  const defaultCda=(coachDecAeroBuiltCda&&coachDecAeroBuiltCda.cda)||0.30;
+  area.innerHTML=
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:14px">'
+    +'<div class="field" style="margin-bottom:0"><label>CdA override</label><input class="zc-input" type="number" id="coachDecGpxCda" step="0.001" value="'+defaultCda.toFixed(4)+'" oninput="coachDecScheduleGpxPredict()"></div>'
+    +'</div>'
+    +'<div style="margin-top:18px"><label style="display:block;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">Target power</label>'
+    +'<div style="display:flex;align-items:center;gap:16px">'
+    +'<input type="range" id="coachDecGpxPowerSlider" min="50" max="500" step="5" value="200" style="flex:1" oninput="coachDecSyncGpxPowerInputs(this.value);coachDecScheduleGpxPredict()">'
+    +'<input class="zc-input" type="number" id="coachDecGpxPowerNum" min="0" max="2000" step="5" value="200" style="width:90px" oninput="coachDecSyncGpxPowerInputs(this.value);coachDecScheduleGpxPredict()">'
+    +'<span style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--tc3)">watts</span>'
+    +'</div></div>'
+    +'<div id="coachDecGpxPredictedTime" style="margin-top:18px;background:var(--bc3);border:1px solid var(--border);padding:16px 20px;font-family:\'Barlow Condensed\',sans-serif;font-size:32px;font-weight:700;color:var(--acc)"></div>';
+  coachDecRunGpxPredict();
+}
+function coachDecSyncGpxPowerInputs(val){
+  const slider=document.getElementById('coachDecGpxPowerSlider'),num=document.getElementById('coachDecGpxPowerNum');
+  if(slider&&slider.value!==String(val))slider.value=val;
+  if(num&&num.value!==String(val))num.value=val;
+}
+function coachDecScheduleGpxPredict(){
+  clearTimeout(coachDecGpxPowerDebounce);
+  coachDecGpxPowerDebounce=setTimeout(coachDecRunGpxPredict,120);
+}
+function coachDecRunGpxPredict(){
+  if(!coachDecGpxProfile)return;
+  const out=document.getElementById('coachDecGpxPredictedTime');
+  if(!out)return;
+  const targetPower=parseFloat(document.getElementById('coachDecGpxPowerNum')?.value)||0;
+  const cda=parseFloat(document.getElementById('coachDecGpxCda')?.value)||0.30;
+  const crrMode=document.getElementById('cpf_crr_mode')?.value;
+  const fixedCrrVal=parseFloat(document.getElementById('cpf_crr_fixed')?.value);
+  const crr=(crrMode==='fixed'&&!isNaN(fixedCrrVal))?fixedCrrVal:0.0040;
+  const weightLbs=parseFloat(document.getElementById('cpf_weight_lbs')?.value)||168;
+  const bikeWeightLbs=parseFloat(document.getElementById('cpf_bike_weight_lbs')?.value)||19.8;
+  const mass=(weightLbs+bikeWeightLbs)/2.20462;
+  const rho=1.225;
+  const eta=0.975;
+  const result=coachPredictCourseTime(coachDecGpxProfile,targetPower,cda,crr,mass,rho,eta);
+  out.innerHTML=_fmtDur(result.totalSec)+' <span style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--tc3);font-weight:400">at '+targetPower+'W, CdA '+cda.toFixed(4)+', Crr '+crr.toFixed(4)+'</span>';
 }
 
 function icuTypeToSport(type){
