@@ -2032,7 +2032,11 @@ function decFmtDate(dateStr){
 
 function drawDecouplingChart(box,points,sport){
   box.innerHTML='<div style="position:relative;height:240px"><canvas id="decChart"></canvas></div>'
-    +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:6px">'+points.length+' workout'+(points.length===1?'':'s')+' analyzed — hover a point for the workout name</div>';
+    +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:6px">'+points.length+' workout'+(points.length===1?'':'s')+' analyzed — hover a point for the workout name</div>'
+    +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px;line-height:1.6">'
+    +'<b style="color:#378ADD">Efficiency factor</b> — output ÷ heart rate for the whole workout. Higher is better; watch for a <b>rising</b> trend at similar effort over time.<br>'
+    +'<b style="color:#E24B4A">Decoupling %</b> — how much that ratio drifted from the first half to the second half. <b>Under ~5%</b> = strong aerobic durability. <b>Over ~10%</b> = notable fade within the workout (heat, dehydration, fatigue, insufficient aerobic base).'
+    +'</div>';
   const ctx=document.getElementById('decChart').getContext('2d');
   const labels=points.map(p=>decFmtDate(p.date));
   const efUnit=sport==='running'?'m/s per bpm':'W per bpm';
