@@ -1944,10 +1944,7 @@ function athCalRenderCountdown(){
   if(!el)return;
   const todayStr=_localStr(new Date());
   const upcoming=(athRacesCache||[]).filter(r=>r.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
-  if(!upcoming.length){
-    console.log('[race countdown] no upcoming races -- todayStr:',todayStr,'athRacesCache:',athRacesCache);
-    el.style.display='none';return;
-  }
+  if(!upcoming.length){el.style.display='none';return;}
   const race=upcoming.find(r=>r.priority==='A')||upcoming[0];
   const days=Math.round((new Date(race.date)-new Date(todayStr))/86400000);
   const weeks=(days/7).toFixed(1);
