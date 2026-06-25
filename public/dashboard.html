@@ -406,6 +406,7 @@ window.applyTierGating = function() {
       <button class="dash-tab active" data-dtab="data" onclick="switchDashTab('data')">Dashboard</button>
       <button class="dash-tab" data-dtab="calendar" onclick="switchDashTab('calendar')">Calendar</button>
       <button class="dash-tab" data-dtab="nutrition" onclick="switchDashTab('nutrition')">FuelPro</button>
+      <button class="dash-tab" data-dtab="aero" onclick="switchDashTab('aero')">Aero</button>
       <button class="dash-tab" data-dtab="profile" onclick="switchDashTab('profile')">Profile</button>
     </div>
 
@@ -573,19 +574,6 @@ window.applyTierGating = function() {
       <div id="decBox"><div class="empty-note">Steady aerobic workouts only (rides/runs without hard intervals, 40+ min). Click "Build trend" to fetch and analyze — only needs to run once per workout, then it's cached.</div></div>
     </div>
 
-    <div class="chart-box" style="margin-top:1px">
-      <div class="chart-title">Aero (CdA / Crr) estimate
-        <div class="zd-controls">
-          <button class="unit-toggle" id="decAeroBuildBtn" onclick="decRenderAeroTrend()">Build trend</button>
-        </div>
-      </div>
-      <div class="legend">
-        <div class="leg-item"><span class="leg-line" style="background:#378ADD"></span>CdA (drag area)</div>
-        <div class="leg-item"><span class="leg-line leg-dashed" style="border-bottom:2px dashed #E24B4A;background:transparent;height:0"></span>Crr (rolling resistance)</div>
-      </div>
-      <div id="decAeroBox"><div class="empty-note">Estimates CdA/Crr from your steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Click "Build trend" to analyze.</div></div>
-    </div>
-
     <div class="zc-section">
       <div class="section-label">Training zones</div>
       <div class="sport-tabs">
@@ -616,6 +604,39 @@ window.applyTierGating = function() {
         </div>
       </div>
       <p style="font-size:11px;color:var(--tc3);margin-top:0.5rem;flex-shrink:0">Tap a workout or race for details. Tap an empty day to add a session. <span class="ath-badge-a">A</span> = added by you.</p>
+    </div>
+
+    <div class="dash-panel" id="dtp-aero">
+      <div class="section-label">Aero setup</div>
+      <div class="chart-box" style="margin-bottom:1px">
+        <div class="field"><label>Bike weight (lbs)</label><input class="zc-input" type="number" id="pf_bike_weight_lbs" min="5" max="60" placeholder="e.g. 18 (road), 20 (TT/aero)"></div>
+        <div class="field"><label>Rolling resistance (Crr)</label>
+          <select class="zc-select" id="pf_crr_mode" onchange="document.getElementById('pf_crr_fixed_row').style.display=this.value==='fixed'?'block':'none'">
+            <option value="estimate">Estimate from ride data</option>
+            <option value="fixed">Use a known/fixed value</option>
+          </select>
+        </div>
+        <div class="field" id="pf_crr_fixed_row" style="display:none"><label>Fixed Crr value</label><input class="zc-input" type="number" id="pf_crr_fixed" min="0.0005" max="0.02" step="0.0001" placeholder="e.g. 0.0040 — from your tire's published rolling-resistance test"></div>
+        <div class="field"><label>Setup notes</label><textarea class="zc-input" id="pf_aero_setup_notes" rows="3" placeholder="What's currently different about your setup (helmet, position, equipment)..." style="resize:vertical;height:80px"></textarea></div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:1rem">
+          <button class="btn" style="width:auto;padding:12px 32px" onclick="saveAthProfile()">Save aero setup</button>
+          <span id="aeroProfSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
+          <span id="aeroProfErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
+        </div>
+      </div>
+
+      <div class="chart-box" style="margin-top:1px">
+        <div class="chart-title">Aero (CdA / Crr) estimate
+          <div class="zd-controls">
+            <button class="unit-toggle" id="decAeroBuildBtn" onclick="decRenderAeroTrend()">Build trend</button>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="leg-item"><span class="leg-line" style="background:#378ADD"></span>CdA (drag area)</div>
+          <div class="leg-item"><span class="leg-line leg-dashed" style="border-bottom:2px dashed #E24B4A;background:transparent;height:0"></span>Crr (rolling resistance)</div>
+        </div>
+        <div id="decAeroBox"><div class="empty-note">Estimates CdA/Crr from your steady rides using the same virtual-elevation method as Best Bike Split (no wind data, calm-air assumption). Needs rides with real hills — pancake-flat rides can't separate drag from rolling resistance. Click "Build trend" to analyze.</div></div>
+      </div>
     </div>
 
     <div class="dash-panel" id="dtp-profile">
@@ -2130,6 +2151,24 @@ function estimateCdaCrr(powerStream,speedStream,altitudeStream,opts){
   }
   function scoreOf(cda,crr){return sseAgainstActual(buildVirtualElevation(cda,crr));}
 
+  // If Crr is already known (e.g. a published tire-test value), there's no
+  // reason to grid-search a number the user already has -- search CdA alone.
+  if(opts.fixedCrr!=null){
+    const fixedCrr=opts.fixedCrr;
+    let best1={cda:0.30,err:Infinity};
+    for(let cda=0.10;cda<=0.50+1e-9;cda+=0.005){
+      const err=scoreOf(cda,fixedCrr);
+      if(err<best1.err)best1={cda,err};
+    }
+    let fine1={...best1};
+    for(let cda=best1.cda-0.01;cda<=best1.cda+0.01+1e-9;cda+=0.0005){
+      if(cda<=0)continue;
+      const err=scoreOf(cda,fixedCrr);
+      if(err<fine1.err)fine1={cda,err};
+    }
+    return{cda:fine1.cda,crr:fixedCrr,rmse:Math.sqrt(fine1.err/n)};
+  }
+
   let best={cda:0.30,crr:0.004,err:Infinity};
   for(let cda=0.15;cda<=0.45+1e-9;cda+=0.02){
     for(let crr=0.0020;crr<=0.0070+1e-9;crr+=0.0005){
@@ -2182,8 +2221,13 @@ async function decRenderAeroTrend(){
     }
     const weightLbs=(currentAthlete&&currentAthlete.weight_lbs)||168;
     const riderKg=weightLbs/2.20462;
-    const bikeKg=9; // road bike + pedals + cages + gear -- a flagged assumption, not athlete-specific data this app tracks
+    // 19.8lb (~9kg) fallback if the athlete hasn't entered a real bike weight yet on the Aero tab.
+    const bikeWeightLbs=parseFloat(document.getElementById('pf_bike_weight_lbs')?.value)||19.8;
+    const bikeKg=bikeWeightLbs/2.20462;
     const mass=riderKg+bikeKg;
+    const crrMode=document.getElementById('pf_crr_mode')?.value;
+    const fixedCrrVal=parseFloat(document.getElementById('pf_crr_fixed')?.value);
+    const fixedCrr=crrMode==='fixed'&&!isNaN(fixedCrrVal)?fixedCrrVal:null;
     let done=0;
     const points=[];
     await Promise.all(candidates.map(async({act})=>{
@@ -2199,13 +2243,17 @@ async function decRenderAeroTrend(){
         let altMin=Infinity,altMax=-Infinity;
         for(let i=0;i<altitude.length;i++){const v=Number(altitude[i]);if(v<altMin)altMin=v;if(v>altMax)altMax=v;}
         const elevRange=altMax-altMin;
-        if(!(elevRange>=DEC_AERO_MIN_ELEV_RANGE_M))return; // skip rides too flat to constrain CdA vs Crr
+        // The elevation-range gate exists only to prevent CdA/Crr from being
+        // mutually unidentifiable on a flat course -- that degeneracy goes
+        // away once Crr is already known, so a flat ride is perfectly fine
+        // for solving CdA alone when fixedCrr is supplied.
+        if(fixedCrr==null&&!(elevRange>=DEC_AERO_MIN_ELEV_RANGE_M))return;
         const meanAlt=altitude.reduce((s,v)=>s+(Number(v)||0),0)/altitude.length;
         const rho=1.225*Math.exp(-meanAlt/8434); // barometric scale-height approximation
         const wattsDs=decDownsample(watts,DEC_AERO_DOWNSAMPLE,'avg');
         const speedDs=decDownsample(speed,DEC_AERO_DOWNSAMPLE,'avg');
         const altDs=decDownsample(altitude,DEC_AERO_DOWNSAMPLE,'last');
-        const r=estimateCdaCrr(wattsDs,speedDs,altDs,{mass,rho,dt:DEC_AERO_DOWNSAMPLE});
+        const r=estimateCdaCrr(wattsDs,speedDs,altDs,{mass,rho,dt:DEC_AERO_DOWNSAMPLE,fixedCrr});
         if(!r)return;
         points.push({date:(act.start_date_local||'').slice(0,10),cda:r.cda,crr:r.crr,name:act.name||act.type});
       }catch(e){
@@ -2216,10 +2264,12 @@ async function decRenderAeroTrend(){
     }));
     points.sort((a,b)=>a.date.localeCompare(b.date));
     if(!points.length){
-      box.innerHTML='<div class="empty-note">Found '+candidates.length+' candidate ride(s), but none had enough elevation variation ('+DEC_AERO_MIN_ELEV_RANGE_M+'m+ range) to reliably separate aero drag from rolling resistance. Try again after a hillier ride.</div>';
+      box.innerHTML=fixedCrr!=null
+        ?'<div class="empty-note">Found '+candidates.length+' candidate ride(s), but none had usable power/speed/altitude data to analyze.</div>'
+        :'<div class="empty-note">Found '+candidates.length+' candidate ride(s), but none had enough elevation variation ('+DEC_AERO_MIN_ELEV_RANGE_M+'m+ range) to reliably separate aero drag from rolling resistance. Try again after a hillier ride, or set a fixed Crr value if you know your tires\' rolling resistance.</div>';
       return;
     }
-    drawAeroChart(box,points);
+    drawAeroChart(box,points,fixedCrr!=null);
   }catch(e){
     box.innerHTML='<div class="empty-note">Could not build trend: '+(e.message||'error')+'</div>';
   }finally{
@@ -2227,13 +2277,17 @@ async function decRenderAeroTrend(){
   }
 }
 
-function drawAeroChart(box,points){
+function drawAeroChart(box,points,isFixedCrr){
+  const eligibilityNote=isFixedCrr?'':' (20m+ elevation range required)';
+  const crrLine=isFixedCrr
+    ?'<b style="color:#E24B4A">Crr</b> — held fixed at the value you entered on this tab, not estimated from ride data.<br>'
+    :'<b style="color:#E24B4A">Crr</b> — rolling resistance coefficient. <b>Lower is faster</b>. Typically 0.003-0.006 depending on tires/pressure/surface; shouldn\'t change much unless your tires or road conditions did.<br>';
   box.innerHTML='<div style="position:relative;height:240px"><canvas id="decAeroChart"></canvas></div>'
-    +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:6px">'+points.length+' ride'+(points.length===1?'':'s')+' analyzed (20m+ elevation range required) — hover a point for the ride name</div>'
+    +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:6px">'+points.length+' ride'+(points.length===1?'':'s')+' analyzed'+eligibilityNote+' — hover a point for the ride name</div>'
     +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px;line-height:1.6">'
     +'<b style="color:#378ADD">CdA</b> — drag area (m²): your aerodynamic drag coefficient × frontal area. <b>Lower is faster</b> for the same power. Typical road position ~0.30-0.36, aero bars/TT ~0.21-0.27, depending on rider size and position. Watch for drops after a position or equipment change.<br>'
-    +'<b style="color:#E24B4A">Crr</b> — rolling resistance coefficient. <b>Lower is faster</b>. Typically 0.003-0.006 depending on tires/pressure/surface; shouldn\'t change much unless your tires or road conditions did.<br>'
-    +'Estimates assume calm wind and a 9kg bike+gear default (not athlete-specific) — treat single points as noisy, the trend across several rides is what matters.'
+    +crrLine
+    +'Estimates assume calm wind and use your entered rider/bike weight — treat single points as noisy, the trend across several rides is what matters.'
     +'</div>';
   const ctx=document.getElementById('decAeroChart').getContext('2d');
   const labels=points.map(p=>decFmtDate(p.date));
@@ -5560,6 +5614,12 @@ function fillProfileForm(p){
   set('pf_strengths', p.strengths);
   set('pf_long_term_goals', p.long_term_goals);
   set('pf_current_phase', p.current_phase);
+  set('pf_bike_weight_lbs', p.bike_weight_lbs);
+  set('pf_crr_mode', p.crr_mode||'estimate');
+  set('pf_crr_fixed', p.crr_fixed);
+  set('pf_aero_setup_notes', p.aero_setup_notes);
+  const crrFixedRow=document.getElementById('pf_crr_fixed_row');
+  if(crrFixedRow)crrFixedRow.style.display=p.crr_mode==='fixed'?'block':'none';
   // rest days checkboxes
   const restDays = Array.isArray(p.rest_days) ? p.rest_days : (p.rest_days ? p.rest_days.split(',') : []);
   document.querySelectorAll('#pf_rest_days input[type=checkbox]').forEach(cb=>{
@@ -5611,11 +5671,18 @@ async function saveAthProfile(){
     strengths: get('pf_strengths'),
     long_term_goals: get('pf_long_term_goals'),
     current_phase: get('pf_current_phase'),
+    bike_weight_lbs: getN('pf_bike_weight_lbs'),
+    crr_mode: get('pf_crr_mode'),
+    crr_fixed: getN('pf_crr_fixed'),
+    aero_setup_notes: get('pf_aero_setup_notes'),
   };
-  const saveMsg = document.getElementById('profSaveMsg');
-  const errMsg = document.getElementById('profErrMsg');
-  if(saveMsg) saveMsg.style.display='none';
-  if(errMsg) errMsg.style.display='none';
+  // Profile fields now render on two tabs (Profile and Aero) sharing one
+  // save function -- update whichever feedback elements are present rather
+  // than assuming only the original Profile-tab ones exist.
+  const saveMsgs = ['profSaveMsg','aeroProfSaveMsg'].map(id=>document.getElementById(id)).filter(Boolean);
+  const errMsgs = ['profErrMsg','aeroProfErrMsg'].map(id=>document.getElementById(id)).filter(Boolean);
+  saveMsgs.forEach(el=>el.style.display='none');
+  errMsgs.forEach(el=>el.style.display='none');
   try {
     const r = await fetch('/api/athlete-profile', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -5623,10 +5690,10 @@ async function saveAthProfile(){
     });
     const d = await r.json();
     if(!r.ok) throw new Error(d.error||'Save failed');
-    if(saveMsg){ saveMsg.style.display='inline'; setTimeout(()=>saveMsg.style.display='none',2500); }
+    saveMsgs.forEach(el=>{ el.style.display='inline'; setTimeout(()=>el.style.display='none',2500); });
     updateWkg();
   } catch(e){
-    if(errMsg){ errMsg.textContent=e.message; errMsg.style.display='inline'; }
+    errMsgs.forEach(el=>{ el.textContent=e.message; el.style.display='inline'; });
   }
 }
 
