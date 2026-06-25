@@ -354,6 +354,17 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
                 <div style="position:relative;height:240px;width:100%"><canvas id="coachSportCtlChart"></canvas></div>
               </div>
             </div>
+            <div class="chart-card" style="margin-top:1px">
+              <div class="chart-card-header">
+                <select class="btn btn-sm btn-ghost" id="coachDecSport" style="padding:4px 10px;font-size:10px;width:auto">
+                  <option value="cycling">Cycling</option>
+                  <option value="running">Running</option>
+                </select>
+                <button class="btn btn-sm btn-ghost" id="coachDecBuildBtn" onclick="coachDecRenderTrend()" style="padding:4px 10px;font-size:10px">Build trend</button>
+                <span class="chart-card-label">Aerobic efficiency &amp; decoupling</span>
+              </div>
+              <div id="coachDecBox"><div class="empty-note">Steady aerobic workouts only (rides/runs without hard intervals, 40+ min). Click "Build trend" to fetch and analyze — only needs to run once per workout, then it's cached.</div></div>
+            </div>
             <div style="margin-top:1.5rem">
               <div class="section-label">Recent activities</div>
               <div id="ovActs"><div class="empty-note">—</div></div>
@@ -1152,6 +1163,160 @@ function sportClass(sport){
   if(s==='swimming'||s==='swim')return'sport-swimming';
   if(s==='strength')return'sport-strength';
   return'sport-other';
+}
+
+// ── Aerobic efficiency / decoupling trend (mirrors dashboard.html) ──
+// Decoupling: split a steady aerobic workout into first/second half,
+// compare power(or speed):HR in each half. Positive % = HR drifted up
+// relative to output as the workout went on -- standard convention
+// (TrainingPeaks/WKO Pw:Hr). EF = whole-workout output:HR ratio.
+// CV (coefficient of variation) screens out interval-style efforts --
+// coach.html has no fuelpro_type/SESSION_TYPES data to cross-check
+// against (that's athlete-portal-only), so this CV cutoff is the only
+// filter here, not a secondary safety net like in dashboard.html.
+function calcDecouplingEF(primaryStream,hrStream,opts){
+  opts=opts||{};
+  const minPrimary=opts.minPrimary!=null?opts.minPrimary:(opts.isRun?0.5:30);
+  const minValidFrac=0.6;
+  const n=Math.min(primaryStream.length,hrStream.length);
+  if(n<60)return null;
+  const mid=Math.floor(n/2);
+  function halfStats(start,end){
+    let sumP=0,sumH=0,count=0;
+    for(let i=start;i<end;i++){
+      const p=Number(primaryStream[i])||0,h=Number(hrStream[i])||0;
+      if(p>=minPrimary&&h>0){sumP+=p;sumH+=h;count++;}
+    }
+    const total=end-start;
+    if(total===0||count/total<minValidFrac)return null;
+    return{avgP:sumP/count,avgH:sumH/count,count};
+  }
+  const h1=halfStats(0,mid),h2=halfStats(mid,n);
+  if(!h1||!h2)return null;
+  const ratio1=h1.avgP/h1.avgH,ratio2=h2.avgP/h2.avgH;
+  const decoupling=(ratio1-ratio2)/ratio1*100;
+  const whole=halfStats(0,n);
+  if(!whole)return null;
+  const ef=whole.avgP/whole.avgH;
+  let sum=0,sumSq=0,cvCount=0;
+  for(let i=0;i<n;i++){const p=Number(primaryStream[i])||0;if(p>=minPrimary){sum+=p;sumSq+=p*p;cvCount++;}}
+  const cvMean=cvCount?sum/cvCount:0;
+  const cvVar=cvCount?(sumSq/cvCount)-(cvMean*cvMean):0;
+  const cv=cvMean>0?Math.sqrt(Math.max(cvVar,0))/cvMean:null;
+  return{decoupling,ef,cv};
+}
+
+async function coachFetchStream(activityId,type){
+  try{
+    const cached=await fetch('/api/stream-cache?activity_id='+activityId+'&stream_type='+type);
+    if(cached.ok){
+      const cj=await cached.json();
+      if(cj.cached&&Array.isArray(cj.data))return cj.data;
+    }
+  }catch(e){}
+  const aid=selectedAthlete&&selectedAthlete.intervals_athlete_id;
+  const akey=selectedAthlete&&selectedAthlete.intervals_api_key;
+  if(!aid||!akey)return[];
+  try{
+    const data=await intervalsCall(aid,akey,activityId+'/streams','types='+type,'activity');
+    let arr=null;
+    if(Array.isArray(data)){const match=data.find(d=>d.type===type)||data[0];arr=match?(match.data||match):null;}
+    else if(data&&data[type]){arr=data[type].data||data[type];}
+    else if(data&&data.data){arr=data.data;}
+    arr=Array.isArray(arr)?arr:[];
+    if(arr.length){
+      fetch('/api/stream-cache',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({activity_id:String(activityId),stream_type:type,data:arr})}).catch(()=>{});
+    }
+    return arr;
+  }catch(e){return[];}
+}
+
+function coachDecSportFromType(type){
+  const t=(type||'').toLowerCase();
+  if(t.includes('ride')||t.includes('cycl')||t.includes('virtual'))return'cycling';
+  if(t.includes('run')||t.includes('jog')||t.includes('trail')||t.includes('treadmill'))return'running';
+  return'other';
+}
+
+const COACH_DEC_MIN_DURATION_SEC=2400; // 40 min
+const COACH_DEC_CV_CUTOFF=0.35; // hand-reasoned, not a published constant
+const COACH_DEC_MAX_CANDIDATES=20;
+
+function coachDecGetCandidates(sport){
+  const streamKey=sport==='running'?'velocity_smooth':'watts';
+  return(athleteIcuActivities||[])
+    .filter(a=>coachDecSportFromType(a.type)===sport)
+    .filter(a=>(a.moving_time||0)>=COACH_DEC_MIN_DURATION_SEC)
+    .sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))
+    .slice(0,COACH_DEC_MAX_CANDIDATES)
+    .map(a=>({act:a,streamKey}));
+}
+
+async function coachDecRenderTrend(){
+  const sport=document.getElementById('coachDecSport').value;
+  const box=document.getElementById('coachDecBox');
+  const btn=document.getElementById('coachDecBuildBtn');
+  btn.disabled=true;
+  box.innerHTML='<div class="empty-note">Analyzing steady aerobic workouts… 0%</div>';
+  try{
+    const candidates=coachDecGetCandidates(sport);
+    if(!candidates.length){
+      box.innerHTML='<div class="empty-note">No qualifying steady aerobic '+(sport==='running'?'runs':'rides')+' found in the last 90 days (40+ min).</div>';
+      return;
+    }
+    let done=0;
+    const points=[];
+    await Promise.all(candidates.map(async({act,streamKey})=>{
+      try{
+        const[primary,hr]=await Promise.all([coachFetchStream(act.id,streamKey),coachFetchStream(act.id,'heartrate')]);
+        done++;
+        const prog=box.querySelector('.empty-note');
+        if(prog)prog.textContent='Analyzing steady aerobic workouts… '+Math.round(done/candidates.length*100)+'%';
+        if(!primary||!hr||!primary.length||!hr.length)return;
+        const r=calcDecouplingEF(primary,hr,{isRun:sport==='running'});
+        if(!r||r.cv==null||r.cv>COACH_DEC_CV_CUTOFF)return;
+        points.push({date:(act.start_date_local||'').slice(0,10),ef:r.ef,decoupling:r.decoupling,name:act.name||act.type});
+      }catch(e){
+        done++;
+      }
+    }));
+    points.sort((a,b)=>a.date.localeCompare(b.date));
+    if(!points.length){
+      box.innerHTML='<div class="empty-note">Found '+candidates.length+' candidate workout(s), but none had a steady enough effort (or complete power/HR data) to analyze reliably.</div>';
+      return;
+    }
+    coachDrawDecouplingChart(box,points,sport);
+  }catch(e){
+    box.innerHTML='<div class="empty-note">Could not build trend: '+(e.message||'error')+'</div>';
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function coachDrawDecouplingChart(box,points,sport){
+  box.innerHTML='<div style="position:relative;height:240px;width:100%"><canvas id="coachDecChart"></canvas></div>'
+    +'<div class="empty-note" style="margin-top:6px">'+points.length+' workout'+(points.length===1?'':'s')+' analyzed — hover a point for the workout name</div>';
+  const ctx=document.getElementById('coachDecChart').getContext('2d');
+  const labels=points.map(p=>new Date(p.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+  const efUnit=sport==='running'?'m/s per bpm':'W per bpm';
+  if(window._coachDecChartInstance)window._coachDecChartInstance.destroy();
+  window._coachDecChartInstance=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Efficiency factor ('+efUnit+')',data:points.map(p=>p.ef),borderColor:'#378ADD',backgroundColor:'transparent',tension:0.2,pointRadius:3,borderWidth:2,yAxisID:'yEf'},
+      {label:'Decoupling %',data:points.map(p=>p.decoupling),borderColor:'#E24B4A',backgroundColor:'transparent',borderDash:[5,3],tension:0.2,pointRadius:3,borderWidth:1.5,yAxisID:'yDec'},
+    ]},
+    options:{
+      animation:false,responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'bottom',labels:{color:'#aaa',font:{size:10}}},tooltip:{callbacks:{afterTitle:(items)=>points[items[0].dataIndex].name}}},
+      scales:{
+        x:{ticks:{color:'#666',font:{size:9},maxRotation:0,autoSkip:true},grid:{color:'rgba(42,42,42,0.5)'}},
+        yEf:{type:'linear',position:'left',ticks:{color:'#378ADD',font:{size:9}},grid:{color:'rgba(42,42,42,0.5)'}},
+        yDec:{type:'linear',position:'right',ticks:{color:'#E24B4A',font:{size:9}},grid:{display:false}},
+      },
+    }
+  });
 }
 
 function icuTypeToSport(type){

@@ -556,6 +556,23 @@ window.applyTierGating = function() {
       </div>
     </div>
 
+    <div class="chart-box" style="margin-top:1px">
+      <div class="chart-title">Aerobic efficiency &amp; decoupling
+        <div class="zd-controls">
+          <select class="zd-select" id="decSport">
+            <option value="cycling">Cycling</option>
+            <option value="running">Running</option>
+          </select>
+          <button class="unit-toggle" id="decBuildBtn" onclick="decRenderTrend()">Build trend</button>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="leg-item"><span class="leg-line" style="background:#378ADD"></span>Efficiency factor</div>
+        <div class="leg-item"><span class="leg-line leg-dashed" style="border-bottom:2px dashed #E24B4A;background:transparent;height:0"></span>Decoupling %</div>
+      </div>
+      <div id="decBox"><div class="empty-note">Steady aerobic workouts only (rides/runs without hard intervals, 40+ min). Click "Build trend" to fetch and analyze — only needs to run once per workout, then it's cached.</div></div>
+    </div>
+
     <div class="zc-section">
       <div class="section-label">Training zones</div>
       <div class="sport-tabs">
@@ -1892,6 +1909,141 @@ async function renderCurve(){
     }
     return;
   }
+}
+
+// ── Aerobic efficiency / decoupling trend ──────────────────────────
+// Decoupling: split a steady aerobic workout into first/second half,
+// compare power(or speed):HR in each half. Positive % = HR drifted up
+// relative to output as the workout went on (aerobic system straining
+// more for the same work) -- standard convention (TrainingPeaks/WKO
+// Pw:Hr). EF (efficiency factor) = whole-workout output:HR ratio,
+// trended over time at similar effort = a real fitness signal, unlike
+// CTL which only measures accumulated training stress.
+// CV (coefficient of variation of the primary stream) is used to screen
+// out interval-style workouts even when untagged -- a hand-reasoned
+// cutoff (0.35), not a published constant; flagging as tunable.
+function calcDecouplingEF(primaryStream,hrStream,opts){
+  opts=opts||{};
+  const minPrimary=opts.minPrimary!=null?opts.minPrimary:(opts.isRun?0.5:30);
+  const minValidFrac=0.6;
+  const n=Math.min(primaryStream.length,hrStream.length);
+  if(n<60)return null;
+  const mid=Math.floor(n/2);
+  function halfStats(start,end){
+    let sumP=0,sumH=0,count=0;
+    for(let i=start;i<end;i++){
+      const p=Number(primaryStream[i])||0,h=Number(hrStream[i])||0;
+      if(p>=minPrimary&&h>0){sumP+=p;sumH+=h;count++;}
+    }
+    const total=end-start;
+    if(total===0||count/total<minValidFrac)return null;
+    return{avgP:sumP/count,avgH:sumH/count,count};
+  }
+  const h1=halfStats(0,mid),h2=halfStats(mid,n);
+  if(!h1||!h2)return null;
+  const ratio1=h1.avgP/h1.avgH,ratio2=h2.avgP/h2.avgH;
+  const decoupling=(ratio1-ratio2)/ratio1*100;
+  const whole=halfStats(0,n);
+  if(!whole)return null;
+  const ef=whole.avgP/whole.avgH;
+  let sum=0,sumSq=0,cvCount=0;
+  for(let i=0;i<n;i++){const p=Number(primaryStream[i])||0;if(p>=minPrimary){sum+=p;sumSq+=p*p;cvCount++;}}
+  const cvMean=cvCount?sum/cvCount:0;
+  const cvVar=cvCount?(sumSq/cvCount)-(cvMean*cvMean):0;
+  const cv=cvMean>0?Math.sqrt(Math.max(cvVar,0))/cvMean:null;
+  return{decoupling,ef,cv};
+}
+
+const DEC_MIN_DURATION_SEC=2400; // 40 min -- short enough to be all noise, not enough drift to mean anything
+const DEC_CV_CUTOFF=0.35; // hand-reasoned, not a published constant -- screens out interval-style efforts
+const DEC_MAX_CANDIDATES=20; // bounds worst-case uncached-stream fetch count
+
+function decGetCandidates(sport){
+  const streamKey=sport==='running'?'velocity_smooth':'watts';
+  return allActivities
+    .filter(a=>sportClass(a.type)===sport)
+    .filter(a=>(a.moving_time||a.elapsed_time||0)>=DEC_MIN_DURATION_SEC)
+    .filter(a=>{
+      const actDate=(a.start_date_local||'').slice(0,10);
+      const wo=(athWorkoutsCache||[]).find(w=>w.date===actDate&&w.sport===sport);
+      if(wo&&wo.fuelpro_type!=null){
+        const st=NUTR_SESSION_TYPES[wo.fuelpro_type];
+        if(st&&st.quality)return false;
+      }
+      return true;
+    })
+    .sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local))
+    .slice(0,DEC_MAX_CANDIDATES)
+    .map(a=>({act:a,streamKey}));
+}
+
+async function decRenderTrend(){
+  const sport=document.getElementById('decSport').value;
+  const box=document.getElementById('decBox');
+  const btn=document.getElementById('decBuildBtn');
+  btn.disabled=true;
+  box.innerHTML='<div class="curve-loading">Analyzing steady aerobic workouts…'
+    +'<div class="curve-progress-bar"><div class="curve-progress-fill" id="decProg" style="width:0%"></div></div></div>';
+  try{
+    const candidates=decGetCandidates(sport);
+    if(!candidates.length){
+      box.innerHTML='<div class="empty-note">No qualifying steady aerobic '+(sport==='running'?'runs':'rides')+' found in the last 90 days (40+ min, no hard intervals tagged).</div>';
+      return;
+    }
+    let done=0;
+    const points=[];
+    await Promise.all(candidates.map(async({act,streamKey})=>{
+      try{
+        const[primary,hr]=await Promise.all([fetchStream(act.id,streamKey),fetchStream(act.id,'heartrate')]);
+        done++;
+        const prog=document.getElementById('decProg');
+        if(prog)prog.style.width=Math.round(done/candidates.length*100)+'%';
+        if(!primary||!hr||!primary.length||!hr.length)return;
+        const r=calcDecouplingEF(primary,hr,{isRun:sport==='running'});
+        if(!r||r.cv==null||r.cv>DEC_CV_CUTOFF)return;
+        points.push({date:(act.start_date_local||'').slice(0,10),ef:r.ef,decoupling:r.decoupling,name:act.name||act.type});
+      }catch(e){
+        done++;
+        const prog=document.getElementById('decProg');
+        if(prog)prog.style.width=Math.round(done/candidates.length*100)+'%';
+      }
+    }));
+    points.sort((a,b)=>a.date.localeCompare(b.date));
+    if(!points.length){
+      box.innerHTML='<div class="empty-note">Found '+candidates.length+' candidate workout(s), but none had a steady enough effort (or complete power/HR data) to analyze reliably.</div>';
+      return;
+    }
+    drawDecouplingChart(box,points,sport);
+  }catch(e){
+    box.innerHTML='<div class="empty-note">Could not build trend: '+(e.message||'error')+'</div>';
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function drawDecouplingChart(box,points,sport){
+  box.innerHTML='<div style="position:relative;height:240px"><canvas id="decChart"></canvas></div>'
+    +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:6px">'+points.length+' workout'+(points.length===1?'':'s')+' analyzed — hover a point for the workout name</div>';
+  const ctx=document.getElementById('decChart').getContext('2d');
+  const labels=points.map(p=>fmtDate(p.date));
+  const efUnit=sport==='running'?'m/s per bpm':'W per bpm';
+  if(window._decChartInstance)window._decChartInstance.destroy();
+  window._decChartInstance=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Efficiency factor',data:points.map(p=>p.ef),borderColor:'#378ADD',backgroundColor:'transparent',tension:0.2,pointRadius:3,borderWidth:2,yAxisID:'yEf'},
+      {label:'Decoupling %',data:points.map(p=>p.decoupling),borderColor:'#E24B4A',backgroundColor:'transparent',borderDash:[5,3],tension:0.2,pointRadius:3,borderWidth:1.5,yAxisID:'yDec'},
+    ]},
+    options:{
+      animation:false,responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{afterTitle:(items)=>points[items[0].dataIndex].name}}},
+      scales:{
+        x:{ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true},grid:{color:'rgba(42,42,42,0.5)'}},
+        yEf:{type:'linear',position:'left',title:{display:true,text:efUnit,color:'#378ADD',font:{size:9}},ticks:{color:'#378ADD',font:{size:9}},grid:{color:'rgba(42,42,42,0.5)'}},
+        yDec:{type:'linear',position:'right',title:{display:true,text:'%',color:'#E24B4A',font:{size:9}},ticks:{color:'#E24B4A',font:{size:9}},grid:{display:false}},
+      },
+    }
+  });
 }
 
 </script>
