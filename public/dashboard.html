@@ -420,12 +420,7 @@ window.applyTierGating = function() {
       <div class="metric"><div class="metric-label">Fitness (CTL)</div><div class="metric-val" id="mCTL">—</div><div class="metric-sub">Chronic load</div></div>
       <div class="metric"><div class="metric-label">Fatigue (ATL)</div><div class="metric-val" id="mATL">—</div><div class="metric-sub">Acute load</div></div>
       <div class="metric"><div class="metric-label">Form (TSB)</div><div class="metric-val" id="mTSB">—</div><div class="metric-sub">CTL minus ATL</div></div>
-      <div class="metric"><div class="metric-label">Ramp rate</div><div class="metric-val" id="mRamp">—</div><div class="metric-sub" id="mRampSub">7-day CTL change</div><span class="risk-pill" id="mRampPill">—</span>
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-          <div class="metric-sub" style="margin-top:0">Monotony <span id="mMonotony" style="color:var(--tc2);font-weight:600">—</span> · Strain <span id="mStrain" style="color:var(--tc2);font-weight:600">—</span></div>
-          <span class="risk-pill" id="mMonotonyPill">—</span>
-        </div>
-      </div>
+      <div class="metric"><div class="metric-label">Ramp rate</div><div class="metric-val" id="mRamp">—</div><div class="metric-sub" id="mRampSub">7-day CTL change</div><span class="risk-pill" id="mRampPill">—</span><div class="metric-sub" id="mMonotonyRow" style="margin-top:5px">Monotony <span id="mMonotony" style="font-weight:700">—</span> · Strain <span id="mStrain" style="color:var(--tc2);font-weight:600">—</span></div></div>
       <div class="metric"><div class="metric-label">This week</div><div class="metric-val" id="mWeek">—</div><div class="metric-sub">Training load</div></div>
       <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="mLastWeek">—</div><div class="metric-sub">Training load</div></div>
     </div>
@@ -5056,16 +5051,16 @@ function buildRamp(){
 // separate risk pill.
 function buildMonotony(){
   const monoEl=document.getElementById('mMonotony');
-  const pillEl=document.getElementById('mMonotonyPill');
+  const rowEl=document.getElementById('mMonotonyRow');
   const strainEl=document.getElementById('mStrain');
-  if(!monoEl||!pillEl)return;
+  if(!monoEl)return;
   const today=new Date();
   const tssVals=[];
   for(let i=6;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);const e=fitnessByDate[dayKey(d)];tssVals.push(e?e.tss:0);}
   const weeklyLoad=tssVals.reduce((s,v)=>s+v,0);
   if(weeklyLoad===0){
-    monoEl.textContent='—';if(strainEl)strainEl.textContent='—';
-    pillEl.textContent='—';pillEl.className='risk-pill';pillEl.style.cssText='margin-top:6px';
+    monoEl.textContent='—';monoEl.style.color='var(--tc2)';if(rowEl)rowEl.title='';
+    if(strainEl)strainEl.textContent='—';
     return;
   }
   const mean=weeklyLoad/tssVals.length;
@@ -5077,11 +5072,8 @@ function buildMonotony(){
   let label='Low risk',color='#639922';
   if(monotony>2.0){label='High risk';color='#E24B4A';}
   else if(monotony>1.5){label='Moderate';color='#FFD700';}
-  pillEl.textContent=label;
-  pillEl.className='risk-pill';
-  pillEl.style.color=color;
-  pillEl.style.background=color+'22';
-  pillEl.style.border='1px solid '+color+'44';
+  monoEl.style.color=color;
+  if(rowEl)rowEl.title='Monotony: '+label+' (mean daily load ÷ variability over the last 7 days)';
   const strain=monotony*weeklyLoad;
   _snapshotStrain=strain;
   if(strainEl)strainEl.textContent=Math.round(strain);

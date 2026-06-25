@@ -330,12 +330,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               <div class="metric"><div class="metric-label">Fitness (CTL)</div><div class="metric-val" id="ovCTL">—</div><div class="metric-sub">Chronic load</div></div>
               <div class="metric"><div class="metric-label">Fatigue (ATL)</div><div class="metric-val" id="ovATL">—</div><div class="metric-sub">Acute load</div></div>
               <div class="metric"><div class="metric-label">Form (TSB)</div><div class="metric-val" id="ovTSB">—</div><div class="metric-sub">CTL minus ATL</div></div>
-              <div class="metric"><div class="metric-label">Ramp rate</div><div class="metric-val" id="ovRamp">—</div><div class="metric-sub">7-day CTL change</div><span class="risk-pill" id="ovRampPill">—</span>
-                <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-                  <div class="metric-sub" style="margin-top:0">Monotony <span id="ovMonotony" style="color:var(--tc2);font-weight:600">—</span> · Strain <span id="ovStrain" style="color:var(--tc2);font-weight:600">—</span></div>
-                  <span class="risk-pill" id="ovMonotonyPill">—</span>
-                </div>
-              </div>
+              <div class="metric"><div class="metric-label">Ramp rate</div><div class="metric-val" id="ovRamp">—</div><div class="metric-sub">7-day CTL change</div><span class="risk-pill" id="ovRampPill">—</span><div class="metric-sub" id="ovMonotonyRow" style="margin-top:5px">Monotony <span id="ovMonotony" style="font-weight:700">—</span> · Strain <span id="ovStrain" style="color:var(--tc2);font-weight:600">—</span></div></div>
               <div class="metric"><div class="metric-label">This week</div><div class="metric-val" id="ovWeek">—</div><div class="metric-sub">Training load</div></div>
               <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="ovLastWeek">—</div><div class="metric-sub">Training load</div></div>
             </div>
@@ -1057,14 +1052,15 @@ async function loadAthleteMetrics(athlete){
     // over the last 7 days / population stdev of those same days. Strain
     // = monotony x weekly load. Monotony has a literature-cited absolute
     // risk threshold (~2.0); strain doesn't, so it's shown as supporting
-    // context only, no separate risk pill.
-    const monoEl=document.getElementById('ovMonotony'),monoPillEl=document.getElementById('ovMonotonyPill'),strainEl=document.getElementById('ovStrain');
+    // context only, no separate risk pill -- risk is conveyed by coloring
+    // the monotony number itself, kept to one compact line.
+    const monoEl=document.getElementById('ovMonotony'),monoRowEl=document.getElementById('ovMonotonyRow'),strainEl=document.getElementById('ovStrain');
     const tssVals7=[];
     for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);const e=fitByDate[dkFn(d)];tssVals7.push(e?e.tss:0);}
     const weeklyLoad7=tssVals7.reduce((s,v)=>s+v,0);
     if(weeklyLoad7===0){
-      monoEl.textContent='—';if(strainEl)strainEl.textContent='—';
-      monoPillEl.textContent='—';monoPillEl.className='risk-pill';monoPillEl.style.cssText='margin-top:6px';
+      monoEl.textContent='—';monoEl.style.color='var(--tc2)';if(monoRowEl)monoRowEl.title='';
+      if(strainEl)strainEl.textContent='—';
     }else{
       const mean7=weeklyLoad7/tssVals7.length;
       const variance7=tssVals7.reduce((s,v)=>s+(v-mean7)*(v-mean7),0)/tssVals7.length;
@@ -1074,11 +1070,8 @@ async function loadAthleteMetrics(athlete){
       let monoLabel='Low risk',monoColor='#639922';
       if(monotony>2.0){monoLabel='High risk';monoColor='#E24B4A';}
       else if(monotony>1.5){monoLabel='Moderate';monoColor='#FFD700';}
-      monoPillEl.textContent=monoLabel;
-      monoPillEl.className='risk-pill';
-      monoPillEl.style.color=monoColor;
-      monoPillEl.style.background=monoColor+'22';
-      monoPillEl.style.border='1px solid '+monoColor+'44';
+      monoEl.style.color=monoColor;
+      if(monoRowEl)monoRowEl.title='Monotony: '+monoLabel+' (mean daily load ÷ variability over the last 7 days)';
       if(strainEl)strainEl.textContent=Math.round(monotony*weeklyLoad7);
     }
 
