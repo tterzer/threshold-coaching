@@ -1294,11 +1294,20 @@ async function coachDecRenderTrend(){
   }
 }
 
+// new Date("YYYY-MM-DD") parses as UTC midnight; toLocaleDateString then
+// renders that in the browser's local zone, which rolls the displayed date
+// back by one day in any zone behind UTC. Parsing y/m/d as explicit local
+// components avoids it.
+function coachDecFmtDate(dateStr){
+  const[y,m,d]=dateStr.split('-').map(Number);
+  return new Date(y,m-1,d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
 function coachDrawDecouplingChart(box,points,sport){
   box.innerHTML='<div style="position:relative;height:240px;width:100%"><canvas id="coachDecChart"></canvas></div>'
     +'<div class="empty-note" style="margin-top:6px">'+points.length+' workout'+(points.length===1?'':'s')+' analyzed — hover a point for the workout name</div>';
   const ctx=document.getElementById('coachDecChart').getContext('2d');
-  const labels=points.map(p=>new Date(p.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+  const labels=points.map(p=>coachDecFmtDate(p.date));
   const efUnit=sport==='running'?'m/s per bpm':'W per bpm';
   if(window._coachDecChartInstance)window._coachDecChartInstance.destroy();
   window._coachDecChartInstance=new Chart(ctx,{

@@ -2021,11 +2021,20 @@ async function decRenderTrend(){
   }
 }
 
+// fmtDate(dateString) is unsafe here: new Date("YYYY-MM-DD") parses as UTC
+// midnight, which toLocaleDateString then renders in the browser's local
+// zone -- in any zone behind UTC that rolls the displayed date back by one
+// day. Parsing y/m/d as explicit local-date components avoids it.
+function decFmtDate(dateStr){
+  const[y,m,d]=dateStr.split('-').map(Number);
+  return new Date(y,m-1,d).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
 function drawDecouplingChart(box,points,sport){
   box.innerHTML='<div style="position:relative;height:240px"><canvas id="decChart"></canvas></div>'
     +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:6px">'+points.length+' workout'+(points.length===1?'':'s')+' analyzed — hover a point for the workout name</div>';
   const ctx=document.getElementById('decChart').getContext('2d');
-  const labels=points.map(p=>fmtDate(p.date));
+  const labels=points.map(p=>decFmtDate(p.date));
   const efUnit=sport==='running'?'m/s per bpm':'W per bpm';
   if(window._decChartInstance)window._decChartInstance.destroy();
   window._decChartInstance=new Chart(ctx,{
