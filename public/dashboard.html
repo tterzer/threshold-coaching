@@ -42,6 +42,11 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .field textarea{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Mono',monospace;font-size:13px;outline:none;resize:vertical}
 .ath-add-modal{background:var(--bc2);border:1px solid var(--border);width:100%;max-width:480px;padding:28px 32px;position:relative}
 .ath-add-modal .modal-close-x{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--tc3);font-size:22px;cursor:pointer;line-height:1}
+.modal-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.2rem}
+.modal-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 16px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.modal-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.modal-panel{display:none}
+.modal-panel.active{display:block}
 .ath-badge-a{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;font-weight:700;background:var(--acc);color:#000;border-radius:2px;padding:0 3px;line-height:14px;vertical-align:middle;margin-left:3px}
 .btn{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:12px 28px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;width:100%;margin-top:0.5rem}
 .btn:disabled{opacity:0.5;cursor:not-allowed}
@@ -2583,9 +2588,18 @@ function athWoAutoSuggest(){
   sel.value=String(t);
 }
 
+function athSwitchModalTab(name){
+  document.querySelectorAll('#athAddModalTabs .modal-tab').forEach(t=>t.classList.toggle('active',t.dataset.mtab===name));
+  document.querySelectorAll('#athAddWoModal .modal-panel').forEach(p=>p.classList.toggle('active',p.id==='ath-mp-'+name));
+}
+
 function openAthAddWoModal(dateStr, editWo){
   _athEditingWoId=editWo?editWo.id:null;
-  document.getElementById('athAddWoTitle').textContent=editWo?'Edit Session':'Add Session';
+  document.getElementById('athAddWoTitle').textContent=editWo?'Edit Session':'Add to calendar';
+  // Tabs only make sense when adding fresh -- editing a specific workout
+  // should stay on the workout panel with no race option alongside it.
+  document.getElementById('athAddModalTabs').style.display=editWo?'none':'flex';
+  athSwitchModalTab('workout');
   document.getElementById('athWoDate').value=editWo?editWo.date:(dateStr||'');
   document.getElementById('athWoSport').value=editWo?(editWo.sport||'cycling'):'cycling';
   document.getElementById('athWoTitle').value=editWo?(editWo.title||''):'';
@@ -2596,12 +2610,48 @@ function openAthAddWoModal(dateStr, editWo){
   document.getElementById('athWoDesc').value=editWo?(editWo.description||''):'';
   document.getElementById('athWoError').style.display='none';
   document.getElementById('athWoDeleteBtn').style.display=editWo?'block':'none';
+  // Reset race panel too (always a fresh "add" -- no race-editing via this modal yet)
+  document.getElementById('athRcName').value='';
+  document.getElementById('athRcDate').value=dateStr||'';
+  document.getElementById('athRcPriority').value='B';
+  document.getElementById('athRcSportType').value='Triathlon';
+  document.getElementById('athRcDistance').value='Olympic';
+  document.getElementById('athRcGoalTime').value='';
+  document.getElementById('athRcNotes').value='';
+  document.getElementById('athRcError').style.display='none';
   document.getElementById('athAddWoModal').classList.add('show');
 }
 
 function closeAthAddWoModal(){
   document.getElementById('athAddWoModal').classList.remove('show');
   _athEditingWoId=null;
+}
+
+async function saveAthRace(){
+  if(!currentAthlete?.id)return;
+  const errEl=document.getElementById('athRcError');
+  errEl.style.display='none';
+  const payload={
+    athlete_id:currentAthlete.id,
+    name:document.getElementById('athRcName').value.trim(),
+    date:document.getElementById('athRcDate').value,
+    priority:document.getElementById('athRcPriority').value,
+    sport_type:document.getElementById('athRcSportType').value,
+    distance:document.getElementById('athRcDistance').value,
+    goal_time:document.getElementById('athRcGoalTime').value.trim()||null,
+    notes:document.getElementById('athRcNotes').value.trim()||null,
+  };
+  if(!payload.name||!payload.date){errEl.textContent='Race name and date are required.';errEl.style.display='block';return;}
+  try{
+    const r=await fetch('/api/races',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Could not save race');
+    closeAthAddWoModal();
+    await loadAthCal();
+  }catch(err){
+    errEl.textContent=err.message||'Could not save race.';
+    errEl.style.display='block';
+  }
 }
 
 async function saveAthAddWorkout(){
@@ -5682,7 +5732,12 @@ function _applyFitnessToUI(){
 <div class="ath-modal-bg" id="athAddWoModal">
   <div class="ath-add-modal">
     <button class="modal-close-x" onclick="closeAthAddWoModal()">&times;</button>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:1.25rem" id="athAddWoTitle">Add Session</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;margin-bottom:0.75rem" id="athAddWoTitle">Add Session</div>
+    <div class="modal-tabs" id="athAddModalTabs">
+      <button class="modal-tab active" data-mtab="workout" onclick="athSwitchModalTab('workout')">Plan Workout</button>
+      <button class="modal-tab" data-mtab="race" onclick="athSwitchModalTab('race')">Add Race</button>
+    </div>
+    <div class="modal-panel active" id="ath-mp-workout">
     <div class="field"><label>Date</label><input type="date" id="athWoDate" /></div>
     <div class="field"><label>Sport</label>
       <select id="athWoSport" onchange="athWoAutoSuggest()">
@@ -5760,6 +5815,48 @@ function _applyFitnessToUI(){
       <button class="modal-btn-save" onclick="saveAthAddWorkout()">Save</button>
       <button class="modal-btn-close" onclick="closeAthAddWoModal()">Cancel</button>
       <button class="modal-btn-delete" id="athWoDeleteBtn" style="display:none;margin-left:auto" onclick="deleteAthAddWorkout()">Delete</button>
+    </div>
+    </div>
+
+    <div class="modal-panel" id="ath-mp-race">
+      <div class="field"><label>Race name</label><input type="text" id="athRcName" placeholder="e.g. IRONMAN 70.3 Lake Placid" /></div>
+      <div class="field"><label>Date</label><input type="date" id="athRcDate" /></div>
+      <div class="field"><label>Priority</label>
+        <select id="athRcPriority">
+          <option value="A">A — Peak race</option>
+          <option value="B">B — Training stimulus</option>
+          <option value="C">C — Low priority</option>
+        </select>
+      </div>
+      <div class="field"><label>Sport type</label>
+        <select id="athRcSportType">
+          <option value="Triathlon">Triathlon</option>
+          <option value="Running">Running</option>
+          <option value="Cycling">Cycling</option>
+          <option value="Swimming">Swimming</option>
+          <option value="Duathlon">Duathlon</option>
+        </select>
+      </div>
+      <div class="field"><label>Distance</label>
+        <select id="athRcDistance">
+          <option value="Sprint">Sprint</option>
+          <option value="Olympic">Olympic</option>
+          <option value="70.3">70.3 / Half Iron</option>
+          <option value="Full">Full / Ironman</option>
+          <option value="5K">5K</option>
+          <option value="10K">10K</option>
+          <option value="Half Marathon">Half Marathon</option>
+          <option value="Marathon">Marathon</option>
+          <option value="Custom">Custom</option>
+        </select>
+      </div>
+      <div class="field"><label>Goal time</label><input type="text" id="athRcGoalTime" placeholder="e.g. 4:30:00" /></div>
+      <div class="field"><label>Notes</label><textarea id="athRcNotes" rows="2" placeholder="Optional race notes"></textarea></div>
+      <div class="error-msg" id="athRcError">Could not save race.</div>
+      <div style="display:flex;gap:10px;margin-top:1rem">
+        <button class="modal-btn-save" onclick="saveAthRace()">Save</button>
+        <button class="modal-btn-close" onclick="closeAthAddWoModal()">Cancel</button>
+      </div>
     </div>
   </div>
 </div>
