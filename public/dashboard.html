@@ -576,7 +576,7 @@ window.applyTierGating = function() {
         <div class="ath-cal-title" id="athCalTitle">—</div>
         <button class="btn btn-sm btn-ghost" onclick="athCalGoToday()">Today</button>
       </div>
-      <div id="athCalRaceCountdown" style="display:none;font-family:'DM Mono',monospace;font-size:12px;color:var(--tc2);margin-bottom:0.5rem;cursor:pointer"></div>
+      <div id="athCalRaceCountdown" style="display:none;text-align:center;margin-bottom:0.75rem;cursor:pointer"></div>
       <div class="ath-cal-layout">
         <div class="ath-cal-scroll" id="athCalScroll">
           <div id="athCalHeadRow"></div>
@@ -1953,7 +1953,8 @@ function athCalRenderCountdown(){
   const race=upcoming.find(r=>r.priority==='A')||upcoming[0];
   const days=Math.round((new Date(race.date)-new Date(todayStr))/86400000);
   const weeks=(days/7).toFixed(1);
-  el.innerHTML=`(${weeks} wks) ${days} day${days===1?'':'s'} until "${athEscHtml(race.name||'Race')}"`;
+  el.innerHTML=`<span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--tc2);letter-spacing:0.04em">(${weeks} wks) ${days} day${days===1?'':'s'} until</span> `
+    +`<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;text-transform:uppercase;color:var(--acc)">${athEscHtml(race.name||'Race')}</span>`;
   el.onclick=()=>openAthRaceModal(String(race.id));
   el.style.display='block';
 }
