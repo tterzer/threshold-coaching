@@ -361,11 +361,11 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
           </div>
 
           <div class="tab-panel" id="tab-calendar">
-            <div class="cal-nav">
+            <div class="cal-nav" style="position:relative">
               <div class="cal-title" id="calTitle">—</div>
+              <div id="coachCalRaceCountdown" style="display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;cursor:pointer"></div>
               <button class="btn btn-sm btn-ghost" onclick="coachCalGoToday()">Today</button>
             </div>
-            <div id="coachCalRaceCountdown" style="display:none;text-align:center;margin-bottom:0.75rem;cursor:pointer"></div>
             <div class="cal-layout">
               <div class="cal-scroll" id="coachCalScroll">
                 <div id="calHeadRow"></div>
@@ -966,7 +966,7 @@ function coachCalRenderCountdown(){
   const race=upcoming.find(r=>r.priority==='A')||upcoming[0];
   const days=Math.round((new Date(race.date)-new Date(todayStr))/86400000);
   const weeks=(days/7).toFixed(1);
-  el.innerHTML=`<span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--tc2);letter-spacing:0.04em">(${weeks} wks) ${days} day${days===1?'':'s'} until</span> `
+  el.innerHTML=`<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;text-transform:uppercase;color:var(--tc2)">(${weeks} wks) ${days} day${days===1?'':'s'} until </span>`
     +`<span style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;text-transform:uppercase;color:var(--acc)">${escHtml(race.name||'Race')}</span>`;
   el.onclick=()=>openRaceEdit(String(race.id));
   el.style.display='block';
