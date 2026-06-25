@@ -348,7 +348,7 @@ window.computeFitness = function(acts) {
     var ctl = ctlPrev * Math.exp(-1/42) + tss * (1 - Math.exp(-1/42));
     var atl = atlPrev * Math.exp(-1/7) + tss * (1 - Math.exp(-1/7));
     var tsb = ctlPrev - atl;
-    var entry = {date: key, ctl: Math.round(ctl*10)/10, atl: Math.round(atl*10)/10, tsb: Math.round(tsb*10)/10};
+    var entry = {date: key, ctl: Math.round(ctl*10)/10, atl: Math.round(atl*10)/10, tsb: Math.round(tsb*10)/10, tss: tss};
     series.push(entry);
     byDate[key] = entry;
     ctlPrev = ctl;
@@ -420,7 +420,12 @@ window.applyTierGating = function() {
       <div class="metric"><div class="metric-label">Fitness (CTL)</div><div class="metric-val" id="mCTL">—</div><div class="metric-sub">Chronic load</div></div>
       <div class="metric"><div class="metric-label">Fatigue (ATL)</div><div class="metric-val" id="mATL">—</div><div class="metric-sub">Acute load</div></div>
       <div class="metric"><div class="metric-label">Form (TSB)</div><div class="metric-val" id="mTSB">—</div><div class="metric-sub">CTL minus ATL</div></div>
-      <div class="metric"><div class="metric-label">Ramp rate</div><div class="metric-val" id="mRamp">—</div><div class="metric-sub" id="mRampSub">7-day CTL change</div><span class="risk-pill" id="mRampPill">—</span></div>
+      <div class="metric"><div class="metric-label">Ramp rate</div><div class="metric-val" id="mRamp">—</div><div class="metric-sub" id="mRampSub">7-day CTL change</div><span class="risk-pill" id="mRampPill">—</span>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          <div class="metric-sub" style="margin-top:0">Monotony <span id="mMonotony" style="color:var(--tc2);font-weight:600">—</span> · Strain <span id="mStrain" style="color:var(--tc2);font-weight:600">—</span></div>
+          <span class="risk-pill" id="mMonotonyPill">—</span>
+        </div>
+      </div>
       <div class="metric"><div class="metric-label">This week</div><div class="metric-val" id="mWeek">—</div><div class="metric-sub">Training load</div></div>
       <div class="metric"><div class="metric-label">Last week</div><div class="metric-val" id="mLastWeek">—</div><div class="metric-sub">Training load</div></div>
     </div>
@@ -4771,6 +4776,7 @@ if(!localStorage.getItem('hm2l_pmc_unseeded_v1')){
 
 var pmcInst,sportLoadInst,loadInst,curveInst,lastActs=[],useMetric=false; // default imperial (mi/yd)
 var _snapshotRamp=null;
+var _snapshotMonotony=null,_snapshotStrain=null;
 var allActivities=[];
 var allTimeActivities=[];
 var zoneStreamCache={};
@@ -4968,6 +4974,7 @@ async function loadDashboard(){
       localStorage.setItem('hm2l_snap_tsb',tsb);
     }
     buildRamp();
+    buildMonotony();
     // "This week" = Monday of the current calendar week through today (inclusive).
     const now=new Date();
     const monday=new Date(now);
@@ -5038,6 +5045,46 @@ function buildRamp(){
   pillEl.style.color='#7F77DD';
   pillEl.style.background='#7F77DD22';
   pillEl.style.border='1px solid #7F77DD44';
+}
+
+// Foster's monotony/strain (Foster 1998): monotony = mean daily TSS over
+// the last 7 days / population stdev of those same days -- a flat week
+// of identical-ish load is "monotonous" and correlates with illness/
+// injury risk even when the absolute load isn't high. Strain = monotony
+// x weekly load. Monotony has a literature-cited absolute risk threshold
+// (~2.0); strain doesn't, so it's shown as supporting context only, no
+// separate risk pill.
+function buildMonotony(){
+  const monoEl=document.getElementById('mMonotony');
+  const pillEl=document.getElementById('mMonotonyPill');
+  const strainEl=document.getElementById('mStrain');
+  if(!monoEl||!pillEl)return;
+  const today=new Date();
+  const tssVals=[];
+  for(let i=6;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);const e=fitnessByDate[dayKey(d)];tssVals.push(e?e.tss:0);}
+  const weeklyLoad=tssVals.reduce((s,v)=>s+v,0);
+  if(weeklyLoad===0){
+    monoEl.textContent='—';if(strainEl)strainEl.textContent='—';
+    pillEl.textContent='—';pillEl.className='risk-pill';pillEl.style.cssText='margin-top:6px';
+    return;
+  }
+  const mean=weeklyLoad/tssVals.length;
+  const variance=tssVals.reduce((s,v)=>s+(v-mean)*(v-mean),0)/tssVals.length;
+  const stdev=Math.sqrt(variance);
+  const monotony=stdev>0?mean/stdev:9.9; // all 7 days identical nonzero load -> cap rather than show Infinity
+  _snapshotMonotony=monotony;
+  monoEl.textContent=monotony.toFixed(1);
+  let label='Low risk',color='#639922';
+  if(monotony>2.0){label='High risk';color='#E24B4A';}
+  else if(monotony>1.5){label='Moderate';color='#FFD700';}
+  pillEl.textContent=label;
+  pillEl.className='risk-pill';
+  pillEl.style.color=color;
+  pillEl.style.background=color+'22';
+  pillEl.style.border='1px solid '+color+'44';
+  const strain=monotony*weeklyLoad;
+  _snapshotStrain=strain;
+  if(strainEl)strainEl.textContent=Math.round(strain);
 }
 
 function upsertAthleteSnapshot(ctl,atl,tsb,thisWeek,lastWeek){
@@ -5696,6 +5743,7 @@ function _applyFitnessToUI(){
   }
   buildPMC();
   buildRamp();
+  buildMonotony();
 }
 </script>
 
