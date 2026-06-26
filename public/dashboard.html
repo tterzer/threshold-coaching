@@ -644,7 +644,7 @@ window.applyTierGating = function() {
             <button class="unit-toggle" onclick="decOpenRidePicker()">Select rides to analyze</button>
           </div>
         </div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Pick specific rides, then pick the laps that are your real comparable loop (e.g. exclude the ride to/from the park). Each ride gets one CdA fit pooled across its selected laps — meant to be a real, trustworthy number, not a rough trend.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Pick specific rides, then pick the laps that are your real comparable loop (e.g. exclude the ride to/from the park). Each ride gets one CdA fit pooled across its selected laps — meant to be a real, trustworthy number, not a rough trend.<br><b style="color:var(--tc2)">If a ride only shows 1-2 giant laps instead of your real loops</b>, intervals.icu auto-detected power-based intervals instead of using your device's lap-button presses. Fix on intervals.icu: open that ride → <b>Actions → Use Laps → Keep All Laps</b> → come back here and reopen the picker.</div>
         <div id="decAeroLapPickerArea"></div>
         <div id="decAeroResultsArea"></div>
       </div>
@@ -2245,6 +2245,14 @@ function estimateCdaCrr(powerStream,speedStream,altitudeStream,opts){
 // start (including stops) -- lap offsets must accumulate elapsed_time, not
 // moving_time, or pauses progressively drift the slice window.
 function decComputeLapOffsets(laps){
+  // intervals.icu's lap objects carry their own start_index/end_index --
+  // real stream-array offsets, more precise than reconstructing them by
+  // summing durations (which assumes the stream has exactly one sample per
+  // elapsed second, not always true). Prefer those when present; fall back
+  // to the cumulative-duration estimate for any other lap data shape.
+  if((laps||[]).every(lap=>lap&&typeof lap.start_index==='number'&&typeof lap.end_index==='number')){
+    return(laps||[]).map(lap=>({start:lap.start_index,end:lap.end_index}));
+  }
   let cum=0;
   return (laps||[]).map(lap=>{
     const dur=Math.round(lap.elapsed_time||lap.moving_time||0);

@@ -455,7 +455,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
                 <span class="chart-card-label">Precise CdA builder</span>
                 <span id="coachDecAeroBuiltCdaBadge" style="display:none;font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);margin-left:auto"></span>
               </div>
-              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Pick specific rides, then pick the laps that are the real comparable loop (e.g. exclude the ride to/from the park). Each ride gets one CdA fit pooled across its selected laps.</div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Pick specific rides, then pick the laps that are the real comparable loop (e.g. exclude the ride to/from the park). Each ride gets one CdA fit pooled across its selected laps.<br><b style="color:var(--tc2)">If a ride only shows 1-2 giant laps instead of real loops</b>, intervals.icu auto-detected power-based intervals instead of using the device's lap-button presses. Fix on intervals.icu: open that ride → <b>Actions → Use Laps → Keep All Laps</b> → reopen the picker here.</div>
               <div id="coachDecAeroLapPickerArea"></div>
               <div id="coachDecAeroResultsArea"></div>
             </div>
@@ -1542,6 +1542,11 @@ function coachDecDownsample(arr,factor,mode){
 // gap between two selected lap windows recovered true CdA exactly with
 // segment-aware fitting vs 82% error under naive concatenation).
 function coachDecComputeLapOffsets(laps){
+  // Prefer intervals.icu's own start_index/end_index (real stream-array
+  // offsets) over reconstructing them from summed durations.
+  if((laps||[]).every(lap=>lap&&typeof lap.start_index==='number'&&typeof lap.end_index==='number')){
+    return(laps||[]).map(lap=>({start:lap.start_index,end:lap.end_index}));
+  }
   let cum=0;
   return(laps||[]).map(lap=>{
     const dur=Math.round(lap.elapsed_time||lap.moving_time||0);
