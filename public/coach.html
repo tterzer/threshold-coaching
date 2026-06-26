@@ -1936,7 +1936,10 @@ async function coachDecRenderLapPickerArea(){
     // necessarily line up with a manual lap-button press on the device --
     // logging the raw lap objects lets us check for a type/trigger field
     // that would let this filter to device-recorded laps automatically.
-    if(act.laps&&act.laps.length)console.log('[laps] raw lap fields for "'+(act.name||act.id)+'":',act.laps);
+    if(act.laps&&act.laps.length){
+      console.log('[laps] "'+(act.name||act.id)+'" — keys on lap 0:',Object.keys(act.laps[0]));
+      console.log('[laps] "'+(act.name||act.id)+'" — lap 0 full JSON:',JSON.stringify(act.laps[0],null,2));
+    }
     if(!entry.selectedLapIdx)entry.selectedLapIdx=new Set((act.laps||[]).map((_,i)=>i));
     coachDecRenderLapTableForRide(entry);
   }));
