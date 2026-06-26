@@ -421,6 +421,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
           <div class="tab-panel" id="tab-aero">
             <div class="section-label">Aero setup</div>
             <div class="chart-box" style="margin-bottom:1px">
+              <div class="field"><label>Rider weight</label><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--tc2);padding:10px 0"><span id="coachDecAeroRiderWeightDisplay">—</span> <span style="color:var(--tc3);font-size:11px">(set on the Profile tab)</span></div></div>
               <div class="field"><label>Bike weight (lbs)</label><input class="zc-input" type="number" id="cpf_bike_weight_lbs" min="5" max="60" placeholder="e.g. 18 (road), 20 (TT/aero)"></div>
               <div class="field"><label>Rolling resistance (Crr)</label>
                 <select class="zc-select" id="cpf_crr_mode" onchange="document.getElementById('cpf_crr_fixed_row').style.display=this.value==='fixed'?'block':'none'">
@@ -428,7 +429,18 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
                   <option value="fixed">Use a known/fixed value</option>
                 </select>
               </div>
-              <div class="field" id="cpf_crr_fixed_row" style="display:none"><label>Fixed Crr value</label><input class="zc-input" type="number" id="cpf_crr_fixed" min="0.0005" max="0.02" step="0.0001" placeholder="e.g. 0.0040 — from the tire's published rolling-resistance test"></div>
+              <div class="field" id="cpf_crr_fixed_row" style="display:none">
+                <label>Fixed Crr value</label>
+                <input class="zc-input" type="number" id="cpf_crr_fixed" min="0.0005" max="0.02" step="0.0001" placeholder="e.g. 0.0040 — from the tire's published rolling-resistance test" style="margin-bottom:8px">
+                <select class="zc-select" id="cpf_crr_tire_preset" onchange="coachDecApplyTirePreset(this.value)">
+                  <option value="">— Or pick a common tire —</option>
+                  <option value="0.00249">Continental GP5000 TT TR 28mm (tubeless)</option>
+                  <option value="0.00252">Pirelli P Zero Race TLR SL-R 28mm (tubeless)</option>
+                  <option value="0.00303">Continental GP5000 S TR 25mm (tubeless)</option>
+                  <option value="0.00333">Vittoria Corsa Pro TLR 28mm (tubeless)</option>
+                </select>
+                <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);margin-top:6px;line-height:1.5">From bicyclerollingresistance.com lab tests (smooth steel drum, ~29km/h, tire's recommended high pressure). Real road surfaces run a bit higher than a lab drum, but these are a solid starting point.</div>
+              </div>
               <div class="field"><label>Setup notes</label><textarea class="zc-input" id="cpf_aero_setup_notes" rows="3" placeholder="What's currently different about the athlete's setup (helmet, position, equipment)..." style="resize:vertical;height:80px"></textarea></div>
               <div style="display:flex;align-items:center;gap:16px;margin-top:1rem">
                 <button class="btn" style="width:auto;padding:12px 32px" onclick="saveCoachProfile()">Save aero setup</button>
@@ -883,7 +895,7 @@ async function selectAthlete(id){
 function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
-  if(name==='profile'&&selectedAthlete&&selectedAthlete.id) loadCoachProfile();
+  if((name==='profile'||name==='aero')&&selectedAthlete&&selectedAthlete.id) loadCoachProfile();
   if(name==='nutrition'&&selectedAthlete&&selectedAthlete.id) loadCoachNutrition();
   if(name==='chat'&&selectedAthlete&&selectedAthlete.id) fetchAthleteWellness();
 }
@@ -979,6 +991,17 @@ function coachUpdateWkg(){
   } else {
     if(wkgEl)wkgEl.style.display='none';
   }
+  const riderWeightEl=document.getElementById('coachDecAeroRiderWeightDisplay');
+  if(riderWeightEl)riderWeightEl.textContent=weight>0?weight+' lbs':'not set';
+}
+function coachDecApplyTirePreset(val){
+  if(!val)return;
+  const fixedInput=document.getElementById('cpf_crr_fixed');
+  const modeSelect=document.getElementById('cpf_crr_mode');
+  const fixedRow=document.getElementById('cpf_crr_fixed_row');
+  if(fixedInput)fixedInput.value=val;
+  if(modeSelect)modeSelect.value='fixed';
+  if(fixedRow)fixedRow.style.display='block';
 }
 
 async function saveCoachProfile(){
@@ -1909,9 +1932,19 @@ async function coachDecRenderLapPickerArea(){
         act.laps=(lapData&&(lapData.laps||lapData.icu_intervals||lapData.intervals))||[];
       }catch(e){act.laps=act.laps||[];}
     }
+    // One-time diagnostic: intervals.icu's auto-detected "intervals" don't
+    // necessarily line up with a manual lap-button press on the device --
+    // logging the raw lap objects lets us check for a type/trigger field
+    // that would let this filter to device-recorded laps automatically.
+    if(act.laps&&act.laps.length)console.log('[laps] raw lap fields for "'+(act.name||act.id)+'":',act.laps);
     if(!entry.selectedLapIdx)entry.selectedLapIdx=new Set((act.laps||[]).map((_,i)=>i));
     coachDecRenderLapTableForRide(entry);
   }));
+}
+
+function coachDecRemoveSelectedRide(actIdStr){
+  coachDecAeroSelectedRides=coachDecAeroSelectedRides.filter(e=>String(e.act.id)!==actIdStr);
+  coachDecRenderLapPickerArea();
 }
 
 function coachDecRenderLapTableForRide(entry){
@@ -1919,8 +1952,11 @@ function coachDecRenderLapTableForRide(entry){
   const box=document.getElementById('coachDecAeroLapBox_'+String(act.id));
   if(!box)return;
   const laps=act.laps||[];
+  const removeBtn='<button onclick="event.preventDefault();event.stopPropagation();coachDecRemoveSelectedRide(\''+String(act.id)+'\')" title="Remove this ride" style="background:none;border:1px solid var(--border);color:var(--tc3);cursor:pointer;font-family:\'DM Mono\',monospace;font-size:11px;padding:2px 9px;border-radius:2px">×</button>';
   if(!laps.length){
-    box.innerHTML='<div class="chart-card-label">'+escHtml(act.name||act.type||'Ride')+' — '+coachDecFmtDate((act.start_date_local||'').slice(0,10))+'</div><div class="empty-note">No lap data found for this ride.</div>';
+    box.innerHTML='<div class="chart-card-label" style="display:flex;align-items:center;justify-content:space-between">'
+      +'<span>'+escHtml(act.name||act.type||'Ride')+' — '+coachDecFmtDate((act.start_date_local||'').slice(0,10))+'</span>'+removeBtn+'</div>'
+      +'<div class="empty-note">No lap data found for this ride.</div>';
     return;
   }
   const rows=laps.map((lap,i)=>{
@@ -1930,9 +1966,12 @@ function coachDecRenderLapTableForRide(entry){
     const pwr=lap.average_watts?Math.round(lap.average_watts)+'W':'—';
     return'<tr><td><input type="checkbox" '+checked+' onchange="coachDecToggleLap(\''+String(act.id)+'\','+i+',this.checked)"></td><td>'+(i+1)+'</td><td>'+dur+'</td><td>'+distMi+'</td><td>'+pwr+'</td></tr>';
   }).join('');
-  box.innerHTML='<div class="chart-card-label">'+escHtml(act.name||act.type||'Ride')+' — '+coachDecFmtDate((act.start_date_local||'').slice(0,10))+'</div>'
+  box.innerHTML='<details open><summary style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px">'
+    +'<span class="chart-card-label" style="margin:0;flex:1">'+escHtml(act.name||act.type||'Ride')+' — '+coachDecFmtDate((act.start_date_local||'').slice(0,10))+' <span id="coachDecAeroLapBadge_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--acc);font-weight:400"></span></span>'
+    +removeBtn+'</summary>'
     +'<table class="laps-table"><thead><tr><th></th><th>Lap</th><th>Duration</th><th>Distance</th><th>Avg power</th></tr></thead><tbody>'+rows+'</tbody></table>'
-    +'<div id="coachDecAeroLapSummary_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px"></div>';
+    +'<div id="coachDecAeroLapSummary_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px"></div>'
+    +'</details>';
   coachDecUpdateLapSummary(entry);
 }
 
@@ -1944,12 +1983,14 @@ function coachDecToggleLap(actIdStr,idx,checked){
 }
 
 function coachDecUpdateLapSummary(entry){
-  const el=document.getElementById('coachDecAeroLapSummary_'+String(entry.act.id));
-  if(!el)return;
   const laps=entry.act.laps||[];
   let distM=0,durSec=0;
   entry.selectedLapIdx.forEach(i=>{const lap=laps[i];if(lap){distM+=lap.distance||0;durSec+=lap.elapsed_time||lap.moving_time||0;}});
-  el.textContent=entry.selectedLapIdx.size+' of '+laps.length+' laps selected — '+(distM/1609.34).toFixed(1)+' mi, '+_fmtDur(durSec);
+  const summaryText=entry.selectedLapIdx.size+' of '+laps.length+' laps selected — '+(distM/1609.34).toFixed(1)+' mi, '+_fmtDur(durSec);
+  const el=document.getElementById('coachDecAeroLapSummary_'+String(entry.act.id));
+  if(el)el.textContent=summaryText;
+  const badge=document.getElementById('coachDecAeroLapBadge_'+String(entry.act.id));
+  if(badge)badge.textContent='('+entry.selectedLapIdx.size+'/'+laps.length+' laps)';
 }
 
 async function coachDecRunMeticulousCdaAnalysis(){

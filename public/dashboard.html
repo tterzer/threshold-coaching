@@ -609,6 +609,7 @@ window.applyTierGating = function() {
     <div class="dash-panel" id="dtp-aero">
       <div class="section-label">Aero setup</div>
       <div class="chart-box" style="margin-bottom:1px">
+        <div class="field"><label>Rider weight</label><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--tc2);padding:10px 0"><span id="decAeroRiderWeightDisplay">—</span> <span style="color:var(--tc3);font-size:11px">(set on the Profile tab)</span></div></div>
         <div class="field"><label>Bike weight (lbs)</label><input class="zc-input" type="number" id="pf_bike_weight_lbs" min="5" max="60" placeholder="e.g. 18 (road), 20 (TT/aero)"></div>
         <div class="field"><label>Rolling resistance (Crr)</label>
           <select class="zc-select" id="pf_crr_mode" onchange="document.getElementById('pf_crr_fixed_row').style.display=this.value==='fixed'?'block':'none'">
@@ -616,7 +617,18 @@ window.applyTierGating = function() {
             <option value="fixed">Use a known/fixed value</option>
           </select>
         </div>
-        <div class="field" id="pf_crr_fixed_row" style="display:none"><label>Fixed Crr value</label><input class="zc-input" type="number" id="pf_crr_fixed" min="0.0005" max="0.02" step="0.0001" placeholder="e.g. 0.0040 — from your tire's published rolling-resistance test"></div>
+        <div class="field" id="pf_crr_fixed_row" style="display:none">
+          <label>Fixed Crr value</label>
+          <input class="zc-input" type="number" id="pf_crr_fixed" min="0.0005" max="0.02" step="0.0001" placeholder="e.g. 0.0040 — from your tire's published rolling-resistance test" style="margin-bottom:8px">
+          <select class="zc-select" id="pf_crr_tire_preset" onchange="decApplyTirePreset(this.value)">
+            <option value="">— Or pick a common tire —</option>
+            <option value="0.00249">Continental GP5000 TT TR 28mm (tubeless)</option>
+            <option value="0.00252">Pirelli P Zero Race TLR SL-R 28mm (tubeless)</option>
+            <option value="0.00303">Continental GP5000 S TR 25mm (tubeless)</option>
+            <option value="0.00333">Vittoria Corsa Pro TLR 28mm (tubeless)</option>
+          </select>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);margin-top:6px;line-height:1.5">From bicyclerollingresistance.com lab tests (smooth steel drum, ~29km/h, tire's recommended high pressure). Real road surfaces run a bit higher than a lab drum, but these are a solid starting point — your own ride-built CdA/Crr will always be more accurate than a published number.</div>
+        </div>
         <div class="field"><label>Setup notes</label><textarea class="zc-input" id="pf_aero_setup_notes" rows="3" placeholder="What's currently different about your setup (helmet, position, equipment)..." style="resize:vertical;height:80px"></textarea></div>
         <div style="display:flex;align-items:center;gap:16px;margin-top:1rem">
           <button class="btn" style="width:auto;padding:12px 32px" onclick="saveAthProfile()">Save aero setup</button>
@@ -701,7 +713,7 @@ window.applyTierGating = function() {
                 <option value="female">Female</option>
               </select>
             </div>
-            <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="pf_weight_lbs" min="80" max="400" placeholder="e.g. 165"></div>
+            <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="pf_weight_lbs" min="80" max="400" placeholder="e.g. 165" oninput="updateWkg();decUpdateRiderWeightDisplay()"></div>
             <div class="field"><label>Height — feet</label>
               <select class="zc-select" id="pf_height_feet">
                 <option value="">—</option>
@@ -2510,6 +2522,22 @@ function decDownsample(arr,factor,mode){
   return out;
 }
 
+function decUpdateRiderWeightDisplay(){
+  const el=document.getElementById('decAeroRiderWeightDisplay');
+  if(!el)return;
+  const w=parseFloat(document.getElementById('pf_weight_lbs')?.value);
+  el.textContent=w?w+' lbs':'not set';
+}
+function decApplyTirePreset(val){
+  if(!val)return;
+  const fixedInput=document.getElementById('pf_crr_fixed');
+  const modeSelect=document.getElementById('pf_crr_mode');
+  const fixedRow=document.getElementById('pf_crr_fixed_row');
+  if(fixedInput)fixedInput.value=val;
+  if(modeSelect)modeSelect.value='fixed';
+  if(fixedRow)fixedRow.style.display='block';
+}
+
 // ── Precise CdA builder: ride picker -> lap picker -> analysis -> save ──
 let decAeroPickerSelected=new Set();
 let decAeroSelectedRides=[]; // [{act, selectedLapIdx:Set}]
@@ -2582,9 +2610,19 @@ async function decRenderLapPickerArea(){
         act.laps=(lapData&&(lapData.laps||lapData.icu_intervals||lapData.intervals))||[];
       }catch(e){act.laps=act.laps||[];}
     }
+    // One-time diagnostic: intervals.icu's auto-detected "intervals" don't
+    // necessarily line up with a manual lap-button press on the device --
+    // logging the raw lap objects lets us check for a type/trigger field
+    // that would let this filter to device-recorded laps automatically.
+    if(act.laps&&act.laps.length)console.log('[laps] raw lap fields for "'+(act.name||act.id)+'":',act.laps);
     if(!entry.selectedLapIdx)entry.selectedLapIdx=new Set((act.laps||[]).map((_,i)=>i)); // default: all laps selected
     decRenderLapTableForRide(entry);
   }));
+}
+
+function decRemoveSelectedRide(actIdStr){
+  decAeroSelectedRides=decAeroSelectedRides.filter(e=>String(e.act.id)!==actIdStr);
+  decRenderLapPickerArea();
 }
 
 function decRenderLapTableForRide(entry){
@@ -2592,8 +2630,11 @@ function decRenderLapTableForRide(entry){
   const box=document.getElementById('decAeroLapBox_'+String(act.id));
   if(!box)return;
   const laps=act.laps||[];
+  const removeBtn='<button onclick="event.preventDefault();event.stopPropagation();decRemoveSelectedRide(\''+String(act.id)+'\')" title="Remove this ride" style="background:none;border:1px solid var(--border);color:var(--tc3);cursor:pointer;font-family:\'DM Mono\',monospace;font-size:11px;padding:2px 9px;border-radius:2px">×</button>';
   if(!laps.length){
-    box.innerHTML='<div class="chart-title">'+athEscHtml(act.name||act.type||'Ride')+' — '+fmtDate(act.start_date_local)+'</div><div class="empty-note">No lap data found for this ride.</div>';
+    box.innerHTML='<div class="chart-title" style="display:flex;align-items:center;justify-content:space-between">'
+      +'<span>'+athEscHtml(act.name||act.type||'Ride')+' — '+fmtDate(act.start_date_local)+'</span>'+removeBtn+'</div>'
+      +'<div class="empty-note">No lap data found for this ride.</div>';
     return;
   }
   const rows=laps.map((lap,i)=>{
@@ -2603,9 +2644,12 @@ function decRenderLapTableForRide(entry){
     const pwr=lap.average_watts?Math.round(lap.average_watts)+'W':'—';
     return'<tr><td><input type="checkbox" '+checked+' onchange="decToggleLap(\''+String(act.id)+'\','+i+',this.checked)"></td><td>'+(i+1)+'</td><td>'+dur+'</td><td>'+distMi+'</td><td>'+pwr+'</td></tr>';
   }).join('');
-  box.innerHTML='<div class="chart-title">'+athEscHtml(act.name||act.type||'Ride')+' — '+fmtDate(act.start_date_local)+'</div>'
+  box.innerHTML='<details open><summary style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px">'
+    +'<span class="chart-title" style="margin:0;flex:1">'+athEscHtml(act.name||act.type||'Ride')+' — '+fmtDate(act.start_date_local)+' <span id="decAeroLapBadge_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--acc);font-weight:400"></span></span>'
+    +removeBtn+'</summary>'
     +'<table class="laps-table"><thead><tr><th></th><th>Lap</th><th>Duration</th><th>Distance</th><th>Avg power</th></tr></thead><tbody>'+rows+'</tbody></table>'
-    +'<div id="decAeroLapSummary_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px"></div>';
+    +'<div id="decAeroLapSummary_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px"></div>'
+    +'</details>';
   decUpdateLapSummary(entry);
 }
 
@@ -2617,12 +2661,14 @@ function decToggleLap(actIdStr,idx,checked){
 }
 
 function decUpdateLapSummary(entry){
-  const el=document.getElementById('decAeroLapSummary_'+String(entry.act.id));
-  if(!el)return;
   const laps=entry.act.laps||[];
   let distM=0,durSec=0;
   entry.selectedLapIdx.forEach(i=>{const lap=laps[i];if(lap){distM+=lap.distance||0;durSec+=lap.elapsed_time||lap.moving_time||0;}});
-  el.textContent=entry.selectedLapIdx.size+' of '+laps.length+' laps selected — '+(distM/1609.34).toFixed(1)+' mi, '+fmtTime(durSec);
+  const summaryText=entry.selectedLapIdx.size+' of '+laps.length+' laps selected — '+(distM/1609.34).toFixed(1)+' mi, '+fmtTime(durSec);
+  const el=document.getElementById('decAeroLapSummary_'+String(entry.act.id));
+  if(el)el.textContent=summaryText;
+  const badge=document.getElementById('decAeroLapBadge_'+String(entry.act.id));
+  if(badge)badge.textContent='('+entry.selectedLapIdx.size+'/'+laps.length+' laps)';
 }
 
 async function decRunMeticulousCdaAnalysis(){
@@ -6184,7 +6230,7 @@ function switchDashTab(name){
   document.querySelectorAll('.dash-tab').forEach(t=>t.classList.toggle('active',t.dataset.dtab===name));
   document.querySelectorAll('.dash-panel').forEach(p=>p.classList.toggle('active',p.id==='dtp-'+name));
   if(name==='calendar'&&currentAthlete&&currentAthlete.id) loadAthCal();
-  if(name==='profile'&&currentAthlete&&currentAthlete.id) loadAthProfile();
+  if((name==='profile'||name==='aero')&&currentAthlete&&currentAthlete.id) loadAthProfile();
   if(name==='nutrition') loadNutritionTab();
 }
 
@@ -6223,6 +6269,7 @@ function fillProfileForm(p){
   set('pf_age', p.age);
   set('pf_sex', p.sex);
   set('pf_weight_lbs', p.weight_lbs);
+  decUpdateRiderWeightDisplay();
   set('pf_height_feet', p.height_feet);
   set('pf_height_inches', p.height_inches);
   set('pf_experience_level', p.experience_level);
