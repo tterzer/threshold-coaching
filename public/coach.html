@@ -456,6 +456,10 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
                 <span id="coachDecAeroBuiltCdaBadge" style="display:none;font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);margin-left:auto"></span>
               </div>
               <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Pick specific rides, then pick the laps that are the real comparable loop (e.g. exclude the ride to/from the park). Each ride gets one CdA fit pooled across its selected laps.<br><b style="color:var(--tc2)">If a ride only shows 1-2 giant laps instead of real loops</b>, intervals.icu auto-detected power-based intervals instead of using the device's lap-button presses. Fix on intervals.icu: open that ride → <b>Actions → Use Laps → Keep All Laps</b> → reopen the picker here.</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                <input type="checkbox" id="coachDecAeroEstimateCrr">
+                <label for="coachDecAeroEstimateCrr" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc2);cursor:pointer">Also estimate Crr from this data instead of using the fixed Crr (needs real elevation variation in the selected laps)</label>
+              </div>
               <div id="coachDecAeroLapPickerArea"></div>
               <div id="coachDecAeroResultsArea"></div>
             </div>
@@ -1766,6 +1770,9 @@ function coachPredictCourseTime(profile,targetPowerW,cda,crr,mass,rho,eta){
 }
 
 const COACH_AERO_MIN_ELEV_RANGE_M=20;
+// Mirrors dashboard.html: identifiability needs real SPEED variation, not
+// just elevation variation -- verified there via synthetic ground truth.
+const COACH_AERO_MIN_SPEED_RANGE_MS=3;
 const COACH_AERO_MAX_CANDIDATES=15;
 const COACH_AERO_DOWNSAMPLE=5;
 
@@ -2019,7 +2026,8 @@ async function coachDecRunMeticulousCdaAnalysis(){
   const crrMode=document.getElementById('cpf_crr_mode')?.value;
   const fixedCrrVal=parseFloat(document.getElementById('cpf_crr_fixed')?.value);
   const haveFixedCrr=crrMode==='fixed'&&!isNaN(fixedCrrVal);
-  const fixedCrr=haveFixedCrr?fixedCrrVal:0.0040;
+  const estimateCrrToo=!!document.getElementById('coachDecAeroEstimateCrr')?.checked;
+  const fixedCrr=estimateCrrToo?null:(haveFixedCrr?fixedCrrVal:0.0040);
   const entries=coachDecAeroSelectedRides.filter(e=>e.selectedLapIdx&&e.selectedLapIdx.size);
   if(!entries.length){
     resultsArea.innerHTML='<div class="empty-note">Select at least one lap on at least one ride first.</div>';
@@ -2035,9 +2043,15 @@ async function coachDecRunMeticulousCdaAnalysis(){
       const wattsRuns=coachDecSliceStreamRuns(watts,runs);
       const speedRuns=coachDecSliceStreamRuns(speed,runs);
       const altRuns=coachDecSliceStreamRuns(altitude,runs);
-      let meanAlt=0,n=0;
-      altRuns.forEach(arr=>arr.forEach(v=>{meanAlt+=Number(v)||0;n++;}));
+      let meanAlt=0,n=0,altMin=Infinity,altMax=-Infinity;
+      altRuns.forEach(arr=>arr.forEach(v=>{const nv=Number(v)||0;meanAlt+=nv;n++;if(nv<altMin)altMin=nv;if(nv>altMax)altMax=nv;}));
       meanAlt=n?meanAlt/n:0;
+      if(estimateCrrToo){
+        if(!(altMax-altMin>=COACH_AERO_MIN_ELEV_RANGE_M))return{act,error:'Not enough elevation variation in selected laps to estimate Crr ('+COACH_AERO_MIN_ELEV_RANGE_M+'m+ range needed) -- use a fixed Crr instead, or pick a hillier route'};
+        let spMin=Infinity,spMax=-Infinity;
+        speedRuns.forEach(arr=>arr.forEach(v=>{const nv=Number(v)||0;if(nv<spMin)spMin=nv;if(nv>spMax)spMax=nv;}));
+        if(!(spMax-spMin>=COACH_AERO_MIN_SPEED_RANGE_MS))return{act,error:'Not enough speed variation in selected laps to estimate Crr ('+COACH_AERO_MIN_SPEED_RANGE_MS+'m/s+ range needed) -- holding a steady pace through elevation changes makes CdA/Crr unidentifiable even on a hilly course. Use a fixed Crr instead.'};
+      }
       const rho=1.225*Math.exp(-meanAlt/8434);
       const fit=coachDecFitCdaFromRuns(wattsRuns,speedRuns,altRuns,{mass,rho,fixedCrr});
       if(!fit)return{act,error:'Not enough data in selected laps (need 300+ total seconds)'};
@@ -2048,10 +2062,10 @@ async function coachDecRunMeticulousCdaAnalysis(){
     }
   }));
   coachDecAeroResults=results;
-  coachDecRenderCdaResults(results,!haveFixedCrr);
+  coachDecRenderCdaResults(results,!haveFixedCrr&&!estimateCrrToo,estimateCrrToo);
 }
 
-function coachDecRenderCdaResults(results,usedDefaultCrr){
+function coachDecRenderCdaResults(results,usedDefaultCrr,estimatedCrr){
   const area=document.getElementById('coachDecAeroResultsArea');
   const ok=results.filter(r=>!r.error);
   const errs=results.filter(r=>r.error);
@@ -2060,14 +2074,16 @@ function coachDecRenderCdaResults(results,usedDefaultCrr){
     return;
   }
   const avgCda=ok.reduce((s,r)=>s+r.cda,0)/ok.length;
+  const avgCrr=ok.reduce((s,r)=>s+r.crr,0)/ok.length;
   coachDecAeroAvgCda=avgCda;
   coachDecAeroResultChoice='avg';
-  const crrWarning=usedDefaultCrr?'<div class="empty-note" style="margin-bottom:10px">No fixed Crr set in Aero setup above — used a default of 0.0040 for this fit. Set "Use a known/fixed value" with the tire\'s real rolling-resistance number for a more accurate result.</div>':'';
+  const crrWarning=usedDefaultCrr?'<div class="empty-note" style="margin-bottom:10px">No fixed Crr set in Aero setup above — used a default of 0.0040 for this fit. Set "Use a known/fixed value" with the tire\'s real rolling-resistance number for a more accurate result.</div>'
+    :estimatedCrr?'<div class="empty-note" style="margin-bottom:10px">Crr column below was estimated from this ride\'s data (not the fixed value) — compare it against the tire\'s published number as a sanity check.</div>':'';
   const errNote=errs.length?'<div class="empty-note" style="margin-bottom:10px">'+errs.length+' ride(s) skipped: '+errs.map(r=>escHtml(r.act.name||r.act.type||'ride')+' ('+escHtml(r.error)+')').join(', ')+'</div>':'';
-  const rows=ok.map((r,i)=>'<tr><td><input type="radio" name="coachDecAeroPickResult" onchange="coachDecSelectCdaResultChoice('+i+')"></td><td>'+escHtml(r.act.name||r.act.type||'Ride')+'</td><td>'+coachDecFmtDate((r.act.start_date_local||'').slice(0,10))+'</td><td>'+r.cda.toFixed(4)+'</td><td>'+r.rmse.toFixed(2)+'</td><td>'+r.lapCount+' laps, '+_fmtDur(r.durationSec)+'</td></tr>').join('');
+  const rows=ok.map((r,i)=>'<tr><td><input type="radio" name="coachDecAeroPickResult" onchange="coachDecSelectCdaResultChoice('+i+')"></td><td>'+escHtml(r.act.name||r.act.type||'Ride')+'</td><td>'+coachDecFmtDate((r.act.start_date_local||'').slice(0,10))+'</td><td>'+r.cda.toFixed(4)+'</td><td>'+r.crr.toFixed(4)+'</td><td>'+r.rmse.toFixed(2)+'</td><td>'+r.lapCount+' laps, '+_fmtDur(r.durationSec)+'</td></tr>').join('');
   area.innerHTML=crrWarning+errNote
-    +'<table class="laps-table"><thead><tr><th></th><th>Ride</th><th>Date</th><th>CdA</th><th>Fit rmse</th><th>Laps used</th></tr></thead><tbody>'
-    +'<tr><td><input type="radio" name="coachDecAeroPickResult" checked onchange="coachDecSelectCdaResultChoice(\'avg\')"></td><td colspan="3"><b>Average across '+ok.length+' ride'+(ok.length===1?'':'s')+': '+avgCda.toFixed(4)+'</b></td><td></td><td></td></tr>'
+    +'<table class="laps-table"><thead><tr><th></th><th>Ride</th><th>Date</th><th>CdA</th><th>Crr</th><th>Fit rmse</th><th>Laps used</th></tr></thead><tbody>'
+    +'<tr><td><input type="radio" name="coachDecAeroPickResult" checked onchange="coachDecSelectCdaResultChoice(\'avg\')"></td><td colspan="3"><b>Average across '+ok.length+' ride'+(ok.length===1?'':'s')+': '+avgCda.toFixed(4)+'</b></td><td>'+avgCrr.toFixed(4)+'</td><td></td><td></td></tr>'
     +rows+'</tbody></table>'
     +'<div style="display:flex;align-items:center;gap:16px;margin-top:14px">'
     +'<button class="btn" style="width:auto;padding:12px 32px" onclick="coachDecSaveBuiltCda()">Save as built CdA</button>'
