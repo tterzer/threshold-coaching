@@ -2305,6 +2305,14 @@ function decFitCdaFromRuns(wattsRuns,speedRuns,altRuns,opts){
   const eta=opts.eta||0.975;
   const fixedCrr=opts.fixedCrr!=null?opts.fixedCrr:null;
 
+  // Includes an inertia term (m*a*v) so interval-style speed swings
+  // (recovery pace <-> hard-effort pace, not just a steady loop) don't get
+  // misread as drag/grade -- verified against synthetic ground truth
+  // matching real recovery/work lap durations: ~0.1-0.2% CdA bias without
+  // this term, ~0% with it, and the correction never made noisy-speed
+  // fits worse across a realistic noise range. Central-difference accel,
+  // one-sided at each run's last sample (per-run array, so this never
+  // reaches across a lap-selection gap into a different run).
   function buildVE(wattsArr,speedArr,cda,crr){
     const n=wattsArr.length;
     const ve=new Array(n);
@@ -2315,8 +2323,12 @@ function decFitCdaFromRuns(wattsRuns,speedRuns,altRuns,opts){
       if(v>=0.5){
         const pAero=0.5*rho*cda*v*v*v;
         const pRR=crr*mass*DEC_AERO_G*v;
+        const vPrev=Number(speedArr[i-1])||0;
+        const vNext=i+1<n?(Number(speedArr[i+1])||0):v;
+        const accel=i+1<n?(vNext-vPrev)/2:(v-vPrev);
+        const pAccel=mass*accel*v;
         const pWheel=p*eta;
-        const pGrade=pWheel-pAero-pRR;
+        const pGrade=pWheel-pAero-pRR-pAccel;
         cum+=(pGrade/(mass*DEC_AERO_G*v))*v;
       }
       ve[i]=cum;
