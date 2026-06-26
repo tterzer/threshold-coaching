@@ -56,12 +56,13 @@ export default async function handler(req, res) {
     }
 
     if (action === 'update_profile') {
-      const { athlete_id, intervals_athlete_id, intervals_api_key, name } = body;
+      const { athlete_id, intervals_athlete_id, intervals_api_key, name, coaching_tier } = body;
       if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
       const updates = {};
       if (intervals_athlete_id !== undefined) updates.intervals_athlete_id = intervals_athlete_id;
       if (intervals_api_key !== undefined) updates.intervals_api_key = intervals_api_key;
       if (name !== undefined) updates.name = name;
+      if (coaching_tier !== undefined) updates.coaching_tier = coaching_tier;
       const { data, error } = await supabase.from('athletes').update(updates).eq('id', athlete_id).select().single();
       if (error) return res.status(500).json({ error: error.message });
       delete data.password_hash;

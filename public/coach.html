@@ -508,6 +508,21 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               <span id="coachProfWkgVal">—</span> <span style="font-size:14px;font-family:'DM Mono',monospace;color:var(--tc3);font-weight:400">w/kg</span>
             </div>
 
+            <div class="chart-box" style="margin-bottom:1.25rem">
+              <div class="section-label" style="margin-top:0">Coaching tier</div>
+              <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                <select class="zc-select" id="cpf_coaching_tier" style="max-width:220px">
+                  <option value="base">Base</option>
+                  <option value="build">Build</option>
+                  <option value="peak">Peak</option>
+                </select>
+                <button class="btn" style="width:auto;padding:12px 32px;margin-top:0" onclick="saveCoachingTier()">Save tier</button>
+                <span id="tierSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
+                <span id="tierErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
+              </div>
+              <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);margin-top:8px;line-height:1.5">Controls what this athlete sees in their dashboard. FuelPro and Aero Analysis are Peak-only; Sport CTL/load/zone breakdowns require Build or Peak.</div>
+            </div>
+
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:20px;align-items:start">
               <!-- Personal Info -->
               <div class="chart-box">
@@ -879,6 +894,8 @@ async function selectAthlete(id){
   document.getElementById('mainAvatar').textContent=initials;
   document.getElementById('mainName').textContent=selectedAthlete.name||'Unnamed athlete';
   document.getElementById('mainEmail').textContent=selectedAthlete.email||'';
+  const tierSel=document.getElementById('cpf_coaching_tier');
+  if(tierSel)tierSel.value=selectedAthlete.coaching_tier||'base';
   document.getElementById('aRaceBadge').style.display='none';
   athleteIcuActivities=[];
   chatHistory=[];
@@ -1062,6 +1079,24 @@ async function saveCoachProfile(){
     coachUpdateWkg();
   } catch(e){
     errMsgs.forEach(el=>{el.textContent=e.message;el.style.display='inline';});
+  }
+}
+
+async function saveCoachingTier(){
+  if(!selectedAthlete||!selectedAthlete.id)return;
+  const tier=document.getElementById('cpf_coaching_tier')?.value||'base';
+  const saveMsg=document.getElementById('tierSaveMsg');
+  const errMsg=document.getElementById('tierErrMsg');
+  if(saveMsg)saveMsg.style.display='none';
+  if(errMsg)errMsg.style.display='none';
+  try{
+    const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update_profile',athlete_id:selectedAthlete.id,coaching_tier:tier})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Save failed');
+    selectedAthlete.coaching_tier=tier;
+    if(saveMsg){saveMsg.style.display='inline';setTimeout(()=>{saveMsg.style.display='none';},2500);}
+  }catch(e){
+    if(errMsg){errMsg.textContent=e.message;errMsg.style.display='inline';}
   }
 }
 

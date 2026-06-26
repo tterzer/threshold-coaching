@@ -370,6 +370,8 @@ window.applyTierGating = function() {
   var tier = window.getTier();
   var fuelTab = document.querySelector('.dash-tab[data-dtab="nutrition"]');
   if (fuelTab) fuelTab.style.display = tier >= 3 ? '' : 'none';
+  var aeroTab = document.querySelector('.dash-tab[data-dtab="aero"]');
+  if (aeroTab) aeroTab.style.display = tier >= 3 ? '' : 'none';
   if (tier < 2) {
     ['sportCtlBox','loadRow','zoneRow'].forEach(function(id) {
       var el = document.getElementById(id);
