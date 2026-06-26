@@ -466,7 +466,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 
             <div class="chart-box" style="margin-top:1px">
               <div class="chart-card-header"><span class="chart-card-label">Race predictor</span></div>
-              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Upload a course GPX file, then adjust target power to see predicted finish time update. v1 assumes instant equilibrium speed per segment (no momentum carried between segments).</div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Upload a course GPX file, then adjust target power to see predicted finish time update. Integrates speed continuously across the course (momentum carries from descents into climbs, etc.) -- assumes a single constant power target, not a terrain-optimized variable pacing strategy, and doesn't account for wind.</div>
               <div class="field" style="max-width:360px"><label>Course GPX file</label><input class="zc-input" type="file" id="coachDecGpxFileInput" accept=".gpx" onchange="coachDecOnGpxFileSelected(this.files[0])"></div>
               <div id="coachDecGpxSummary"></div>
               <div id="coachDecGpxChartArea"></div>
@@ -1769,6 +1769,49 @@ function coachPredictCourseTime(profile,targetPowerW,cda,crr,mass,rho,eta){
   return{totalSec,speeds};
 }
 
+// Momentum-aware course-time predictor -- mirrors dashboard.html's
+// predictCourseTimeDynamic exactly (same RK4 distance-stepped integration
+// of the equation of motion, verified there against synthetic ground
+// truth: matches the quasi-static version exactly on flat/constant-grade
+// courses, and correctly carries speed from a descent into the climb
+// after it).
+function coachPredictCourseTimeDynamic(profile,targetPowerW,cda,crr,mass,rho,eta){
+  const segments=profile.segments||profile;
+  if(!segments.length)return{totalSec:0,speeds:[]};
+  const a=0.5*rho*cda;
+  const pWheel=targetPowerW*eta;
+  const SUBSTEPS=20;
+
+  function dvdx(v,grade){
+    const vv=Math.max(v,0.3);
+    const fAero=a*vv*vv;
+    const fRoll=crr*mass*COACH_AERO_G;
+    const fGrade=mass*COACH_AERO_G*grade;
+    return(pWheel/vv-fAero-fRoll-fGrade)/(mass*vv);
+  }
+  function rk4Step(v,grade,dx){
+    const k1=dvdx(v,grade);
+    const k2=dvdx(v+dx/2*k1,grade);
+    const k3=dvdx(v+dx/2*k2,grade);
+    const k4=dvdx(v+dx*k3,grade);
+    return v+dx/6*(k1+2*k2+2*k3+k4);
+  }
+
+  let v=coachSolveEquilibriumSpeed(targetPowerW,segments[0].grade,cda,crr,mass,rho,eta);
+  let totalSec=0;
+  const speeds=[];
+  segments.forEach(seg=>{
+    const dx=seg.lengthM/SUBSTEPS;
+    for(let i=0;i<SUBSTEPS;i++){
+      v=rk4Step(v,seg.grade,dx);
+      if(v<0.3)v=0.3;
+      totalSec+=dx/v;
+    }
+    speeds.push(v);
+  });
+  return{totalSec,speeds};
+}
+
 const COACH_AERO_MIN_ELEV_RANGE_M=20;
 // Mirrors dashboard.html: identifiability needs real SPEED variation, not
 // just elevation variation -- verified there via synthetic ground truth.
@@ -2220,7 +2263,7 @@ function coachDecRunGpxPredict(){
   const mass=(weightLbs+bikeWeightLbs)/2.20462;
   const rho=1.225;
   const eta=0.975;
-  const result=coachPredictCourseTime(coachDecGpxProfile,targetPower,cda,crr,mass,rho,eta);
+  const result=coachPredictCourseTimeDynamic(coachDecGpxProfile,targetPower,cda,crr,mass,rho,eta);
   out.innerHTML=_fmtDur(result.totalSec)+' <span style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--tc3);font-weight:400">at '+targetPower+'W, CdA '+cda.toFixed(4)+', Crr '+crr.toFixed(4)+'</span>';
 }
 
