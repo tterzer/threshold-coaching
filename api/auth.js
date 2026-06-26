@@ -29,7 +29,12 @@ export default async function handler(req, res) {
       const { data: existing } = await supabase.from('athletes').select('id').eq('email', normalizedEmail).maybeSingle();
       if (existing) return res.status(409).json({ error: 'Email already registered' });
       const password_hash = await bcrypt.hash(password, 10);
-      const insertPayload = { email: normalizedEmail, password_hash, name, role: 'athlete' };
+      // New self-serve signups need explicit coach approval before they can
+      // log in (set below in 'login'). Existing athletes predate this field
+      // and have account_status=null, which the login check treats as
+      // already-approved -- only a literal 'pending' blocks access, so this
+      // can never retroactively lock out anyone already using the app.
+      const insertPayload = { email: normalizedEmail, password_hash, name, role: 'athlete', account_status: 'pending' };
       if (intervals_athlete_id) insertPayload.intervals_athlete_id = intervals_athlete_id;
       if (intervals_api_key) insertPayload.intervals_api_key = intervals_api_key;
       const TRAVIS_ID = 'fdba3831-f111-41d4-bc02-4c80340ce10a';
@@ -51,18 +56,20 @@ export default async function handler(req, res) {
       if (!data) return res.status(401).json({ error: 'Invalid email or password' });
       const match = await bcrypt.compare(password, data.password_hash || '');
       if (!match) return res.status(401).json({ error: 'Invalid email or password' });
+      if (data.account_status === 'pending') return res.status(403).json({ error: 'Your account is pending approval. Your coach will activate it shortly.', pending: true });
       delete data.password_hash;
       return res.status(200).json({ athlete: data });
     }
 
     if (action === 'update_profile') {
-      const { athlete_id, intervals_athlete_id, intervals_api_key, name, coaching_tier } = body;
+      const { athlete_id, intervals_athlete_id, intervals_api_key, name, coaching_tier, account_status } = body;
       if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
       const updates = {};
       if (intervals_athlete_id !== undefined) updates.intervals_athlete_id = intervals_athlete_id;
       if (intervals_api_key !== undefined) updates.intervals_api_key = intervals_api_key;
       if (name !== undefined) updates.name = name;
       if (coaching_tier !== undefined) updates.coaching_tier = coaching_tier;
+      if (account_status !== undefined) updates.account_status = account_status;
       const { data, error } = await supabase.from('athletes').update(updates).eq('id', athlete_id).select().single();
       if (error) return res.status(500).json({ error: error.message });
       delete data.password_hash;

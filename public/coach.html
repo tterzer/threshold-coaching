@@ -876,9 +876,10 @@ function renderAthleteList(){
   listEl.innerHTML=athletes.map(a=>{
     const initials=(a.name||a.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const active=selectedAthlete&&selectedAthlete.id===a.id?'active':'';
+    const pendingBadge=a.account_status==='pending'?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:#E24B4A;border:1px solid #E24B4A;padding:1px 5px;border-radius:2px;letter-spacing:0.06em;margin-left:6px">PENDING</span>':'';
     return '<div class="athlete-item '+active+'" onclick="selectAthlete(\''+a.id+'\')">'
       +'<div class="ath-avatar">'+initials+'</div>'
-      +'<div><div class="ath-name">'+(a.name||'Unnamed athlete')+'</div><div class="ath-email">'+(a.email||'')+'</div></div>'
+      +'<div><div class="ath-name">'+(a.name||'Unnamed athlete')+pendingBadge+'</div><div class="ath-email">'+(a.email||'')+'</div></div>'
       +'</div>';
   }).join('');
 }
@@ -1090,10 +1091,14 @@ async function saveCoachingTier(){
   if(saveMsg)saveMsg.style.display='none';
   if(errMsg)errMsg.style.display='none';
   try{
-    const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update_profile',athlete_id:selectedAthlete.id,coaching_tier:tier})});
+    // Setting a tier is also the approval action for pending self-serve
+    // signups -- one save both grants feature access and unlocks login.
+    const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update_profile',athlete_id:selectedAthlete.id,coaching_tier:tier,account_status:'active'})});
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'Save failed');
     selectedAthlete.coaching_tier=tier;
+    selectedAthlete.account_status='active';
+    renderAthleteList();
     if(saveMsg){saveMsg.style.display='inline';setTimeout(()=>{saveMsg.style.display='none';},2500);}
   }catch(e){
     if(errMsg){errMsg.textContent=e.message;errMsg.style.display='inline';}
