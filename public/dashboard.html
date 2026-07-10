@@ -3190,7 +3190,7 @@ function athCalRenderDay(d){
       const mins=Math.round((icu.moving_time||0)/60);
       const tss=Math.round(icu.icu_training_load||0);
       const timePrefix=_fmtBlockTime(icu.start_date_local);
-      const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+      const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||icu.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
       const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
       dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:icu.start_date_local||''});
@@ -3207,7 +3207,7 @@ function athCalRenderDay(d){
     const mins=Math.round((a.moving_time||0)/60);
     const tss=Math.round(a.icu_training_load||0);
     const timePrefix=_fmtBlockTime(a.start_date_local);
-    const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(a.name||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+    const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(a.name||a.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
     const icuIdStr=String(a.id);
     dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
   });
@@ -3613,7 +3613,7 @@ async function openAthBlockModal(mode, woId, icuId){
 
   const sport=act?athIcuTypeToSport(act.type):(wo?wo.sport:'');
   const sportColor=sport==='cycling'?'#378ADD':sport==='running'?'#639922':sport==='swimming'?'#1D9E75':sport==='strength'?'#7F77DD':'#666';
-  const actName=act?(act.name||'Activity'):(wo?(wo.title||'Planned Workout'):'Workout');
+  const actName=act?(act.name||act.type||'Activity'):(wo?(wo.title||'Planned Workout'):'Workout');
   const actDate=act?_fmtModalDate(act.start_date_local):(wo?wo.date:'');
 
   let paceVal='—';
