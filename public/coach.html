@@ -920,6 +920,13 @@ function switchTab(name){
   if((name==='profile'||name==='aero')&&selectedAthlete&&selectedAthlete.id) loadCoachProfile();
   if(name==='nutrition'&&selectedAthlete&&selectedAthlete.id) loadCoachNutrition();
   if(name==='chat'&&selectedAthlete&&selectedAthlete.id) fetchAthleteWellness();
+  if(name==='calendar'&&selectedAthlete){
+    // Panel is now visible — recompute week heights and re-settle to today.
+    coachCalSizeWeeks();
+    const todayMonday=mondayOf(new Date());
+    coachCalScrollToMonday(todayMonday);
+    setTimeout(()=>{coachCalScrollToMonday(todayMonday);coachCalUpdateFocusFromScroll();},100);
+  }
 }
 
 async function fetchAthleteWellness(){
