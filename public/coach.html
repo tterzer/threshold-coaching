@@ -2399,7 +2399,7 @@ function coachCalRenderDay(d){
       dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:icu.start_date_local||''});
     }else{
       const label=escHtml(w.title||w.sport||'Workout');
-      dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,'+woIdStr+')" ondragend="coachCalDragEnd(event)" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout('+woIdStr+')" title="Copy">⧉</button></div>',sortKey:'',createdAt:w.created_at||''});
+      dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,\''+woIdStr+'\')" ondragend="coachCalDragEnd(event)" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:'',createdAt:w.created_at||''});
     }
   });
 
