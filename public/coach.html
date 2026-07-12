@@ -1334,7 +1334,7 @@ async function loadRaces(){
 async function loadCoachNotes(){
   if(!selectedAthlete)return;
   try{
-    const r=await fetch('/api/cal-notes?athlete_id='+encodeURIComponent(selectedAthlete.id));
+    const r=await fetch('/api/workouts?resource=notes&athlete_id='+encodeURIComponent(selectedAthlete.id));
     const data=await r.json();
     coachNotesCache=data.notes||[];
   }catch{

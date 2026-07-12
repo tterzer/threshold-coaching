@@ -3119,7 +3119,7 @@ async function loadAthCal(){
     const [wr,rr,nr]=await Promise.all([
       fetch('/api/workouts?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()),
       fetch('/api/races?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()),
-      fetch('/api/cal-notes?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()).catch(()=>({notes:[]}))
+      fetch('/api/workouts?resource=notes&athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()).catch(()=>({notes:[]}))
     ]);
     athWorkoutsCache=wr.workouts||[];
     athRacesCache=rr.races||[];
@@ -3939,9 +3939,9 @@ async function athCalNoteSave(){
   try{
     let r;
     if(_athNoteEditId){
-      r=await fetch('/api/cal-notes',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_athNoteEditId,note_text})});
+      r=await fetch('/api/workouts',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({resource:'notes',id:_athNoteEditId,note_text})});
     }else{
-      r=await fetch('/api/cal-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:currentAthlete.id,date,note_text})});
+      r=await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resource:'notes',athlete_id:currentAthlete.id,date,note_text})});
     }
     const data=await r.json();
     if(!r.ok)throw new Error(data.error||'Could not save note');
@@ -3957,7 +3957,7 @@ async function athCalNoteDelete(){
   if(!_athNoteEditId)return;
   if(!confirm('Delete this note?'))return;
   try{
-    const r=await fetch('/api/cal-notes',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_athNoteEditId})});
+    const r=await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({resource:'notes',id:_athNoteEditId})});
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Delete failed');}
     closeAthAddWoModal();
     await loadAthCal();
