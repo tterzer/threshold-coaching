@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       const { id } = body;
       if (!id) return res.status(400).json({ error: 'Missing workout id' });
       // Only update columns that exist in planned_workouts
-      const allowed = ['date','sport','title','description','intensity','tss_target','duration_minutes','coach_notes','completed','compliance_note','fuelpro_type','created_by'];
+      const allowed = ['date','sport','title','description','intensity','tss_target','duration_minutes','coach_notes','completed','compliance_note','fuelpro_type','created_by','sort_order'];
       const updates = Object.fromEntries(allowed.filter(k => k in body).map(k => [k, body[k]]));
       const { data, error } = await supabase.from('planned_workouts').update(updates).eq('id', id).select().single();
       if (error) return res.status(500).json({ error: error.message });
