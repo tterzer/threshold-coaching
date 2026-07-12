@@ -125,6 +125,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
 .cal-block.planned.sport-strength{border:1.5px solid #7F77DD;background:transparent;color:#7F77DD}
 .cal-block.planned.sport-other{border:1.5px solid #c8f036;background:transparent;color:#c8f036}
+.cal-block.cal-note{border:1.5px dashed var(--tc3);background:transparent;color:var(--tc3);cursor:default}
 .cal-block.planned{position:relative}
 .wo-copy-btn{display:none;position:absolute;top:2px;right:3px;background:rgba(0,0,0,0.35);border:none;cursor:pointer;color:inherit;padding:1px 5px;font-size:10px;border-radius:2px;line-height:1.4}
 .cal-block.planned:hover .wo-copy-btn{display:block}
@@ -841,6 +842,8 @@ function mondayOf(d){
 }
 let workoutsCache=[];
 let racesCache=[];
+let coachNotesCache=[];
+let coachNotesByDate={};
 let chatHistory=[];
 let athleteWellness=null;
 let editingWorkout=null;
@@ -919,7 +922,7 @@ async function selectAthlete(id){
   document.getElementById('chatHistoryMeta').textContent='Loading...';
   document.getElementById('chatHistoryList').innerHTML='';
   switchTab('overview');
-  await Promise.all([loadAthleteMetrics(selectedAthlete), loadWorkouts(), loadRaces()]);
+  await Promise.all([loadAthleteMetrics(selectedAthlete), loadWorkouts(), loadRaces(), loadCoachNotes()]);
   coachCalInit();
   updateARaceBadge();
   coachCalRenderCountdown();
@@ -1325,6 +1328,19 @@ async function loadRaces(){
   }catch{
     racesCache=[];
   }
+}
+
+async function loadCoachNotes(){
+  if(!selectedAthlete)return;
+  try{
+    const r=await fetch('/api/cal-notes?athlete_id='+encodeURIComponent(selectedAthlete.id));
+    const data=await r.json();
+    coachNotesCache=data.notes||[];
+  }catch{
+    coachNotesCache=[];
+  }
+  coachNotesByDate={};
+  coachNotesCache.forEach(n=>{ (coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n); });
 }
 
 function sportClass(sport){
@@ -2398,7 +2414,7 @@ function coachCalRenderDay(d){
       const icuIdStr=String(icu.id);
       dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:icu.start_date_local||''});
     }else{
-      const label=escHtml(w.title||w.sport||'Workout');
+      const label=escHtml((w.title||w.sport||'Workout')+(w.duration_minutes?' · '+w.duration_minutes+'min':''));
       dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,\''+woIdStr+'\')" ondragend="coachCalDragEnd(event)" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:'',createdAt:w.created_at||''});
     }
   });
@@ -2412,6 +2428,11 @@ function coachCalRenderDay(d){
     const label=escHtml((timePrefix?timePrefix+' · ':'')+(a.name||a.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
     const icuIdStr=String(a.id);
     dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
+  });
+
+  (coachNotesByDate[key]||[]).forEach(n=>{
+    const label=escHtml(n.note_text||'Note');
+    dayItems.push({html:'<div class="cal-block cal-note" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:'',createdAt:n.created_at||''});
   });
 
   dayItems.sort((a,b)=>{
@@ -2497,6 +2518,8 @@ function coachCalRefresh(){
   workoutsCache.forEach(w=>{(coachCalWoByDate[w.date]=coachCalWoByDate[w.date]||[]).push(w);});
   coachCalRaceByDate={};
   racesCache.forEach(r=>{(coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r);});
+  coachNotesByDate={};
+  coachNotesCache.forEach(n=>{(coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n);});
   const weeksEl=document.getElementById('coachCalWeeks');
   const scrollEl=document.getElementById('coachCalScroll');
   if(!weeksEl||!coachCalEarliestMonday||!coachCalLatestMonday)return;
@@ -2522,6 +2545,8 @@ async function coachCalInit(){
   workoutsCache.forEach(w=>{ (coachCalWoByDate[w.date]=coachCalWoByDate[w.date]||[]).push(w); });
   coachCalRaceByDate={};
   racesCache.forEach(r=>{ (coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r); });
+  coachNotesByDate={};
+  coachNotesCache.forEach(n=>{ (coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n); });
   coachCalActCache={};
   coachCalActFetchedFrom=null;
   coachCalActFetchedTo=null;

@@ -215,6 +215,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .ath-cal-block.planned.sport-swimming{border:1.5px solid #1D9E75;background:transparent;color:#1D9E75}
 .ath-cal-block.planned.sport-strength{border:1.5px solid #7F77DD;background:transparent;color:#7F77DD}
 .ath-cal-block.planned.sport-other{border:1.5px solid #c8f036;background:transparent;color:#c8f036}
+.ath-cal-block.cal-note{border:1.5px dashed var(--tc3);background:transparent;color:var(--tc3);cursor:pointer}
 .ath-cal-block.completed.sport-cycling{background:#378ADD;color:#fff;border:none}
 .ath-cal-block.completed.sport-running{background:#639922;color:#fff;border:none}
 .ath-cal-block.completed.sport-swimming{background:#1D9E75;color:#fff;border:none}
@@ -3088,12 +3089,14 @@ function drawAeroChart(box,points,isFixedCrr){
 // ========== DASHBOARD CALENDAR TAB ==========
 var athWorkoutsCache=[];
 var athRacesCache=[];
+var athNotesCache=[];
 var athViewingWo=null;
 var athViewingRace=null;
 
 // ===== Infinite-scroll athlete calendar =====
 var athCalWoByDate={};
 var athCalRaceByDate={};
+var athCalNotesByDate={};
 var athCalActCache={}; // date -> [activities], grows as the user scrolls; independent of allActivities' 90-day cap
 var athCalActFetchedFrom=null;
 var athCalActFetchedTo=null;
@@ -3113,20 +3116,25 @@ const ATH_CAL_INITIAL_AFTER=5;
 async function loadAthCal(){
   if(!currentAthlete||!currentAthlete.id)return;
   try{
-    const [wr,rr]=await Promise.all([
+    const [wr,rr,nr]=await Promise.all([
       fetch('/api/workouts?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()),
-      fetch('/api/races?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json())
+      fetch('/api/races?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()),
+      fetch('/api/cal-notes?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()).catch(()=>({notes:[]}))
     ]);
     athWorkoutsCache=wr.workouts||[];
     athRacesCache=rr.races||[];
+    athNotesCache=nr.notes||[];
   }catch{
     athWorkoutsCache=[];
     athRacesCache=[];
+    athNotesCache=[];
   }
   athCalWoByDate={};
   athWorkoutsCache.forEach(w=>{ (athCalWoByDate[w.date]=athCalWoByDate[w.date]||[]).push(w); });
   athCalRaceByDate={};
   athRacesCache.forEach(r=>{ (athCalRaceByDate[r.date]=athCalRaceByDate[r.date]||[]).push(r); });
+  athCalNotesByDate={};
+  athNotesCache.forEach(n=>{ (athCalNotesByDate[n.date]=athCalNotesByDate[n.date]||[]).push(n); });
   athCalRenderCountdown();
   await athCalInit();
 }
@@ -3195,7 +3203,7 @@ function athCalRenderDay(d){
       const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
       dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:icu.start_date_local||''});
     }else{
-      const label=athEscHtml(w.title||w.sport||'Workout');
+      const label=athEscHtml((w.title||w.sport||'Workout')+(w.duration_minutes?' · '+w.duration_minutes+'min':''));
       const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
       dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:'',createdAt:w.created_at||''});
     }
@@ -3210,6 +3218,12 @@ function athCalRenderDay(d){
     const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(a.name||a.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
     const icuIdStr=String(a.id);
     dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
+  });
+
+  (athCalNotesByDate[key]||[]).forEach(n=>{
+    const label=athEscHtml(n.note_text||'Note');
+    const nId=String(n.id);
+    dayItems.push({html:'<div class="ath-cal-block cal-note" onclick="event.stopPropagation();openAthCalNoteModal(\''+nId+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:'',createdAt:n.created_at||''});
   });
 
   dayItems.sort((a,b)=>{
@@ -3791,6 +3805,10 @@ function openAthAddWoModal(dateStr, editWo){
   document.getElementById('athAddModalTabs').style.display=editWo?'none':'flex';
   athSwitchModalTab('workout');
   document.getElementById('athWoDate').value=editWo?editWo.date:(dateStr||'');
+  document.getElementById('athNoteDate').value=editWo?'':(dateStr||'');
+  document.getElementById('athNoteText').value='';
+  document.getElementById('athNoteDeleteBtn').style.display='none';
+  _athNoteEditId=null;
   document.getElementById('athWoSport').value=editWo?(editWo.sport||'cycling'):'cycling';
   document.getElementById('athWoTitle').value=editWo?(editWo.title||''):'';
   document.getElementById('athWoIntensity').value=editWo?(editWo.intensity||editWo.workout_type||'endurance'):'endurance';
@@ -3891,6 +3909,60 @@ async function deleteAthAddWorkout(){
     await loadAthCal();
   }catch(err){
     alert('Could not delete: '+err.message);
+  }
+}
+
+// ===== Calendar notes =====
+let _athNoteEditId=null;
+
+function openAthCalNoteModal(noteId){
+  const n=athNotesCache.find(x=>String(x.id)===String(noteId));
+  if(!n)return;
+  document.getElementById('athAddWoTitle').textContent='Edit Note';
+  document.getElementById('athAddModalTabs').style.display='none';
+  athSwitchModalTab('note');
+  document.getElementById('athNoteDate').value=n.date||'';
+  document.getElementById('athNoteText').value=n.note_text||'';
+  document.getElementById('athNoteDeleteBtn').style.display='block';
+  document.getElementById('athNoteError').style.display='none';
+  _athNoteEditId=n.id;
+  document.getElementById('athAddWoModal').classList.add('show');
+}
+
+async function athCalNoteSave(){
+  const errEl=document.getElementById('athNoteError');
+  errEl.style.display='none';
+  const date=document.getElementById('athNoteDate').value;
+  const note_text=document.getElementById('athNoteText').value.trim();
+  if(!date){errEl.textContent='Pick a date.';errEl.style.display='block';return;}
+  if(!note_text){errEl.textContent='Enter a note.';errEl.style.display='block';return;}
+  try{
+    let r;
+    if(_athNoteEditId){
+      r=await fetch('/api/cal-notes',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_athNoteEditId,note_text})});
+    }else{
+      r=await fetch('/api/cal-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:currentAthlete.id,date,note_text})});
+    }
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Could not save note');
+    closeAthAddWoModal();
+    await loadAthCal();
+  }catch(err){
+    errEl.textContent=err.message||'Could not save note.';
+    errEl.style.display='block';
+  }
+}
+
+async function athCalNoteDelete(){
+  if(!_athNoteEditId)return;
+  if(!confirm('Delete this note?'))return;
+  try{
+    const r=await fetch('/api/cal-notes',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:_athNoteEditId})});
+    if(!r.ok){const d=await r.json();throw new Error(d.error||'Delete failed');}
+    closeAthAddWoModal();
+    await loadAthCal();
+  }catch(err){
+    alert('Could not delete note: '+err.message);
   }
 }
 
@@ -6984,6 +7056,7 @@ function _applyFitnessToUI(){
     <div class="modal-tabs" id="athAddModalTabs">
       <button class="modal-tab active" data-mtab="workout" onclick="athSwitchModalTab('workout')">Plan Workout</button>
       <button class="modal-tab" data-mtab="race" onclick="athSwitchModalTab('race')">Add Race</button>
+      <button class="modal-tab" data-mtab="note" onclick="athSwitchModalTab('note')">Add Note</button>
     </div>
     <div class="modal-panel active" id="ath-mp-workout">
     <div class="field"><label>Date</label><input type="date" id="athWoDate" /></div>
@@ -7104,6 +7177,17 @@ function _applyFitnessToUI(){
       <div style="display:flex;gap:10px;margin-top:1rem">
         <button class="modal-btn-save" onclick="saveAthRace()">Save</button>
         <button class="modal-btn-close" onclick="closeAthAddWoModal()">Cancel</button>
+      </div>
+    </div>
+
+    <div class="modal-panel" id="ath-mp-note">
+      <div class="field"><label>Date</label><input type="date" id="athNoteDate" /></div>
+      <div class="field"><label>Note</label><input type="text" id="athNoteText" placeholder="e.g. Away today — no run" maxlength="120" style="width:100%" /></div>
+      <div class="error-msg" id="athNoteError"></div>
+      <div style="display:flex;gap:10px;margin-top:1rem">
+        <button class="modal-btn-save" onclick="athCalNoteSave()">Save Note</button>
+        <button class="modal-btn-close" onclick="closeAthAddWoModal()">Cancel</button>
+        <button class="modal-btn-delete" id="athNoteDeleteBtn" style="display:none;margin-left:auto" onclick="athCalNoteDelete()">Delete</button>
       </div>
     </div>
   </div>
