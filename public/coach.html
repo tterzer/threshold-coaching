@@ -2492,6 +2492,27 @@ function coachCalSizeWeeks(){
   scrollEl.style.scrollPaddingTop=headH+'px';
 }
 
+function coachCalRefresh(){
+  coachCalWoByDate={};
+  workoutsCache.forEach(w=>{(coachCalWoByDate[w.date]=coachCalWoByDate[w.date]||[]).push(w);});
+  coachCalRaceByDate={};
+  racesCache.forEach(r=>{(coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r);});
+  const weeksEl=document.getElementById('coachCalWeeks');
+  const scrollEl=document.getElementById('coachCalScroll');
+  if(!weeksEl||!coachCalEarliestMonday||!coachCalLatestMonday)return;
+  const savedScroll=scrollEl?scrollEl.scrollTop:0;
+  let html='';let prevMonthKey=null;
+  const m=new Date(coachCalEarliestMonday);
+  while(toYMD(m)<=toYMD(coachCalLatestMonday)){
+    const mk=coachCalMonthKey(m);
+    if(mk!==prevMonthKey){html+='<div class="cal-month-divider">'+m.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</div>';prevMonthKey=mk;}
+    html+=coachCalRenderWeek(m);
+    m.setDate(m.getDate()+7);
+  }
+  weeksEl.innerHTML=html;
+  if(scrollEl)scrollEl.scrollTop=savedScroll;
+}
+
 async function coachCalInit(){
   if(!selectedAthlete)return;
   // Rebuild date lookups from the current caches and reset the incremental
@@ -2650,7 +2671,7 @@ async function coachCalDrop(e,dateStr){
     const r=await fetch('/api/workouts',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:wo.id,date:dateStr})});
     if(!r.ok)throw new Error('Move failed');
     await loadWorkouts();
-    coachCalInit();
+    coachCalRefresh();
   }catch(err){alert('Could not move workout: '+err.message);}
 }
 
@@ -2672,7 +2693,7 @@ async function coachCalPasteWorkout(dateStr){
     const r=await fetch('/api/workouts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:selectedAthlete.id,date:dateStr,...coachCalClipboard,created_by:'coach'})});
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Paste failed');}
     await loadWorkouts();
-    coachCalInit();
+    coachCalRefresh();
   }catch(err){alert('Could not paste workout: '+err.message);}
 }
 function coachCalClearClipboard(){
@@ -3038,7 +3059,7 @@ async function deleteCoachWorkout(id){
     if(!res.ok)throw new Error('Delete failed');
     closeBlockModal();
     await loadWorkouts();
-    coachCalInit();
+    coachCalRefresh();
   }catch(e){
     alert('Could not delete workout: '+e.message);
   }
@@ -3227,7 +3248,7 @@ async function saveWorkout(){
     if(!r.ok)throw new Error(data.error||'Could not save workout');
     closeDayModal();
     await loadWorkouts();
-    coachCalInit();
+    coachCalRefresh();
   }catch(err){
     errEl.textContent=err.message||'Could not save workout.';
     errEl.style.display='block';
@@ -3241,7 +3262,7 @@ async function deleteWorkout(){
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Could not delete workout');}
     closeDayModal();
     await loadWorkouts();
-    coachCalInit();
+    coachCalRefresh();
   }catch(err){
     const errEl=document.getElementById('woError');
     errEl.textContent=err.message||'Could not delete workout.';
@@ -3275,7 +3296,7 @@ async function saveRace(){
     if(!r.ok)throw new Error(data.error||'Could not save race');
     closeDayModal();
     await loadRaces();
-    coachCalInit();
+    coachCalRefresh();
     updateARaceBadge();
     coachCalRenderCountdown();
   }catch(err){
@@ -3291,7 +3312,7 @@ async function deleteRace(){
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Could not delete race');}
     closeDayModal();
     await loadRaces();
-    coachCalInit();
+    coachCalRefresh();
     updateARaceBadge();
     coachCalRenderCountdown();
   }catch(err){
