@@ -3304,6 +3304,29 @@ function athCalSizeWeeks(){
   scrollEl.style.scrollPaddingTop=headH+'px';
 }
 
+function athCalRefresh(){
+  athCalWoByDate={};
+  athWorkoutsCache.forEach(w=>{ (athCalWoByDate[w.date]=athCalWoByDate[w.date]||[]).push(w); });
+  athCalRaceByDate={};
+  athRacesCache.forEach(r=>{ (athCalRaceByDate[r.date]=athCalRaceByDate[r.date]||[]).push(r); });
+  athCalNotesByDate={};
+  athNotesCache.forEach(n=>{ (athCalNotesByDate[n.date]=athCalNotesByDate[n.date]||[]).push(n); });
+  const weeksEl=document.getElementById('athCalWeeks');
+  const scrollEl=document.getElementById('athCalScroll');
+  if(!weeksEl||!athCalEarliestMonday||!athCalLatestMonday)return;
+  const savedScroll=scrollEl?scrollEl.scrollTop:0;
+  let html='';let prevMonthKey=null;
+  const m=new Date(athCalEarliestMonday);
+  while(toYMD(m)<=toYMD(athCalLatestMonday)){
+    const mk=athCalMonthKey(m);
+    if(mk!==prevMonthKey){html+='<div class="ath-cal-month-divider">'+m.toLocaleDateString('en-US',{month:'long',year:'numeric'})+'</div>';prevMonthKey=mk;}
+    html+=athCalRenderWeek(m);
+    m.setDate(m.getDate()+7);
+  }
+  weeksEl.innerHTML=html;
+  if(scrollEl)scrollEl.scrollTop=savedScroll;
+}
+
 async function athCalInit(){
   const headRow=document.getElementById('athCalHeadRow');
   const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -3946,7 +3969,9 @@ async function athCalNoteSave(){
     const data=await r.json();
     if(!r.ok)throw new Error(data.error||'Could not save note');
     closeAthAddWoModal();
-    await loadAthCal();
+    const nr=await fetch('/api/workouts?resource=notes&athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()).catch(()=>({notes:[]}));
+    athNotesCache=nr.notes||[];
+    athCalRefresh();
   }catch(err){
     errEl.textContent=err.message||'Could not save note.';
     errEl.style.display='block';
@@ -3960,7 +3985,8 @@ async function athCalNoteDelete(){
     const r=await fetch('/api/workouts',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({resource:'notes',id:_athNoteEditId})});
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Delete failed');}
     closeAthAddWoModal();
-    await loadAthCal();
+    athNotesCache=athNotesCache.filter(n=>String(n.id)!==String(_athNoteEditId));
+    athCalRefresh();
   }catch(err){
     alert('Could not delete note: '+err.message);
   }
@@ -7182,7 +7208,7 @@ function _applyFitnessToUI(){
 
     <div class="modal-panel" id="ath-mp-note">
       <div class="field"><label>Date</label><input type="date" id="athNoteDate" /></div>
-      <div class="field"><label>Note</label><input type="text" id="athNoteText" placeholder="e.g. Away today — no run" maxlength="120" style="width:100%" /></div>
+      <div class="field"><label>Note</label><input type="text" id="athNoteText" placeholder="e.g. Away today — no run" maxlength="120" style="width:100%" autocomplete="off" /></div>
       <div class="error-msg" id="athNoteError"></div>
       <div style="display:flex;gap:10px;margin-top:1rem">
         <button class="modal-btn-save" onclick="athCalNoteSave()">Save Note</button>
