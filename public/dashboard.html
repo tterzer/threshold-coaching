@@ -6217,23 +6217,24 @@ async function loadDashboard(){
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
     const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
       apiCall(id,key,'profile'),
-      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name'),
-      apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type'),
-      apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local')
+      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name,athlete_id'),
+      apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type,athlete_id'),
+      apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local,athlete_id')
     ]);
-    allTimeActivities=Array.isArray(allTimeActs)?allTimeActs:[];
+    const ownActs=a=>Array.isArray(a)?a.filter(x=>!x.athlete_id||String(x.athlete_id)===String(id)):[];
+    allTimeActivities=ownActs(allTimeActs);
     document.getElementById('dash').style.display='block';
     const name=(currentAthlete&&currentAthlete.name)||athlete.athlete?.name||athlete.name||'Athlete';
     document.getElementById('avatarEl').textContent=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('nameEl').textContent=name;
     const a2=athlete.athlete||athlete;
     document.getElementById('subEl').textContent=[a2.city,a2.country].filter(Boolean).join(', ')||'intervals.icu athlete';
-    const sorted=[...activities].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
+    const sorted=[...ownActs(activities)].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
     allActivities=sorted;
     window.allActivities=sorted;
 
     // Compute CTL/ATL/TSB using seed-based Banister model from SEED_DATE.
-    const fitSorted=[...fitnessActs].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
+    const fitSorted=[...ownActs(fitnessActs)].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
     window._fitnessFetchedActs=fitSorted;
     const fit=window.computeFitness(fitSorted);
     fitnessSeries=fit.series;
@@ -6792,7 +6793,7 @@ function _renderDetailChart(sport) {
     options: {
       animation: false,
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#888',bodyColor:'#ccc',borderColor:'#2a2a2a',borderWidth:1} },
+      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#888',bodyColor:'#ccc',borderColor:'#2a2a2a',borderWidth:1,callbacks:{label:ctx=>{const v=ctx.parsed.y;if(v==null)return ctx.dataset.label+': —';if(ctx.dataset.label==='Pace (min/mi)'){const mm=Math.floor(v/60),ss=Math.round(v%60);return'Pace: '+mm+':'+(ss<10?'0':'')+ss+'/mi';}return ctx.dataset.label+': '+(Number.isInteger(v)?v:v.toFixed(1));}}} },
       scales,
       elements: { line:{capBezierPoints:false} },
     }
