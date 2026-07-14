@@ -1178,16 +1178,17 @@ async function loadAthleteMetrics(athlete){
     const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-1095);
     const fitOldestStr=fitOldest.toISOString().split('T')[0];
     const[acts,fitActs]=await Promise.all([
-      intervalsCall(id,key,'activities','oldest='+oldest90Str+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name'),
-      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type')
+      intervalsCall(id,key,'activities','oldest='+oldest90Str+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name,athlete_id'),
+      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type,athlete_id')
     ]);
-    const sorted=[...acts].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
+    const ownActs=a=>Array.isArray(a)?a.filter(x=>!x.athlete_id||String(x.athlete_id)===String(id)):[];
+    const sorted=[...ownActs(acts)].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
     athleteIcuActivities=sorted;
 
     // Full Banister model — identical to athlete portal
     const FIT_DAYS=1095, WARMUP=180;
     const dkFn=d=>{const dt=d instanceof Date?d:new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');};
-    const fitSorted=[...fitActs].sort((p,q)=>new Date(p.start_date_local)-new Date(q.start_date_local));
+    const fitSorted=[...ownActs(fitActs)].sort((p,q)=>new Date(p.start_date_local)-new Date(q.start_date_local));
     const tssByDay={};
     fitSorted.forEach(act=>{const day=(act.start_date_local||'').slice(0,10);if(day)tssByDay[day]=(tssByDay[day]||0)+(Number(act.icu_training_load)||0);});
     const ctlDecay=1-Math.exp(-1/42), atlDecay=1-Math.exp(-1/7);
@@ -2485,8 +2486,9 @@ async function coachCalEnsureActivities(fromDate,toDate){
   for(const[start,end] of ranges){
     if(start>end)continue;
     try{
-      const data=await intervalsCall(selectedAthlete.intervals_athlete_id,selectedAthlete.intervals_api_key,'activities','oldest='+toYMD(start)+'&newest='+toYMD(end)+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load');
-      (Array.isArray(data)?data:[]).forEach(a=>{
+      const data=await intervalsCall(selectedAthlete.intervals_athlete_id,selectedAthlete.intervals_api_key,'activities','oldest='+toYMD(start)+'&newest='+toYMD(end)+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,athlete_id');
+      const calId=selectedAthlete.intervals_athlete_id;
+      (Array.isArray(data)?data:[]).filter(a=>!a.athlete_id||String(a.athlete_id)===String(calId)).forEach(a=>{
         const key=(a.start_date_local||'').slice(0,10);
         if(!key)return;
         if(!coachCalActCache[key])coachCalActCache[key]=[];
