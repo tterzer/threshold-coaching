@@ -2405,14 +2405,16 @@ function coachCalRenderDay(d){
   wos.forEach(w=>{
     const spClass='sport-'+(w.sport||'other');
     const woIdStr=String(w.id);
-    const matchIdx=icuForDay.findIndex(a=>icuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
+    let matchIdx=icuForDay.findIndex(a=>icuTypeToSport(a.type)===(w.sport||'other')&&!matchedIcuIds.has(a.id));
+    if(matchIdx===-1)matchIdx=icuForDay.findIndex(a=>(a.type||'').toLowerCase()==='activity'&&!matchedIcuIds.has(a.id));
     if(matchIdx!==-1){
       const icu=icuForDay[matchIdx];
       matchedIcuIds.add(icu.id);
       const mins=Math.round((icu.moving_time||0)/60);
       const tss=Math.round(icu.icu_training_load||0);
       const timePrefix=_fmtBlockTime(icu.start_date_local);
-      const label=escHtml((timePrefix?timePrefix+' · ':'')+(icu.name||icu.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+      const actLabel=icu.name||((icu.type||'').toLowerCase()==='activity'?w.title:null)||icu.type||'Activity';
+      const label=escHtml((timePrefix?timePrefix+' · ':'')+(actLabel)+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
       dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:icu.start_date_local||''});
     }else{
