@@ -3416,11 +3416,12 @@ function buildCoachPMC(){
   });
   if(coachPmcInst) coachPmcInst.destroy();
   const tsbZonePlugin={id:'coachTsbZones',beforeDraw(chart){
-    const{ctx,chartArea,scales}=chart;if(!chartArea)return;
-    const y=scales.y;ctx.save();
+    const{ctx,chartArea}=chart;if(!chartArea)return;
+    const yTsb=chart.scales.yTsb;if(!yTsb)return;
+    ctx.save();
     const{top,bottom,left,right}=chartArea;
-    const yFresh=Math.max(top,Math.min(bottom,y.getPixelForValue(5)));
-    const yRisk=Math.max(top,Math.min(bottom,y.getPixelForValue(-20)));
+    const yFresh=Math.max(top,Math.min(bottom,yTsb.getPixelForValue(5)));
+    const yRisk=Math.max(top,Math.min(bottom,yTsb.getPixelForValue(-20)));
     ctx.fillStyle='rgba(99,153,34,0.07)';ctx.fillRect(left,top,right-left,Math.max(0,yFresh-top));
     ctx.fillStyle='rgba(226,75,74,0.07)';ctx.fillRect(left,yRisk,right-left,Math.max(0,bottom-yRisk));
     ctx.restore();
@@ -3428,16 +3429,17 @@ function buildCoachPMC(){
   coachPmcInst = new Chart(canvas,{type:'line',data:{labels:days.map(fmtD),datasets:[
     {label:'CTL',data:ctlData,borderColor:'#378ADD',backgroundColor:'transparent',tension:0.25,pointRadius:0,borderWidth:2,yAxisID:'y'},
     {label:'ATL',data:atlData,borderColor:'#E24B4A',backgroundColor:'transparent',tension:0,pointRadius:0,borderWidth:1.5,yAxisID:'y'},
-    {label:'TSB',data:tsbData,borderColor:'#c8f036',backgroundColor:'transparent',borderDash:[4,3],tension:0.25,pointRadius:0,borderWidth:1.5,yAxisID:'y'}
+    {label:'TSB',data:tsbData,borderColor:'#c8f036',backgroundColor:'transparent',borderDash:[4,3],tension:0.25,pointRadius:0,borderWidth:1.5,yAxisID:'yTsb'}
   ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
     scales:{x:{ticks:{color:'#666',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:8},grid:{color:'#1a1a1a'}},
-    y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}}}},
+    y:{ticks:{color:'#666',font:{size:10}},grid:{color:'#1a1a1a'}},
+    yTsb:{display:true,position:'right',min:-40,max:40,grid:{drawOnChartArea:false},ticks:{color:'#ccff00',font:{size:10,family:'Courier New'},callback:function(val){return(val>0?'+':'')+val;}},border:{display:false}}}},
   plugins:[tsbZonePlugin]});
 }
 
 let coachSportCtlInst = null;
 let coachSportCtlSnap = null;
-let coachSportCtlRangeDays = 42;
+let coachSportCtlRangeDays = 180;
 let coachFitActs = [];
 
 const COACH_FITNESS_DAYS = 185;
