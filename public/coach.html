@@ -127,9 +127,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-block.planned.sport-other{border:1.5px solid #c8f036;background:transparent;color:#c8f036}
 .cal-block.cal-note{border:1.5px dashed var(--tc3);background:transparent;color:var(--tc3);cursor:default}
 .cal-block.planned.drag-over-block{box-shadow:inset 0 3px 0 var(--acc)}
-.cal-block.planned{position:relative}
+.cal-block.planned,.cal-block.completed{position:relative}
 .wo-copy-btn{display:none;position:absolute;top:2px;right:3px;background:rgba(0,0,0,0.35);border:none;cursor:pointer;color:inherit;padding:1px 5px;font-size:10px;border-radius:2px;line-height:1.4}
-.cal-block.planned:hover .wo-copy-btn{display:block}
+.cal-block:hover .wo-copy-btn{display:block}
 .cal-block.planned[draggable=true]{cursor:grab}
 .cal-block.planned[draggable=true]:active{cursor:grabbing}
 .cal-cell.drag-over{background:rgba(200,240,54,0.08)!important;box-shadow:inset 0 0 0 2px var(--acc)}
@@ -2416,7 +2416,7 @@ function coachCalRenderDay(d){
       const actLabel=icu.name||((icu.type||'').toLowerCase()==='activity'?w.title:null)||icu.type||'Activity';
       const label=escHtml((timePrefix?timePrefix+' · ':'')+(actLabel)+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
-      dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:icu.start_date_local||''});
+      dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:icu.start_date_local||''});
     }else{
       const label=escHtml((w.title||w.sport||'Workout')+(w.duration_minutes?' · '+w.duration_minutes+'min':''));
       dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,\''+woIdStr+'\')" ondragend="coachCalDragEnd(event)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add(\'drag-over-block\')" ondragleave="coachCalBlockDragLeave(event)" ondrop="event.stopPropagation();coachCalDropOnBlock(event,\''+woIdStr+'\')" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:'',sortOrder:w.sort_order??null,createdAt:w.created_at||''});
