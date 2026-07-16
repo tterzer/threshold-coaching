@@ -2929,7 +2929,7 @@ function coachCalWeekSummaryHtml(monday){
 // Helper formatters for block modal
 function _fmtDur(secs){if(!secs)return'—';const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
 function _fmtDistM(m){if(!m)return'—';return m>=1000?(m/1000).toFixed(1)+'km':Math.round(m)+'m';}
-function _fmtPaceMs(ms){if(!ms||ms<=0)return'—';const spk=1000/ms;const mn=Math.floor(spk/60),sc=Math.round(spk%60);return mn+':'+(sc<10?'0':'')+sc+'/km';}
+function _fmtPaceMs(ms){if(!ms||ms<=0)return'—';const spk=1000/ms;const _t=Math.round(spk),mn=Math.floor(_t/60),sc=_t%60;return mn+':'+(sc<10?'0':'')+sc+'/km';}
 
 function _fmtModalDate(iso){
   if(!iso)return'—';
@@ -2963,7 +2963,7 @@ async function openBlockModal(evt, mode, woId, icuId){
   if(act&&act.average_speed&&act.average_speed>0){
     if(sport==='running'){
       const secPerMile=1609.34/act.average_speed;
-      const mm=Math.floor(secPerMile/60),ss=Math.round(secPerMile%60);
+      const _t0=Math.round(secPerMile),mm=Math.floor(_t0/60),ss=_t0%60;
       paceVal=mm+':'+(ss<10?'0':'')+ss+'/mi';
     }else{
       paceVal=(act.average_speed*2.23694).toFixed(1)+' mph';
@@ -3532,7 +3532,7 @@ function _fmtPaceOrSpeed(ms, sport) {
   if (!ms || ms <= 0) return '—';
   if (sport === 'running') {
     const secPerMile = 1609.34 / ms;
-    const mm = Math.floor(secPerMile/60), ss = Math.round(secPerMile%60);
+    const _t1=Math.round(secPerMile),mm=Math.floor(_t1/60),ss=_t1%60;
     return mm+':'+(ss<10?'0':'')+ss+'/mi';
   }
   return (ms * 2.23694).toFixed(1)+' mph';
@@ -3733,7 +3733,7 @@ function _renderDetailChart(sport) {
 
   const scales = {
     x: { type:'category', labels:Array.from({length:maxLen}, (_,i)=> i%300===0 ? (()=>{const h=Math.floor(i/3600),m=Math.floor((i%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';})() : ''), ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12}, grid:{color:'rgba(42,42,42,0.5)'} },
-    yLeft: { type:'linear', position:'left', reverse:sport==='running', ticks:{ color:'#555', font:{family:"'DM Mono'",size:9}, callback: sport==='running' ? (v)=>{const mm=Math.floor(v/60),ss=Math.round(v%60);return mm+':'+(ss<10?'0':'')+ss;} : undefined }, grid:{color:'rgba(42,42,42,0.5)'} },
+    yLeft: { type:'linear', position:'left', reverse:sport==='running', ticks:{ color:'#555', font:{family:"'DM Mono'",size:9}, callback: sport==='running' ? (v)=>{const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return mm+':'+(ss<10?'0':'')+ss;} : undefined }, grid:{color:'rgba(42,42,42,0.5)'} },
     yRight: { type:'linear', position:'right', ticks:{color:'#666',font:{family:"'DM Mono'",size:9}}, grid:{display:false} },
     yEle: { type:'linear', position:'right', display:false },
   };
@@ -3744,7 +3744,7 @@ function _renderDetailChart(sport) {
     options: {
       animation: false,
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#888',bodyColor:'#ccc',borderColor:'#2a2a2a',borderWidth:1,callbacks:{label:ctx=>{const v=ctx.parsed.y;if(v==null)return ctx.dataset.label+': —';if(ctx.dataset.label==='Pace (min/mi)'){const mm=Math.floor(v/60),ss=Math.round(v%60);return'Pace: '+mm+':'+(ss<10?'0':'')+ss+'/mi';}return ctx.dataset.label+': '+(Number.isInteger(v)?v:v.toFixed(1));}}} },
+      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#888',bodyColor:'#ccc',borderColor:'#2a2a2a',borderWidth:1,callbacks:{label:ctx=>{const v=ctx.parsed.y;if(v==null)return ctx.dataset.label+': —';if(ctx.dataset.label==='Pace (min/mi)'){const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return'Pace: '+mm+':'+(ss<10?'0':'')+ss+'/mi';}return ctx.dataset.label+': '+(Number.isInteger(v)?v:v.toFixed(1));}}} },
       scales,
       elements: { line:{capBezierPoints:false} },
     }
@@ -3943,7 +3943,7 @@ function _renderLaps(act, sport) {
         }
       }
       let pace = '—';
-      if (sp.distM > 0) { const spmi = durSecs / (sp.distM / 1609.34), mm = Math.floor(spmi / 60), ss = Math.round(spmi % 60); pace = mm + ':' + (ss < 10 ? '0' : '') + ss + '/mi'; }
+      if (sp.distM > 0) { const _spmi=Math.round(durSecs/(sp.distM/1609.34)),mm=Math.floor(_spmi/60),ss=_spmi%60; pace = mm + ':' + (ss < 10 ? '0' : '') + ss + '/mi'; }
       return [
         i + 1, _fmtDurPrecise(durSecs), (sp.distM / 1609.34).toFixed(2) + ' mi', pace,
         avgHr != null ? avgHr + ' bpm' : '—', avgCad != null ? String(avgCad) : '—',
@@ -3966,7 +3966,7 @@ function _renderLaps(act, sport) {
   const rows = laps.map((lap,i) => [
     i+1, _fmtDur(lap.moving_time||lap.elapsed_time),
     lap.distance?Math.round(lap.distance*1.09361)+' yd':'—',
-    lap.average_speed&&lap.average_speed>0.01?(()=>{const spyd=91.44/lap.average_speed,mm=Math.floor(spyd/60),ss=Math.round(spyd%60);return mm+':'+(ss<10?'0':'')+ss+'/100yd';})():'—',
+    lap.average_speed&&lap.average_speed>0.01?(()=>{const _t=Math.round(91.44/lap.average_speed),mm=Math.floor(_t/60),ss=_t%60;return mm+':'+(ss<10?'0':'')+ss+'/100yd';})():'—',
     lap.average_heartrate?Math.round(lap.average_heartrate)+' bpm':'—',
   ]);
 
