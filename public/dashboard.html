@@ -3160,7 +3160,7 @@ function athEscHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;
 
 function athIcuTypeToSport(type){
   const t=(type||'').toLowerCase();
-  if(t.includes('ride')||t.includes('cycl')||t.includes('virtual'))return'cycling';
+  if(t.includes('ride')||t.includes('cycl')||(t.includes('virtual')&&!t.includes('run')))return'cycling';
   if(t.includes('run')||t.includes('jog')||t.includes('trail')||t.includes('treadmill'))return'running';
   if(t.includes('swim'))return'swimming';
   if(t.includes('weight')||t.includes('strength')||t.includes('gym')||t==='yoga'||t==='workout'||t==='crossfit'||t==='pilates')return'strength';
