@@ -191,6 +191,37 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .zc-input:focus{border-color:var(--acc)}
 .zc-select{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%}
 .zc-select:focus{border-color:var(--acc)}
+.zc-section{margin-top:3rem;padding-top:2rem;border-top:1px solid var(--border)}
+.zc-field{display:flex;flex-direction:column;gap:6px}
+.zc-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase}
+.threshold-row{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin-bottom:1.5rem;padding:1.2rem 1.5rem;background:var(--bc2);border:1px solid var(--border)}
+.reset-btn{font-family:'DM Mono',monospace;font-size:11px;padding:8px 14px;color:var(--tc3);cursor:pointer;white-space:nowrap;height:36px;background:transparent;border:1px solid var(--border)}
+.reset-btn:hover{border-color:var(--tc2);color:var(--tc2)}
+.sport-tabs{display:flex;gap:0;margin-bottom:0;border-bottom:1px solid var(--border)}
+.sport-tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:10px 18px;cursor:pointer;border:none;background:none;color:var(--tc3);border-bottom:2px solid transparent;margin-bottom:-1px}
+.sport-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+.sport-panel{display:none;padding-top:1.5rem}.sport-panel.active{display:block}
+.sub-tabs{display:flex;gap:4px;margin-bottom:1rem}
+.sub-tab{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:6px 14px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--tc3)}
+.sub-tab.active{background:var(--bc3);color:var(--acc);border-color:var(--acc)}
+.zone-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.zone-table th{font-family:'DM Mono',monospace;font-size:10px;color:#888;letter-spacing:0.08em;text-transform:uppercase;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.zone-table th:not(:first-child){text-align:center}
+.zone-tr{border-bottom:1px solid var(--border)}.zone-tr:last-child{border-bottom:none}
+.zone-td{padding:10px 12px;font-size:13px;font-family:'DM Mono',monospace;vertical-align:middle}
+.zone-td:not(:first-child){text-align:center}
+.zone-color-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:8px;flex-shrink:0}
+.zone-name-wrap{display:flex;align-items:center}
+.zone-desc-small{font-size:11px;color:var(--tc3);margin-top:2px}
+.editable{display:inline-block;box-sizing:border-box;width:90%;max-width:120px;min-width:0;padding:3px 6px;border:0.5px solid transparent;text-align:center;font-size:13px;font-family:'DM Mono',monospace;cursor:pointer;color:var(--tc);background:transparent;transition:all 0.15s}
+.editable:hover{border-color:var(--border);background:var(--bc3)}
+.editable:focus{border-color:var(--acc);background:var(--bc3);outline:none}
+.editable.ov{color:#BA7517;border-color:#2a2200}
+.bar-bg-z{background:var(--bc3);height:5px;margin-top:3px}
+.bar-fill-z{height:100%}
+.pct-hint{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:2px}
+.zc-note{font-size:11px;color:var(--tc3);margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);line-height:1.6}
+.ov-note{font-family:'DM Mono',monospace;font-size:11px;color:#BA7517;margin-top:0.5rem}
 .cal-race{font-family:'DM Mono',monospace;font-size:13px;padding:0 7px;overflow:hidden;white-space:nowrap;cursor:pointer;font-weight:700;height:28px;line-height:28px;text-overflow:ellipsis;margin-bottom:3px;box-sizing:border-box}
 .cal-race.priority-A{background:#FFD700;color:#1a1000}
 .cal-race.priority-B{background:#C0C0C0;color:#111}
@@ -666,6 +697,18 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
               <span id="coachProfSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
               <span id="coachProfErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
             </div>
+
+            <div class="zc-section" id="coachZoneSection">
+              <div class="section-label">Training zones</div>
+              <div class="sport-tabs" id="coachSportTabs">
+                <button class="sport-tab active" onclick="coachSwitchSport('cycling')">Cycling</button>
+                <button class="sport-tab" onclick="coachSwitchSport('running')">Running</button>
+                <button class="sport-tab" onclick="coachSwitchSport('swimming')">Swimming</button>
+              </div>
+              <div id="csp-cycling" class="sport-panel active"></div>
+              <div id="csp-running" class="sport-panel"></div>
+              <div id="csp-swimming" class="sport-panel"></div>
+            </div>
           </div>
 
         </div>
@@ -1023,6 +1066,9 @@ function fillCoachProfileForm(p){
     cb.checked=restDays.includes(cb.value);
   });
   coachUpdateWkg();
+  coachResetZoneState();
+  coachApplyZoneSettingsData(p.zone_settings);
+  coachInitZoneCalc();
 }
 
 function coachUpdateWkg(){
@@ -1047,6 +1093,138 @@ function coachDecApplyTirePreset(val){
   if(fixedInput)fixedInput.value=val;
   if(modeSelect)modeSelect.value='fixed';
   if(fixedRow)fixedRow.style.display='block';
+}
+
+/* ---------- Coach zone calculator ---------- */
+const ZC_COLORS=['#378ADD','#1D9E75','#639922','#c8f036','#BA7517','#E24B4A','#D4537E'];
+const CYCLING_PWR=[{name:'Z1 — Active recovery',desc:'Recovery rides',lo:0,hi:55},{name:'Z2 — Endurance',desc:'Aerobic base',lo:55,hi:75},{name:'Z3 — Tempo',desc:'Sustained effort',lo:75,hi:90},{name:'Z4 — Threshold',desc:'FTP zone',lo:90,hi:105},{name:'Z5 — VO2max',desc:'Hard intervals',lo:105,hi:120},{name:'Z6 — Anaerobic',desc:'Short efforts',lo:120,hi:150},{name:'Z7 — Neuromuscular',desc:'Sprints',lo:150,hi:200}];
+const CYCLING_HR=[{name:'Z1 — Recovery',desc:'Very light',lo:0,hi:68},{name:'Z2 — Aerobic',desc:'Fat burning',lo:68,hi:83},{name:'Z3 — Tempo',desc:'Aerobic threshold',lo:83,hi:94},{name:'Z4 — Threshold',desc:'Lactate threshold',lo:94,hi:105},{name:'Z5 — Max',desc:'VO2max / anaerobic',lo:105,hi:115}];
+const RUNNING_PACE=[{name:'Z1 — Easy',desc:'Recovery / long easy',lo:0,hi:76},{name:'Z2 — Aerobic',desc:'Conversational',lo:76,hi:88},{name:'Z3 — Tempo',desc:'Comfortably hard',lo:88,hi:95},{name:'Z4 — Threshold',desc:'Lactate threshold',lo:95,hi:105},{name:'Z5 — VO2max',desc:'5K effort',lo:105,hi:115}];
+const SWIM_PACE=[{name:'Z1 — Recovery',desc:'Very easy',lo:0,hi:80},{name:'Z2 — Aerobic',desc:'Steady state',lo:80,hi:90},{name:'Z3 — Threshold',desc:'CSS pace',lo:90,hi:100},{name:'Z4 — Speed',desc:'Above CSS',lo:100,hi:110},{name:'Z5 — Sprint',desc:'Max effort',lo:110,hi:120}];
+
+const coachZsDefaults=()=>({
+  cycling:{ftp:250,max_hr:185,lthr:165,sub:'power',overrides:{power:{},hr:{}}},
+  running:{threshold_pace:'6:00',max_hr:185,lthr:165,sub:'pace',overrides:{pace:{},hr:{}}},
+  swimming:{css:'1:45',css_unit:'100m',sub:'pace',overrides:{pace:{}}},
+});
+let coachZs=coachZsDefaults();
+
+function parsePace(str){const p=str.split(':');return p.length===2?parseInt(p[0])*60+parseInt(p[1]):360;}
+function secsToMMSS(s){s=Math.round(s);const m=Math.floor(s/60),sec=s%60;return m+':'+(sec<10?'0':'')+sec;}
+
+function coachResetZoneState(){coachZs=coachZsDefaults();}
+
+function coachApplyZoneSettingsData(data){
+  if(!data)return;
+  ['cycling','running','swimming'].forEach(sport=>{
+    if(!data[sport])return;
+    const{overrides,...rest}=data[sport];
+    Object.assign(coachZs[sport],rest);
+    if(overrides)Object.keys(overrides).forEach(k=>{coachZs[sport].overrides[k]=overrides[k]||{};});
+  });
+}
+
+async function coachSaveZoneSettings(){
+  const data={
+    cycling:{ftp:coachZs.cycling.ftp,lthr:coachZs.cycling.lthr,max_hr:coachZs.cycling.max_hr,overrides:coachZs.cycling.overrides},
+    running:{threshold_pace:coachZs.running.threshold_pace,lthr:coachZs.running.lthr,max_hr:coachZs.running.max_hr,overrides:coachZs.running.overrides},
+    swimming:{css:coachZs.swimming.css,css_unit:coachZs.swimming.css_unit,overrides:coachZs.swimming.overrides},
+  };
+  try{
+    if(selectedAthlete?.id){
+      await fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({athlete_id:selectedAthlete.id,zone_settings:data})});
+    }
+  }catch(e){console.warn('coach zone save failed',e);}
+}
+
+function coachInitZoneCalc(){['cycling','running','swimming'].forEach(s=>coachRenderSport(s));}
+
+function coachSwitchSport(sport){
+  document.querySelectorAll('#coachSportTabs .sport-tab').forEach((t,i)=>t.classList.toggle('active',['cycling','running','swimming'][i]===sport));
+  document.querySelectorAll('#coachZoneSection .sport-panel').forEach(p=>p.classList.remove('active'));
+  const sp=document.getElementById('csp-'+sport);if(sp)sp.classList.add('active');
+  coachRenderSport(sport);
+}
+
+function coachSwitchSub(sport,sub){
+  coachZs[sport].sub=sub;
+  document.querySelectorAll('#csp-'+sport+' .sub-tab').forEach(t=>t.classList.toggle('active',t.dataset.sub===sub));
+  coachRenderZoneTable(sport);
+}
+
+function coachRenderSport(sport){
+  const panel=document.getElementById('csp-'+sport);if(!panel)return;
+  const s=coachZs[sport];
+  let inputs='';
+  if(sport==='cycling'){
+    inputs=`<div class="threshold-row">
+      <div class="zc-field"><label class="zc-label">FTP (watts)</label><input class="zc-input" type="number" value="${s.ftp}" min="50" max="700" step="1" oninput="coachZs.cycling.ftp=+this.value;coachZs.cycling.overrides={power:{},hr:{}};coachSaveZoneSettings();coachRenderZoneTable('cycling')" /></div>
+      <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="coachZs.cycling.lthr=+this.value;coachZs.cycling.overrides.hr={};coachSaveZoneSettings();coachRenderZoneTable('cycling')" /></div>
+      <button class="reset-btn" onclick="coachZs.cycling.overrides={power:{},hr:{}};coachSaveZoneSettings();coachRenderSport('cycling')">Reset</button>
+    </div>`;
+  } else if(sport==='running'){
+    inputs=`<div class="threshold-row">
+      <div class="zc-field"><label class="zc-label">Threshold pace (min/mile)</label><input class="zc-input" type="text" value="${s.threshold_pace}" placeholder="6:00" oninput="coachZs.running.threshold_pace=this.value;coachZs.running.overrides.pace={};coachSaveZoneSettings();coachRenderZoneTable('running')" /></div>
+      <div class="zc-field"><label class="zc-label">LTHR (bpm)</label><input class="zc-input" type="number" value="${s.lthr}" min="100" max="220" step="1" oninput="coachZs.running.lthr=+this.value;coachZs.running.overrides.hr={};coachSaveZoneSettings();coachRenderZoneTable('running')" /></div>
+      <button class="reset-btn" onclick="coachZs.running.overrides={pace:{},hr:{}};coachSaveZoneSettings();coachRenderSport('running')">Reset</button>
+    </div>`;
+  } else {
+    s.sub='pace';
+    inputs=`<div class="threshold-row">
+      <div class="zc-field"><label class="zc-label">CSS pace</label><input class="zc-input" type="text" value="${s.css}" placeholder="1:45" oninput="coachZs.swimming.css=this.value;coachZs.swimming.overrides.pace={};coachSaveZoneSettings();coachRenderZoneTable('swimming')" /></div>
+      <div class="zc-field"><label class="zc-label">Units</label><select class="zc-select" onchange="coachZs.swimming.css_unit=this.value;coachZs.swimming.overrides.pace={};coachSaveZoneSettings();coachRenderZoneTable('swimming')">
+        <option value="100m" ${s.css_unit==='100m'?'selected':''}>per 100m</option>
+        <option value="100yd" ${s.css_unit==='100yd'?'selected':''}>per 100yd</option>
+      </select></div>
+      <button class="reset-btn" onclick="coachZs.swimming.overrides={pace:{}};coachSaveZoneSettings();coachRenderSport('swimming')">Reset</button>
+    </div>`;
+  }
+  const subA=s.sub==='power'||s.sub==='pace';
+  const sub1=sport==='cycling'?'power':'pace';
+  const hrTab=sport==='swimming'?'':`<button class="sub-tab ${!subA?'active':''}" data-sub="hr" onclick="coachSwitchSub('${sport}','hr')">Heart rate</button>`;
+  panel.innerHTML=inputs+`<div class="sub-tabs"><button class="sub-tab ${subA?'active':''}" data-sub="${sub1}" onclick="coachSwitchSub('${sport}','${sub1}')">${sport==='cycling'?'Power':'Pace'}</button>${hrTab}</div><div id="czt-${sport}"></div>`;
+  coachRenderZoneTable(sport);
+}
+
+function coachRenderZoneTable(sport){
+  const s=coachZs[sport];const sub=s.sub;
+  const el=document.getElementById('czt-'+sport);if(!el)return;
+  let zones,getVals;
+  if(sport==='cycling'&&sub==='power'){
+    zones=CYCLING_PWR;
+    getVals=(z,i)=>{const ov=s.overrides.power[i];const lo=ov?ov[0]:Math.round(s.ftp*z.lo/100);if(!ov&&i===CYCLING_PWR.length-1)return{loStr:lo+'w',hiStr:'—',barPct:Math.min(100,z.hi/2)};const hi=ov?ov[1]:Math.round(s.ftp*z.hi/100);return{loStr:lo+'w',hiStr:hi+'w',barPct:Math.min(100,z.hi/2)};};
+  } else if(sport==='cycling'&&sub==='hr'){
+    zones=CYCLING_HR;
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);if(!ov&&i===CYCLING_HR.length-1)return{loStr:lo+'bpm',hiStr:'—',barPct:Math.min(100,z.hi)};const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:Math.min(100,z.hi)};};
+  } else if(sport==='running'&&sub==='pace'){
+    zones=RUNNING_PACE;
+    getVals=(z,i)=>{const thresh=parsePace(s.threshold_pace);const ov=s.overrides.pace[i];const lo=ov?ov[0]:secsToMMSS(thresh*100/z.hi);const hi=ov?ov[1]:(z.lo===0?'—':secsToMMSS(thresh*100/z.lo));return{loStr:lo,hiStr:hi,barPct:Math.min(100,z.hi/1.15)};};
+  } else if(sport==='running'&&sub==='hr'){
+    zones=CYCLING_HR;
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);if(!ov&&i===CYCLING_HR.length-1)return{loStr:lo+'bpm',hiStr:'—',barPct:Math.min(100,z.hi)};const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:Math.min(100,z.hi)};};
+  } else if(sport==='swimming'&&sub==='pace'){
+    zones=SWIM_PACE;
+    getVals=(z,i)=>{const css=parsePace(s.css);const ov=s.overrides.pace[i];const lo=ov?ov[0]:secsToMMSS(css*100/z.hi);const hi=ov?ov[1]:(z.lo===0?'—':secsToMMSS(css*100/z.lo));return{loStr:lo+'/'+s.css_unit,hiStr:hi+(hi==='—'?'':'/'+s.css_unit),barPct:Math.min(100,z.hi/1.2)};};
+  } else {
+    zones=CYCLING_HR;
+    getVals=(z,i)=>{const base=s.lthr||s.max_hr;const ov=s.overrides.hr[i];const lo=ov?ov[0]:Math.round(base*z.lo/100);if(!ov&&i===CYCLING_HR.length-1)return{loStr:lo+'bpm',hiStr:'—',barPct:Math.min(100,z.hi)};const hi=ov?ov[1]:Math.round(base*z.hi/100);return{loStr:lo+'bpm',hiStr:hi+'bpm',barPct:Math.min(100,z.hi)};};
+  }
+  const ovKey=(sub==='power'||sub==='pace')?(sport==='cycling'?'power':'pace'):'hr';
+  const hasOv=Object.keys(s.overrides[ovKey]||{}).length>0;
+  const rows=zones.map((z,i)=>{
+    const{loStr,hiStr,barPct}=getVals(z,i);const isOv=!!(s.overrides[ovKey]||{})[i];const cls=isOv?'editable ov':'editable';
+    return`<tr class="zone-tr"><td class="zone-td"><div class="zone-name-wrap"><span class="zone-color-dot" style="background:${ZC_COLORS[i]}"></span>${z.name}</div><div class="zone-desc-small">${z.desc}</div></td><td class="zone-td"><input class="${cls}" value="${loStr}" onchange="coachHandleOv('${sport}','${ovKey}',${i},'lo',this.value,this)" /></td><td class="zone-td"><input class="${cls}" value="${hiStr}" onchange="coachHandleOv('${sport}','${ovKey}',${i},'hi',this.value,this)" /></td><td class="zone-td" style="width:140px"><div class="bar-bg-z"><div class="bar-fill-z" style="width:${barPct}%;background:${ZC_COLORS[i]}"></div></div><div class="pct-hint">${z.lo}–${z.hi}% threshold</div></td></tr>`;
+  }).join('');
+  el.innerHTML=`<table class="zone-table"><thead><tr><th style="width:220px">Zone</th><th>From</th><th>To</th><th>Intensity</th></tr></thead><tbody>${rows}</tbody></table>${hasOv?'<p class="ov-note">Highlighted values are manually overridden — click Reset to recalculate from threshold</p>':''}<p class="zc-note">Click any value to edit directly. Updating the threshold above recalculates all non-overridden zones.</p>`;
+}
+
+function coachHandleOv(sport,ovKey,idx,side,val,inputEl){
+  if(!coachZs[sport].overrides[ovKey])coachZs[sport].overrides[ovKey]={};
+  if(!coachZs[sport].overrides[ovKey][idx])coachZs[sport].overrides[ovKey][idx]=['—','—'];
+  coachZs[sport].overrides[ovKey][idx][side==='lo'?0:1]=val;
+  inputEl.className='editable ov';
+  coachSaveZoneSettings();
 }
 
 async function saveCoachProfile(){
