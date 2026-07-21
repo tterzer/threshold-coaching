@@ -6781,9 +6781,42 @@ function _renderDetailChart(sport) {
     }
   }
 
+  // Percentile-based yLeft bounds: focus pace/power axis on working range, not GPS outliers
+  const yLeftBounds = {};
+  if (sport === 'running') {
+    const paceSet = datasets.find(d => d.label === 'Pace (min/mi)');
+    if (paceSet) {
+      const vals = paceSet.data.filter(v => v != null && v > 0 && v < 3600).sort((a,b)=>a-b);
+      if (vals.length > 10) {
+        const p2=vals[Math.floor(vals.length*0.02)], p98=vals[Math.floor(vals.length*0.98)];
+        const pad=Math.max(20,(p98-p2)*0.15);
+        yLeftBounds.min=Math.max(0,p2-pad); yLeftBounds.max=p98+pad;
+      }
+    }
+  } else if (sport === 'cycling') {
+    const powerSet = datasets.find(d => d.label === 'Power (w)');
+    if (powerSet) {
+      const vals = powerSet.data.filter(v => v != null && v > 0).sort((a,b)=>a-b);
+      if (vals.length > 10) {
+        const p98=vals[Math.floor(vals.length*0.98)];
+        yLeftBounds.min=0; yLeftBounds.max=p98+Math.max(20,p98*0.1);
+      }
+    }
+  } else {
+    const paceSet = datasets.find(d => d.label === 'Pace');
+    if (paceSet) {
+      const vals = paceSet.data.filter(v => v != null && v > 0 && v < 600).sort((a,b)=>a-b);
+      if (vals.length > 10) {
+        const p2=vals[Math.floor(vals.length*0.02)], p98=vals[Math.floor(vals.length*0.98)];
+        const pad=Math.max(5,(p98-p2)*0.15);
+        yLeftBounds.min=Math.max(0,p2-pad); yLeftBounds.max=p98+pad;
+      }
+    }
+  }
+
   const scales = {
-    x: { type:'category', labels:Array.from({length:maxLen}, (_,i)=> i%300===0 ? (()=>{const h=Math.floor(i/3600),m=Math.floor((i%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';})() : ''), ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12}, grid:{color:'rgba(42,42,42,0.5)'} },
-    yLeft: { type:'linear', position:'left', reverse:sport==='running', ticks:{ color:'#555', font:{family:"'DM Mono'",size:9}, callback: sport==='running' ? (v)=>{const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return mm+':'+(ss<10?'0':'')+ss;} : undefined }, grid:{color:'rgba(42,42,42,0.5)'} },
+    x: { type:'linear', min:0, max:maxLen-1, ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,stepSize:300,autoSkip:false,callback:function(v){const h=Math.floor(v/3600),m=Math.floor((v%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';}}, grid:{color:'rgba(42,42,42,0.5)'} },
+    yLeft: { type:'linear', position:'left', reverse:sport==='running'||sport==='swimming', ...yLeftBounds, ticks:{ color:'#555', font:{family:"'DM Mono'",size:9}, callback: (sport==='running'||sport==='swimming') ? (v)=>{const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return mm+':'+(ss<10?'0':'')+ss;} : undefined }, grid:{color:'rgba(42,42,42,0.5)'} },
     yRight: { type:'linear', position:'right', ticks:{color:'#666',font:{family:"'DM Mono'",size:9}}, grid:{display:false} },
     yEle: { type:'linear', position:'right', display:false },
   };
@@ -6794,7 +6827,10 @@ function _renderDetailChart(sport) {
     options: {
       animation: false,
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#888',bodyColor:'#ccc',borderColor:'#2a2a2a',borderWidth:1,callbacks:{label:ctx=>{const v=ctx.parsed.y;if(v==null)return ctx.dataset.label+': —';if(ctx.dataset.label==='Pace (min/mi)'){const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return'Pace: '+mm+':'+(ss<10?'0':'')+ss+'/mi';}return ctx.dataset.label+': '+(Number.isInteger(v)?v:v.toFixed(1));}}} },
+      plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#888',bodyColor:'#ccc',borderColor:'#2a2a2a',borderWidth:1,callbacks:{
+        title:function(items){const sec=items[0]?.parsed?.x;if(sec==null)return'';const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.round(sec%60);return h>0?h+'h '+String(m).padStart(2,'0')+'m '+String(s).padStart(2,'0')+'s':m+'m '+String(s).padStart(2,'0')+'s';},
+        label:ctx=>{const v=ctx.parsed.y;if(v==null)return ctx.dataset.label+': —';if(ctx.dataset.label==='Pace (min/mi)'){const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return'Pace: '+mm+':'+(ss<10?'0':'')+ss+'/mi';}return ctx.dataset.label+': '+(Number.isInteger(v)?v:v.toFixed(1));}
+      }} },
       scales,
       elements: { line:{capBezierPoints:false} },
     }
