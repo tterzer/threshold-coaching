@@ -3643,7 +3643,7 @@ function _fmtBlockTime(iso){
 
 async function openAthBlockModal(mode, woId, icuId){
   const wo=woId?athWorkoutsCache.find(x=>String(x.id)===String(woId)):null;
-  const act=icuId?allActivities.find(x=>String(x.id)===String(icuId)):null;
+  const act=icuId?(allActivities.find(x=>String(x.id)===String(icuId))||Object.values(athCalActCache).flat().find(x=>String(x.id)===String(icuId))):null;
 
   function _fmtDur(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
   function _fmtDist(m){if(!m)return'—';const mi=m/1609.34;return mi.toFixed(1)+' mi';}
@@ -4007,7 +4007,7 @@ async function saveAthNote(){
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ id: woId, compliance_note: note })
       });
-      if (!res.ok) throw new Error('Save failed');
+      if (!res.ok) { const d=await res.json().catch(()=>({})); throw new Error(d.error||'Save failed (workout)'); }
       const wo = (athWorkoutsCache || []).find(w => String(w.id) === String(woId));
       if (wo) wo.compliance_note = note;
     } else if (actDate && currentAthlete && currentAthlete.id) {
@@ -4017,9 +4017,10 @@ async function saveAthNote(){
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ athlete_id: currentAthlete.id, date: actDate, note })
       });
-      if (!res.ok) throw new Error('Save failed');
+      if (!res.ok) { const d=await res.json().catch(()=>({})); throw new Error(d.error||'Save failed (note)'); }
     } else {
-      return; // nothing to save
+      if (btn) { btn.textContent = 'Nothing to save'; setTimeout(()=>btn.textContent='Save note',2000); }
+      return;
     }
     if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save note', 1500); }
   } catch(e) {
