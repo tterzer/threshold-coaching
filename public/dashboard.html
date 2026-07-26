@@ -317,6 +317,27 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   .sub-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap;padding-bottom:2px}
   .zone-table{font-size:11px;table-layout:auto}
   .zone-table th,.zone-td{padding:7px 8px}
+  /* Calendar: 7 columns only (no summary panel) */
+  #athCalHeadRow{grid-template-columns:repeat(7,1fr)}
+  .ath-cal-week{grid-template-columns:repeat(7,1fr)}
+  #athCalHeadRow .ath-cal-head:last-child,.ath-cal-summary{display:none}
+  .ath-cal-scroll{scroll-snap-type:none}
+  .ath-cal-head{font-size:7px;padding:3px 2px;letter-spacing:0}
+  .ath-cal-cell{padding:4px 3px;gap:2px;overflow:hidden}
+  .ath-cal-date{font-size:10px}
+  /* Compact blocks: single-line truncated, still tappable */
+  .ath-cal-block{font-size:9px;padding:2px 3px;height:16px;line-height:12px;margin-bottom:2px;overflow:hidden;align-items:center}
+  .ath-cal-block .pill-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}
+  .ath-cal-race{font-size:9px;height:16px;line-height:16px;padding:0 3px;margin-bottom:2px}
+  /* Modals: full-width, no min-width constraint */
+  .ath-modal{min-width:unset;padding:20px 16px}
+  .ath-add-modal{padding:20px 16px}
+  .modal-comparison{grid-template-columns:1fr}
+  .modal-metrics{flex-wrap:wrap}
+  .modal-metric{min-width:80px}
+  .modal-actions{flex-wrap:wrap;gap:8px}
+  /* Detail full-screen overlay: reduced padding */
+  #detailOverlay{padding:16px 12px}
 }
 @media(max-width:479px){
   .metrics{grid-template-columns:repeat(2,1fr)}
@@ -3295,6 +3316,12 @@ function athCalSizeWeeks(){
   const headRow=document.getElementById('athCalHeadRow');
   const topSentinel=document.getElementById('athCalTopSentinel');
   if(!scrollEl)return;
+  if(window.innerWidth<=767){
+    // Mobile: compact fixed-height rows so several weeks are visible at once
+    scrollEl.style.setProperty('--ath-cal-week-h','88px');
+    scrollEl.style.scrollPaddingTop='0px';
+    return;
+  }
   const headH=headRow?headRow.offsetHeight:0;
   const sentinelH=topSentinel?topSentinel.offsetHeight:0;
   const h=scrollEl.clientHeight-headH-sentinelH;
