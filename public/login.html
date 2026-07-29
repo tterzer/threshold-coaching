@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Auto-redirect logged-in users to their portal -->
+<script>
+(function(){try{var a=JSON.parse(localStorage.getItem('hm2l_athlete')||'null');if(a&&a.role){window.location.replace(a.role==='coach'?'/coach.html':'/dashboard.html');}}catch(e){}}());
+</script>
 <!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-WST7SNXG27"></script>
 <script>
