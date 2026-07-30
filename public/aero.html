@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HM2L Aero Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bc:#0a0a0a;--bc2:#111;--bc3:#1a1a1a;--bc4:#222;--acc:#c8f036;--tc:#f0f0f0;--tc2:#aaa;--tc3:#777;--border:#2a2a2a;}
+html,body{background:var(--bc);color:var(--tc);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;min-height:100vh}
+a{color:var(--acc);text-decoration:none}
+nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding:0 2rem;position:sticky;top:0;z-index:100}
+.nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;height:48px}
+.nav-logo img{height:40px;width:auto;display:block;transform:scale(1.25);transform-origin:left center}
+.page-wrap{max-width:1100px;margin:0 auto;padding:2rem}
+.page-title{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:700;text-transform:uppercase;letter-spacing:-0.01em;margin-bottom:0.25rem}
+.page-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2rem}
+/* Credential card */
+.cred-card{background:var(--bc2);border:1px solid var(--border);padding:1.5rem;margin-bottom:2rem}
+.cred-grid{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end}
+.cred-status{font-family:'DM Mono',monospace;font-size:11px;margin-top:1rem}
+/* Forms */
+.field{margin-bottom:1rem}
+.field label{display:block;font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:10px 14px;font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--acc)}
+.zc-input{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%}
+.zc-input:focus{border-color:var(--acc)}
+.zc-select{background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 12px;font-family:'DM Mono',monospace;font-size:13px;outline:none;width:100%}
+.btn{font-family:'DM Mono',monospace;font-size:12px;background:var(--acc);color:#000;padding:12px 28px;cursor:pointer;letter-spacing:0.04em;border:none;font-weight:400;width:100%;margin-top:0.5rem}
+.btn:disabled{opacity:0.5;cursor:not-allowed}
+.btn-sm{font-family:'DM Mono',monospace;font-size:11px;background:var(--acc);color:#000;padding:10px 20px;cursor:pointer;letter-spacing:0.04em;border:none;white-space:nowrap}
+/* Layout */
+.section-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:10px}
+.section-label::before{content:'';display:block;width:24px;height:1px;background:var(--acc)}
+.chart-box{background:var(--bc2);padding:1.75rem;min-width:0;overflow:hidden;border:1px solid #333;margin-bottom:1px}
+.chart-title{font-family:'DM Mono',monospace;font-size:12px;font-weight:400;text-transform:uppercase;letter-spacing:0.15em;color:#c8f036;margin-bottom:1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:1rem}
+.leg-item{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);display:flex;align-items:center;gap:6px;letter-spacing:0.06em;text-transform:uppercase}
+.leg-line{width:16px;height:2px;flex-shrink:0}
+.unit-toggle{font-family:'DM Mono',monospace;font-size:10px;background:transparent;border:1px solid var(--border);color:var(--tc3);padding:4px 10px;cursor:pointer;letter-spacing:0.06em;text-transform:uppercase;transition:all 0.2s}
+.unit-toggle:hover{border-color:var(--acc);color:var(--acc)}
+.zd-controls{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.zd-select{font-family:'DM Mono',monospace;font-size:10px;background:var(--bc3);border:1px solid var(--border);color:var(--tc2);padding:5px 8px;letter-spacing:0.05em;text-transform:uppercase;outline:none}
+/* Modal */
+.ath-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+.ath-modal-bg.show{display:flex}
+.ath-modal{background:var(--bc2);border:1px solid var(--border);width:100%;max-width:680px;padding:32px 36px;position:relative;max-height:90vh;overflow-y:auto}
+.ath-modal-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;text-transform:uppercase;margin-bottom:0.25rem}
+.ath-modal-meta{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-bottom:1.25rem}
+.modal-btn-save{font-family:'DM Mono',monospace;font-size:11px;background:var(--acc);color:#000;border:none;padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
+.modal-btn-close{font-family:'DM Mono',monospace;font-size:11px;background:none;color:var(--tc2);border:1px solid var(--border);padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
+.modal-btn-close:hover{border-color:var(--tc2);color:var(--tc)}
+.laps-table{width:100%;border-collapse:collapse;font-size:12px}
+.laps-table th{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.08em;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.laps-table td{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);padding:7px 10px;border-bottom:1px solid rgba(42,42,42,0.5)}
+.laps-table tr:hover td{color:var(--tc);background:var(--bc3)}
+.curve-loading{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);padding:1rem 0}
+.curve-progress-bar{margin-top:8px;height:3px;background:var(--bc3);border-radius:2px;overflow:hidden}
+.curve-progress-fill{height:100%;background:var(--acc);border-radius:2px;transition:width 0.2s}
+.empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#777}
+@media(max-width:700px){
+  .cred-grid{grid-template-columns:1fr}
+  .ath-modal{padding:20px 16px}
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/"><img src="/hm2l_logo_transparent.png" alt="HM2L Racing"></a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-title">Aero Lab</div>
+  <div class="page-sub">CdA estimation from intervals.icu ride data</div>
+
+  <!-- Credential form -->
+  <div class="cred-card">
+    <div class="section-label" style="margin-bottom:1rem">Connect your intervals.icu account</div>
+    <div class="cred-grid">
+      <div class="field" style="margin-bottom:0">
+        <label>intervals.icu Athlete ID</label>
+        <input class="zc-input" type="text" id="credId" placeholder="e.g. i12345">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>API Key</label>
+        <input class="zc-input" type="password" id="credKey" placeholder="Your intervals.icu API key">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Rider weight (lbs)</label>
+        <input class="zc-input" type="number" id="credWeight" min="80" max="400" placeholder="e.g. 165">
+      </div>
+      <button class="btn-sm" onclick="doConnect()" id="connectBtn">Load rides →</button>
+    </div>
+    <div id="credStatus" class="cred-status"></div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-top:0.75rem;line-height:1.5">
+      Find your API key on intervals.icu → Settings → API (bottom of page). Your credentials stay in this browser tab only.
+    </div>
+  </div>
+
+  <!-- Aero panel (hidden until connected) -->
+  <div id="aeroPanel" style="display:none">
+    <div class="section-label">Aero setup</div>
+    <div class="chart-box" style="margin-bottom:1px">
+      <div class="field"><label>Bike weight (lbs)</label><input class="zc-input" type="number" id="pf_bike_weight_lbs" min="5" max="60" placeholder="e.g. 18 (road), 20 (TT/aero)"></div>
+      <div class="field"><label>Rolling resistance (Crr)</label>
+        <select class="zc-select" id="pf_crr_mode" onchange="document.getElementById('pf_crr_fixed_row').style.display=this.value==='fixed'?'block':'none'">
+          <option value="estimate">Estimate from ride data</option>
+          <option value="fixed">Use a known/fixed value</option>
+        </select>
+      </div>
+      <div class="field" id="pf_crr_fixed_row" style="display:none">
+        <label>Fixed Crr value</label>
+        <input class="zc-input" type="number" id="pf_crr_fixed" min="0.0005" max="0.02" step="0.0001" placeholder="e.g. 0.0040" style="margin-bottom:8px">
+        <select class="zc-select" id="pf_crr_tire_preset" onchange="decApplyTirePreset(this.value)">
+          <option value="">— Or pick a common tire —</option>
+          <option value="0.00249">Continental GP5000 TT TR 28mm (tubeless)</option>
+          <option value="0.00252">Pirelli P Zero Race TLR SL-R 28mm (tubeless)</option>
+          <option value="0.00303">Continental GP5000 S TR 25mm (tubeless)</option>
+          <option value="0.00333">Vittoria Corsa Pro TLR 28mm (tubeless)</option>
+        </select>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);margin-top:6px;line-height:1.5">From bicyclerollingresistance.com lab tests. Real road surfaces run a bit higher than a lab drum, but these are a solid starting point.</div>
+      </div>
+    </div>
+
+    <div class="chart-box" style="margin-top:1px">
+      <div class="chart-title">Precise CdA builder
+        <div class="zd-controls">
+          <span id="decAeroBuiltCdaBadge" style="display:none;font-family:'DM Mono',monospace;font-size:11px;color:var(--acc)"></span>
+          <button class="unit-toggle" onclick="decOpenRidePicker()">Select rides to analyze</button>
+        </div>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Pick specific rides, then pick the laps that are your real comparable loop. Each ride gets one CdA fit pooled across its selected laps.<br><b style="color:var(--tc2)">If a ride only shows 1-2 giant laps instead of your real loops</b>, open that ride on intervals.icu → <b>Actions → Use Laps → Keep All Laps</b> → come back and reopen the picker.</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <input type="checkbox" id="decAeroEstimateCrr">
+        <label for="decAeroEstimateCrr" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc2);cursor:pointer">Also estimate Crr from this data instead of using my fixed Crr (needs real elevation variation in the selected laps)</label>
+      </div>
+      <div id="decAeroLapPickerArea"></div>
+      <div id="decAeroResultsArea"></div>
+    </div>
+
+    <div class="chart-box" style="margin-top:1px">
+      <div class="chart-title">Race predictor</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);margin-bottom:10px;line-height:1.6">Upload a course GPX file, then adjust target power to see predicted finish time. Uses the CdA built above (or a manual override), your fixed Crr, and rider + bike weight. Integrates speed continuously across the course (momentum carries from descents into climbs).</div>
+      <div class="field" style="max-width:360px"><label>Course GPX file</label><input class="zc-input" type="file" id="decGpxFileInput" accept=".gpx" onchange="decOnGpxFileSelected(this.files[0])"></div>
+      <div id="decGpxSummary"></div>
+      <div id="decGpxChartArea"></div>
+      <div id="decGpxPowerArea"></div>
+    </div>
+
+    <details style="margin-top:1px">
+      <summary style="cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);letter-spacing:0.06em;text-transform:uppercase;padding:14px 0">General trend (elevation-variation method, lower priority)</summary>
+      <div class="chart-box" style="margin-top:1px">
+        <div class="chart-title">Aero (CdA / Crr) estimate
+          <div class="zd-controls">
+            <input class="zc-input" type="text" id="decAeroNameFilter" placeholder="Filter ride name (e.g. TT)" style="width:160px;padding:6px 10px;font-size:11px">
+            <button class="unit-toggle" id="decAeroBuildBtn" onclick="decRenderAeroTrend()">Build trend</button>
+          </div>
+        </div>
+        <div class="legend">
+          <div class="leg-item"><span class="leg-line" style="background:#378ADD"></span>CdA (drag area)</div>
+          <div class="leg-item"><span class="leg-line" style="border-bottom:2px dashed #E24B4A;background:transparent;height:0;display:block"></span>Crr (rolling resistance)</div>
+        </div>
+        <div id="decAeroBox"><div class="empty-note">Estimates CdA/Crr from your steady rides using the virtual-elevation method. Needs rides with real hills. Click "Build trend" to analyze.</div></div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- Ride picker modal -->
+<div class="ath-modal-bg" id="decRidePickerModal">
+  <div class="ath-modal">
+    <div class="ath-modal-title">Select rides to analyze</div>
+    <div class="ath-modal-meta">Cycling activities, last 90 days</div>
+    <input class="zc-input" type="text" id="decRidePickerFilter" placeholder="Filter by name…" style="width:100%;margin-bottom:12px" oninput="decRenderRidePickerList()">
+    <div id="decRidePickerList" style="max-height:50vh;overflow-y:auto"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px">
+      <span id="decRidePickerCount" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3)">0 selected</span>
+      <div style="display:flex;gap:10px">
+        <button class="modal-btn-close" onclick="decCloseRidePicker()">Cancel</button>
+        <button class="modal-btn-save" onclick="decConfirmRidePicker()">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── globals ──
+var curId='', curKey='';
+var allActivities=[];
+var zoneStreamCache={};
+var currentAthlete={weight_lbs:168};
+
+// ── utilities ──
+function athEscHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtTime(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
+function fmtDate(d){return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
+function decFmtDate(dateStr){const[y,m,d]=dateStr.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('en-US',{month:'short',day:'numeric'});}
+function sportClass(type){
+  const t=(type||'').toLowerCase();
+  if(t.includes('ride')||t.includes('cycl')||t.includes('bike'))return'cycling';
+  if(t.includes('run')||t.includes('trail')||t.includes('treadmill'))return'running';
+  if(t.includes('swim'))return'swimming';
+  return'other';
+}
+
+// ── API ──
+async function apiCall(athleteId,apiKey,path,qs,base){
+  const params=new URLSearchParams({athleteId,apiKey,path});
+  if(qs)params.set('qs',qs);
+  if(base)params.set('base',base);
+  const r=await fetch('/api/intervals?'+params.toString());
+  if(!r.ok)throw new Error(r.status);
+  return r.json();
+}
+
+async function fetchStream(activityId,type){
+  const cacheKey=activityId+':'+type;
+  if(zoneStreamCache[cacheKey])return zoneStreamCache[cacheKey];
+  try{
+    const cached=await fetch('/api/stream-cache?activity_id='+activityId+'&stream_type='+type);
+    if(cached.ok){
+      const cj=await cached.json();
+      if(cj.cached&&Array.isArray(cj.data)){zoneStreamCache[cacheKey]=cj.data;return cj.data;}
+    }
+  }catch(_){}
+  try{
+    const data=await apiCall(curId,curKey,activityId+'/streams','types='+type,'activity');
+    let arr=null;
+    if(Array.isArray(data)){const match=data.find(d=>d.type===type);arr=match?match.data:null;}
+    else if(data&&data[type]){arr=data[type].data||data[type];}
+    else if(data&&data.data){arr=data.data;}
+    arr=arr||[];
+    zoneStreamCache[cacheKey]=arr;
+    if(arr.length){fetch('/api/stream-cache',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({activity_id:String(activityId),stream_type:type,data:arr})}).catch(()=>{});}
+    return arr;
+  }catch(e){zoneStreamCache[cacheKey]=[];return[];}
+}
+
+// ── connect ──
+async function doConnect(){
+  const id=(document.getElementById('credId').value||'').trim();
+  const key=(document.getElementById('credKey').value||'').trim();
+  const wt=parseFloat(document.getElementById('credWeight').value)||168;
+  if(!id||!key){setCredStatus('Enter your intervals.icu athlete ID and API key.','#E24B4A');return;}
+  const btn=document.getElementById('connectBtn');
+  btn.disabled=true;btn.textContent='Loading…';
+  setCredStatus('Fetching your recent rides…','var(--tc3)');
+  try{
+    const today=new Date();
+    const oldest=new Date(today);oldest.setDate(today.getDate()-90);
+    const oldestStr=oldest.toISOString().split('T')[0];
+    const acts=await apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,elapsed_time,average_watts,gear_id,gear_name');
+    curId=id;curKey=key;
+    currentAthlete={weight_lbs:wt};
+    allActivities=Array.isArray(acts)?acts:[];
+    const rides=allActivities.filter(a=>sportClass(a.type)==='cycling');
+    setCredStatus('Connected — '+rides.length+' cycling rides loaded from the last 90 days.','var(--acc)');
+    document.getElementById('aeroPanel').style.display='';
+    btn.textContent='Refresh →';
+  }catch(e){
+    setCredStatus('Could not connect: '+(e.message||'error')+'. Check your athlete ID and API key.','#E24B4A');
+    btn.textContent='Load rides →';
+  }finally{
+    btn.disabled=false;
+  }
+}
+function setCredStatus(msg,color){
+  const el=document.getElementById('credStatus');
+  el.textContent=msg;el.style.color=color||'var(--tc2)';
+}
+document.getElementById('credKey').addEventListener('keydown',e=>{if(e.key==='Enter')doConnect();});
+
+// ── tire preset ──
+function decApplyTirePreset(val){
+  if(!val)return;
+  document.getElementById('pf_crr_fixed').value=val;
+  document.getElementById('pf_crr_mode').value='fixed';
+  document.getElementById('pf_crr_fixed_row').style.display='block';
+}
+
+// ── ride picker ──
+let decAeroPickerSelected=new Set();
+let decAeroSelectedRides=[];
+let decAeroResults=[];
+let decAeroResultChoice='avg';
+let decAeroAvgCda=null;
+let decAeroBuiltCda=null;
+
+function decRidePickerCandidates(){
+  return(allActivities||[]).filter(a=>sportClass(a.type)==='cycling').sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
+}
+function decOpenRidePicker(){
+  decAeroPickerSelected=new Set(decAeroSelectedRides.map(e=>String(e.act.id)));
+  const filterEl=document.getElementById('decRidePickerFilter');
+  if(filterEl)filterEl.value='';
+  decRenderRidePickerList();
+  document.getElementById('decRidePickerModal').classList.add('show');
+}
+function decCloseRidePicker(){
+  document.getElementById('decRidePickerModal').classList.remove('show');
+}
+function decRenderRidePickerList(){
+  const filter=(document.getElementById('decRidePickerFilter').value||'').trim().toLowerCase();
+  let rides=decRidePickerCandidates();
+  if(filter)rides=rides.filter(a=>(a.name||'').toLowerCase().includes(filter));
+  const list=document.getElementById('decRidePickerList');
+  if(!rides.length){list.innerHTML='<div class="empty-note">No cycling rides found'+(filter?' matching "'+athEscHtml(filter)+'"':'')+'.</div>';return;}
+  list.innerHTML='<table class="laps-table"><thead><tr><th></th><th>Date</th><th>Name</th><th>Distance</th><th>Duration</th><th>Avg power</th></tr></thead><tbody>'
+    +rides.map(a=>{
+      const idStr=String(a.id);
+      const checked=decAeroPickerSelected.has(idStr)?'checked':'';
+      const distMi=a.distance?(a.distance/1609.34).toFixed(1)+' mi':'—';
+      return'<tr><td><input type="checkbox" '+checked+' onchange="decTogglePickerRide(\''+idStr+'\',this.checked)"></td>'
+        +'<td>'+fmtDate(a.start_date_local)+'</td>'
+        +'<td>'+athEscHtml(a.name||a.type||'Ride')+'</td>'
+        +'<td>'+distMi+'</td>'
+        +'<td>'+fmtTime(a.moving_time)+'</td>'
+        +'<td>'+(a.average_watts?Math.round(a.average_watts)+'W':'—')+'</td></tr>';
+    }).join('')
+    +'</tbody></table>';
+  document.getElementById('decRidePickerCount').textContent=decAeroPickerSelected.size+' selected';
+}
+function decTogglePickerRide(actIdStr,checked){
+  if(checked)decAeroPickerSelected.add(actIdStr);else decAeroPickerSelected.delete(actIdStr);
+  document.getElementById('decRidePickerCount').textContent=decAeroPickerSelected.size+' selected';
+}
+function decConfirmRidePicker(){
+  const candidates=decRidePickerCandidates();
+  const prevById={};
+  decAeroSelectedRides.forEach(e=>{prevById[String(e.act.id)]=e;});
+  decAeroSelectedRides=candidates.filter(a=>decAeroPickerSelected.has(String(a.id))).map(act=>prevById[String(act.id)]||{act,selectedLapIdx:null});
+  decCloseRidePicker();
+  decRenderLapPickerArea();
+}
+
+async function decRenderLapPickerArea(){
+  const area=document.getElementById('decAeroLapPickerArea');
+  const resultsArea=document.getElementById('decAeroResultsArea');
+  if(!decAeroSelectedRides.length){area.innerHTML='';resultsArea.innerHTML='';return;}
+  area.innerHTML=decAeroSelectedRides.map(({act})=>'<div class="chart-box" style="margin-bottom:10px" id="decAeroLapBox_'+String(act.id)+'"><div class="curve-loading">Loading laps for '+athEscHtml(act.name||act.type||'ride')+'…</div></div>').join('')
+    +'<div style="display:flex;align-items:center;gap:16px;margin-top:6px">'
+    +'<button class="btn" style="width:auto;padding:12px 32px" onclick="decRunMeticulousCdaAnalysis()">Analyze selected rides</button>'
+    +'</div>';
+  resultsArea.innerHTML='';
+  await Promise.all(decAeroSelectedRides.map(async entry=>{
+    const act=entry.act;
+    if(!act.laps||!act.laps.length){
+      try{
+        const lapData=await apiCall(curId,curKey,act.id,'intervals=true','activity');
+        act.laps=(lapData&&(lapData.laps||lapData.icu_intervals||lapData.intervals))||[];
+      }catch(e){act.laps=act.laps||[];}
+    }
+    if(!entry.selectedLapIdx)entry.selectedLapIdx=new Set((act.laps||[]).map((_,i)=>i));
+    decRenderLapTableForRide(entry);
+  }));
+}
+
+function decRemoveSelectedRide(actIdStr){
+  decAeroSelectedRides=decAeroSelectedRides.filter(e=>String(e.act.id)!==actIdStr);
+  decRenderLapPickerArea();
+}
+
+function decRenderLapTableForRide(entry){
+  const act=entry.act;
+  const box=document.getElementById('decAeroLapBox_'+String(act.id));
+  if(!box)return;
+  const laps=act.laps||[];
+  const removeBtn='<button onclick="event.preventDefault();event.stopPropagation();decRemoveSelectedRide(\''+String(act.id)+'\')" title="Remove this ride" style="background:none;border:1px solid var(--border);color:var(--tc3);cursor:pointer;font-family:\'DM Mono\',monospace;font-size:11px;padding:2px 9px;border-radius:2px">×</button>';
+  if(!laps.length){
+    box.innerHTML='<div class="chart-title" style="display:flex;align-items:center;justify-content:space-between"><span>'+athEscHtml(act.name||act.type||'Ride')+' — '+fmtDate(act.start_date_local)+'</span>'+removeBtn+'</div><div class="empty-note">No lap data found for this ride.</div>';
+    return;
+  }
+  const rows=laps.map((lap,i)=>{
+    const checked=entry.selectedLapIdx.has(i)?'checked':'';
+    const distMi=lap.distance?(lap.distance/1609.34).toFixed(2)+' mi':'—';
+    const dur=fmtTime(lap.elapsed_time||lap.moving_time);
+    const pwr=lap.average_watts?Math.round(lap.average_watts)+'W':'—';
+    return'<tr><td><input type="checkbox" '+checked+' onchange="decToggleLap(\''+String(act.id)+'\','+i+',this.checked)"></td><td>'+(i+1)+'</td><td>'+dur+'</td><td>'+distMi+'</td><td>'+pwr+'</td></tr>';
+  }).join('');
+  box.innerHTML='<details open><summary style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px">'
+    +'<span class="chart-title" style="margin:0;flex:1">'+athEscHtml(act.name||act.type||'Ride')+' — '+fmtDate(act.start_date_local)+' <span id="decAeroLapBadge_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--acc);font-weight:400"></span></span>'
+    +removeBtn+'</summary>'
+    +'<table class="laps-table"><thead><tr><th></th><th>Lap</th><th>Duration</th><th>Distance</th><th>Avg power</th></tr></thead><tbody>'+rows+'</tbody></table>'
+    +'<div id="decAeroLapSummary_'+String(act.id)+'" style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px"></div>'
+    +'</details>';
+  decUpdateLapSummary(entry);
+}
+
+function decToggleLap(actIdStr,idx,checked){
+  const entry=decAeroSelectedRides.find(e=>String(e.act.id)===actIdStr);
+  if(!entry)return;
+  if(checked)entry.selectedLapIdx.add(idx);else entry.selectedLapIdx.delete(idx);
+  decUpdateLapSummary(entry);
+}
+
+function decUpdateLapSummary(entry){
+  const laps=entry.act.laps||[];
+  let distM=0,durSec=0;
+  entry.selectedLapIdx.forEach(i=>{const lap=laps[i];if(lap){distM+=lap.distance||0;durSec+=lap.elapsed_time||lap.moving_time||0;}});
+  const summaryText=entry.selectedLapIdx.size+' of '+laps.length+' laps selected — '+(distM/1609.34).toFixed(1)+' mi, '+fmtTime(durSec);
+  const el=document.getElementById('decAeroLapSummary_'+String(entry.act.id));
+  if(el)el.textContent=summaryText;
+  const badge=document.getElementById('decAeroLapBadge_'+String(entry.act.id));
+  if(badge)badge.textContent='('+entry.selectedLapIdx.size+'/'+laps.length+' laps)';
+}
+
+// ── physics constants ──
+const DEC_AERO_G=9.8067;
+const DEC_AERO_MIN_ELEV_RANGE_M=20;
+const DEC_AERO_MIN_SPEED_RANGE_MS=3;
+const DEC_AERO_DOWNSAMPLE=5;
+const DEC_AERO_MAX_CANDIDATES=15;
+const DEC_MIN_DURATION_SEC=2400;
+const DEC_CV_CUTOFF=0.35;
+
+// ── lap-run helpers ──
+function decComputeLapOffsets(laps){
+  if((laps||[]).every(lap=>lap&&typeof lap.start_index==='number'&&typeof lap.end_index==='number')){
+    return(laps||[]).map(lap=>({start:lap.start_index,end:lap.end_index}));
+  }
+  let cum=0;
+  return(laps||[]).map(lap=>{const dur=Math.round(lap.elapsed_time||lap.moving_time||0);const start=cum;cum+=dur;return{start,end:cum};});
+}
+function decBuildLapRuns(laps,selectedIndices){
+  const offsets=decComputeLapOffsets(laps);
+  const runs=[];let cur=null;
+  for(let i=0;i<laps.length;i++){
+    if(!selectedIndices.has(i))continue;
+    if(cur&&cur.lastIdx===i-1){cur.end=offsets[i].end;cur.lastIdx=i;}
+    else{cur={start:offsets[i].start,end:offsets[i].end,lastIdx:i};runs.push(cur);}
+  }
+  return runs.map(r=>({start:r.start,end:r.end}));
+}
+function decSliceStreamRuns(stream,runs){return runs.map(r=>(stream||[]).slice(r.start,r.end));}
+
+// ── CdA fitting (lap-run aware) ──
+function decFitCdaFromRuns(wattsRuns,speedRuns,altRuns,opts){
+  opts=opts||{};
+  const mass=opts.mass||75,rho=opts.rho||1.225,eta=opts.eta||0.975;
+  const fixedCrr=opts.fixedCrr!=null?opts.fixedCrr:null;
+  function buildVE(wattsArr,speedArr,cda,crr){
+    const n=wattsArr.length;const ve=new Array(n);ve[0]=0;let cum=0;
+    for(let i=1;i<n;i++){
+      const v=Number(speedArr[i])||0,p=Number(wattsArr[i])||0;
+      if(v>=0.5){
+        const pAero=0.5*rho*cda*v*v*v,pRR=crr*mass*DEC_AERO_G*v;
+        const vPrev=Number(speedArr[i-1])||0,vNext=i+1<n?(Number(speedArr[i+1])||0):v;
+        const accel=i+1<n?(vNext-vPrev)/2:(v-vPrev);
+        const pGrade=p*eta-pAero-pRR-mass*accel*v;
+        cum+=(pGrade/(mass*DEC_AERO_G*v))*v;
+      }
+      ve[i]=cum;
+    }
+    return ve;
+  }
+  function scoreOf(cda,crr){
+    let totalSse=0,totalN=0;
+    for(let r=0;r<wattsRuns.length;r++){
+      const w=wattsRuns[r],s=speedRuns[r],a=altRuns[r];
+      const n=Math.min(w.length,s.length,a.length);if(n<2)continue;
+      const ve=buildVE(w.slice(0,n),s.slice(0,n),cda,crr);
+      let meanVe=0,meanAct=0;
+      for(let i=0;i<n;i++){meanVe+=ve[i];meanAct+=Number(a[i])||0;}
+      meanVe/=n;meanAct/=n;
+      let sse=0;
+      for(let i=0;i<n;i++){const dv=(ve[i]-meanVe)-((Number(a[i])||0)-meanAct);sse+=dv*dv;}
+      totalSse+=sse;totalN+=n;
+    }
+    return{sse:totalSse,n:totalN};
+  }
+  const totalSamples=wattsRuns.reduce((s,arr)=>s+arr.length,0);
+  if(totalSamples<300)return null;
+  if(fixedCrr!=null){
+    let best={cda:0.30,err:Infinity};
+    for(let cda=0.10;cda<=0.50+1e-9;cda+=0.005){const{sse}=scoreOf(cda,fixedCrr);if(sse<best.err)best={cda,err:sse};}
+    let fine={...best};
+    for(let cda=best.cda-0.01;cda<=best.cda+0.01+1e-9;cda+=0.0005){if(cda<=0)continue;const{sse}=scoreOf(cda,fixedCrr);if(sse<fine.err)fine={cda,err:sse};}
+    const{n}=scoreOf(fine.cda,fixedCrr);
+    return{cda:fine.cda,crr:fixedCrr,rmse:Math.sqrt(fine.err/n)};
+  }
+  let best={cda:0.30,crr:0.004,err:Infinity};
+  for(let cda=0.15;cda<=0.45+1e-9;cda+=0.02)for(let crr=0.0020;crr<=0.0070+1e-9;crr+=0.0005){const{sse}=scoreOf(cda,crr);if(sse<best.err)best={cda,crr,err:sse};}
+  let fine={...best};
+  for(let cda=best.cda-0.04;cda<=best.cda+0.04+1e-9;cda+=0.002)for(let crr=best.crr-0.0015;crr<=best.crr+0.0015+1e-9;crr+=0.00005){if(cda<=0||crr<=0)continue;const{sse}=scoreOf(cda,crr);if(sse<fine.err)fine={cda,crr,err:sse};}
+  const{n}=scoreOf(fine.cda,fine.crr);
+  return{cda:fine.cda,crr:fine.crr,rmse:Math.sqrt(fine.err/n)};
+}
+
+// ── run analysis ──
+async function decRunMeticulousCdaAnalysis(){
+  const resultsArea=document.getElementById('decAeroResultsArea');
+  resultsArea.innerHTML='<div class="curve-loading">Fetching streams and fitting CdA…</div>';
+  const weightLbs=parseFloat(document.getElementById('credWeight').value)||(currentAthlete&&currentAthlete.weight_lbs)||168;
+  const riderKg=weightLbs/2.20462;
+  const bikeWeightLbs=parseFloat(document.getElementById('pf_bike_weight_lbs')?.value)||19.8;
+  const bikeKg=bikeWeightLbs/2.20462;
+  const mass=riderKg+bikeKg;
+  const crrMode=document.getElementById('pf_crr_mode')?.value;
+  const fixedCrrVal=parseFloat(document.getElementById('pf_crr_fixed')?.value);
+  const haveFixedCrr=crrMode==='fixed'&&!isNaN(fixedCrrVal);
+  const estimateCrrToo=!!document.getElementById('decAeroEstimateCrr')?.checked;
+  const fixedCrr=estimateCrrToo?null:(haveFixedCrr?fixedCrrVal:0.0040);
+  const entries=decAeroSelectedRides.filter(e=>e.selectedLapIdx&&e.selectedLapIdx.size);
+  if(!entries.length){resultsArea.innerHTML='<div class="empty-note">Select at least one lap on at least one ride first.</div>';return;}
+  const results=await Promise.all(entries.map(async entry=>{
+    const act=entry.act;
+    try{
+      const[watts,speed,altitude]=await Promise.all([fetchStream(act.id,'watts'),fetchStream(act.id,'velocity_smooth'),fetchStream(act.id,'altitude')]);
+      if(!watts||!speed||!altitude||!watts.length)return{act,error:'No stream data'};
+      const runs=decBuildLapRuns(act.laps,entry.selectedLapIdx);
+      if(!runs.length)return{act,error:'No laps selected'};
+      const wattsRuns=decSliceStreamRuns(watts,runs),speedRuns=decSliceStreamRuns(speed,runs),altRuns=decSliceStreamRuns(altitude,runs);
+      let meanAlt=0,n=0,altMin=Infinity,altMax=-Infinity;
+      altRuns.forEach(arr=>arr.forEach(v=>{const nv=Number(v)||0;meanAlt+=nv;n++;if(nv<altMin)altMin=nv;if(nv>altMax)altMax=nv;}));
+      meanAlt=n?meanAlt/n:0;
+      if(estimateCrrToo){
+        if(!(altMax-altMin>=DEC_AERO_MIN_ELEV_RANGE_M))return{act,error:'Not enough elevation variation ('+DEC_AERO_MIN_ELEV_RANGE_M+'m+ needed) — use a fixed Crr instead'};
+        let spMin=Infinity,spMax=-Infinity;
+        speedRuns.forEach(arr=>arr.forEach(v=>{const nv=Number(v)||0;if(nv<spMin)spMin=nv;if(nv>spMax)spMax=nv;}));
+        if(!(spMax-spMin>=DEC_AERO_MIN_SPEED_RANGE_MS))return{act,error:'Not enough speed variation to estimate Crr — use a fixed Crr instead'};
+      }
+      const rho=1.225*Math.exp(-meanAlt/8434);
+      const fit=decFitCdaFromRuns(wattsRuns,speedRuns,altRuns,{mass,rho,fixedCrr});
+      if(!fit)return{act,error:'Not enough data (need 300+ total seconds)'};
+      const durationSec=runs.reduce((s,r)=>s+(r.end-r.start),0);
+      return{act,cda:fit.cda,crr:fit.crr,rmse:fit.rmse,lapCount:entry.selectedLapIdx.size,durationSec};
+    }catch(e){return{act,error:e.message||'Error'};}
+  }));
+  decAeroResults=results;
+  decRenderCdaResults(results,!haveFixedCrr&&!estimateCrrToo,estimateCrrToo);
+}
+
+function decRenderCdaResults(results,usedDefaultCrr,estimatedCrr){
+  const area=document.getElementById('decAeroResultsArea');
+  const ok=results.filter(r=>!r.error),errs=results.filter(r=>r.error);
+  if(!ok.length){area.innerHTML='<div class="empty-note">No usable results. '+errs.map(r=>athEscHtml(r.act.name||r.act.type||'ride')+': '+athEscHtml(r.error)).join('; ')+'</div>';return;}
+  const avgCda=ok.reduce((s,r)=>s+r.cda,0)/ok.length;
+  const avgCrr=ok.reduce((s,r)=>s+r.crr,0)/ok.length;
+  decAeroAvgCda=avgCda;decAeroResultChoice='avg';
+  const crrWarning=usedDefaultCrr?'<div class="empty-note" style="margin-bottom:10px">No fixed Crr set — used default 0.0040. Set your tire\'s real rolling-resistance value for a more accurate result.</div>'
+    :estimatedCrr?'<div class="empty-note" style="margin-bottom:10px">Crr was estimated from ride data — compare against your tire\'s published number as a sanity check.</div>':'';
+  const errNote=errs.length?'<div class="empty-note" style="margin-bottom:10px">'+errs.length+' ride(s) skipped: '+errs.map(r=>athEscHtml(r.act.name||'ride')+' ('+athEscHtml(r.error)+')').join(', ')+'</div>':'';
+  const rows=ok.map((r,i)=>'<tr><td><input type="radio" name="decAeroPickResult" onchange="decSelectCdaResultChoice('+i+')"></td><td>'+athEscHtml(r.act.name||r.act.type||'Ride')+'</td><td>'+fmtDate(r.act.start_date_local)+'</td><td>'+r.cda.toFixed(4)+'</td><td>'+r.crr.toFixed(4)+'</td><td>'+r.rmse.toFixed(2)+'</td><td>'+r.lapCount+' laps, '+fmtTime(r.durationSec)+'</td></tr>').join('');
+  area.innerHTML=crrWarning+errNote
+    +'<table class="laps-table"><thead><tr><th></th><th>Ride</th><th>Date</th><th>CdA</th><th>Crr</th><th>Fit rmse</th><th>Laps used</th></tr></thead><tbody>'
+    +'<tr><td><input type="radio" name="decAeroPickResult" checked onchange="decSelectCdaResultChoice(\'avg\')"></td><td colspan="3"><b>Average across '+ok.length+' ride'+(ok.length===1?'':'s')+': '+avgCda.toFixed(4)+'</b></td><td>'+avgCrr.toFixed(4)+'</td><td></td><td></td></tr>'
+    +rows+'</tbody></table>'
+    +'<div style="display:flex;align-items:center;gap:16px;margin-top:14px">'
+    +'<button class="btn" style="width:auto;padding:12px 32px" onclick="decSaveBuiltCda()">Use this CdA →</button>'
+    +'<span id="decAeroSaveMsg" style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--acc);display:none"></span>'
+    +'</div>';
+}
+function decSelectCdaResultChoice(choice){decAeroResultChoice=choice;}
+
+function decSaveBuiltCda(){
+  const ok=decAeroResults.filter(r=>!r.error);
+  let cda;
+  if(decAeroResultChoice==='avg'){cda=decAeroAvgCda;}
+  else{const r=ok[decAeroResultChoice];if(!r)return;cda=r.cda;}
+  decAeroBuiltCda={cda,updatedAt:new Date().toISOString()};
+  decUpdateBuiltCdaBadge();
+  decRenderPowerPredictor();
+  const msg=document.getElementById('decAeroSaveMsg');
+  if(msg){msg.style.display='inline';msg.textContent='CdA '+cda.toFixed(4)+' set — scroll down to use in race predictor';setTimeout(()=>{msg.style.display='none';},4000);}
+}
+function decUpdateBuiltCdaBadge(){
+  const badge=document.getElementById('decAeroBuiltCdaBadge');
+  if(!badge)return;
+  if(decAeroBuiltCda&&decAeroBuiltCda.cda){badge.style.display='inline';badge.textContent='Built CdA: '+decAeroBuiltCda.cda.toFixed(4);}
+  else{badge.style.display='none';}
+}
+
+// ── GPX race predictor ──
+let decGpxProfile=null,decGpxPowerDebounce=null;
+function gpxHaversineMeters(lat1,lon1,lat2,lon2){const R=6371000,toRad=d=>d*Math.PI/180,dLat=toRad(lat2-lat1),dLon=toRad(lon2-lon1),a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function gpxSmoothElevationByDistance(filledEle,cumDist,windowM){const half=windowM/2,n=filledEle.length,result=new Array(n);let lo=0,hi=0,sum=0;for(let i=0;i<n;i++){while(hi<n&&cumDist[hi]<=cumDist[i]+half){sum+=filledEle[hi];hi++;}while(lo<i&&cumDist[lo]<cumDist[i]-half){sum-=filledEle[lo];lo++;}result[i]=sum/(hi-lo);}return result;}
+function gpxParseFile(xmlText){const doc=new DOMParser().parseFromString(xmlText,'application/xml');const trkpts=[...doc.querySelectorAll('trkpt')];return trkpts.map(pt=>{const eleEl=pt.querySelector('ele');return{lat:parseFloat(pt.getAttribute('lat')),lon:parseFloat(pt.getAttribute('lon')),ele:eleEl?parseFloat(eleEl.textContent):null};}).filter(p=>!isNaN(p.lat)&&!isNaN(p.lon));}
+function gpxBuildProfile(points,segmentLenM,smoothWindowM){segmentLenM=segmentLenM||50;smoothWindowM=smoothWindowM||120;if(!points||points.length<2)return{segments:[],totalDistM:0,totalElevGainM:0,maxGrade:0};const cumDist=[0];for(let i=1;i<points.length;i++)cumDist.push(cumDist[i-1]+gpxHaversineMeters(points[i-1].lat,points[i-1].lon,points[i].lat,points[i].lon));const filled=[];let lastEle=0;for(const p of points){if(p.ele!=null&&!isNaN(p.ele))lastEle=p.ele;filled.push(lastEle);}const smoothedEle=gpxSmoothElevationByDistance(filled,cumDist,smoothWindowM);const totalDistM=cumDist[cumDist.length-1];const segments=[];let prevEle=smoothedEle[0];for(let d=segmentLenM;d<=totalDistM;d+=segmentLenM){let idx=0;while(idx<cumDist.length-1&&cumDist[idx+1]<d)idx++;const d0=cumDist[idx],d1=cumDist[Math.min(idx+1,cumDist.length-1)],e0=smoothedEle[idx],e1=smoothedEle[Math.min(idx+1,smoothedEle.length-1)];const frac=d1>d0?(d-d0)/(d1-d0):0;const ele=e0+(e1-e0)*frac,grade=(ele-prevEle)/segmentLenM;segments.push({distM:d,eleM:ele,grade,lengthM:segmentLenM});prevEle=ele;}let totalElevGainM=0,maxGrade=0;segments.forEach(s=>{if(s.grade>0)totalElevGainM+=s.grade*s.lengthM;if(Math.abs(s.grade)>Math.abs(maxGrade))maxGrade=s.grade;});return{segments,totalDistM,totalElevGainM,maxGrade};}
+function solveEquilibriumSpeed(targetPowerW,grade,cda,crr,mass,rho,eta){const a=0.5*rho*cda,b=mass*DEC_AERO_G*(crr+grade);function P(v){return(a*v*v*v+b*v)/eta;}function bisect(lo,hi){for(let i=0;i<60;i++){const mid=(lo+hi)/2;if(P(mid)<targetPowerW)lo=mid;else hi=mid;}return(lo+hi)/2;}if(b>=0){let vUpper=1;while(P(vUpper)<targetPowerW)vUpper*=2;return bisect(0,vUpper);}const vStar=Math.sqrt(-b/a);if(targetPowerW<=0)return vStar;let vUpper=vStar+1;while(P(vUpper)<targetPowerW)vUpper*=2;return bisect(vStar,vUpper);}
+function predictCourseTimeDynamic(profile,targetPowerW,cda,crr,mass,rho,eta){const segments=profile.segments||profile;if(!segments.length)return{totalSec:0};const a=0.5*rho*cda,pWheel=targetPowerW*eta,SUBSTEPS=20;function dvdx(v,grade){const vv=Math.max(v,0.3);const fAero=a*vv*vv,fRoll=crr*mass*DEC_AERO_G,fGrade=mass*DEC_AERO_G*grade;return(pWheel/vv-fAero-fRoll-fGrade)/(mass*vv);}function rk4Step(v,grade,dx){const k1=dvdx(v,grade),k2=dvdx(v+dx/2*k1,grade),k3=dvdx(v+dx/2*k2,grade),k4=dvdx(v+dx*k3,grade);return v+dx/6*(k1+2*k2+2*k3+k4);}let v=solveEquilibriumSpeed(targetPowerW,segments[0].grade,cda,crr,mass,rho,eta);let totalSec=0;segments.forEach(seg=>{const dx=seg.lengthM/SUBSTEPS;for(let i=0;i<SUBSTEPS;i++){v=rk4Step(v,seg.grade,dx);if(v<0.3)v=0.3;totalSec+=dx/v;}});return{totalSec};}
+async function decOnGpxFileSelected(file){
+  if(!file)return;
+  const summaryEl=document.getElementById('decGpxSummary');
+  summaryEl.innerHTML='<div class="curve-loading">Parsing course…</div>';
+  try{
+    const text=await file.text();
+    const points=gpxParseFile(text);
+    if(points.length<2){summaryEl.innerHTML='<div class="empty-note">Could not find track points in this GPX file.</div>';return;}
+    decGpxProfile=gpxBuildProfile(points,50,120);
+    if(!decGpxProfile.segments.length){summaryEl.innerHTML='<div class="empty-note">Course is too short.</div>';return;}
+    const distMi=(decGpxProfile.totalDistM/1609.34).toFixed(1),gainFt=Math.round(decGpxProfile.totalElevGainM*3.28084),maxGradePct=(decGpxProfile.maxGrade*100).toFixed(1);
+    summaryEl.innerHTML='<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--tc2)">'+distMi+' mi · '+gainFt+' ft gain · max grade '+maxGradePct+'% · '+decGpxProfile.segments.length+' segments</div>';
+    decRenderGpxChart();decRenderPowerPredictor();
+  }catch(e){summaryEl.innerHTML='<div class="empty-note">Could not parse this GPX file: '+(e.message||'error')+'</div>';}
+}
+function decRenderGpxChart(){
+  const area=document.getElementById('decGpxChartArea');
+  if(!decGpxProfile){area.innerHTML='';return;}
+  area.innerHTML='<div style="position:relative;height:200px"><canvas id="decGpxChart"></canvas></div>';
+  const ctx=document.getElementById('decGpxChart').getContext('2d');
+  const labels=decGpxProfile.segments.map(s=>(s.distM/1609.34).toFixed(1));
+  if(window._decGpxChartInstance)window._decGpxChartInstance.destroy();
+  window._decGpxChartInstance=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'Elevation (ft)',data:decGpxProfile.segments.map(s=>s.eleM*3.28084),borderColor:'#378ADD',backgroundColor:'rgba(55,138,221,0.12)',fill:true,tension:0.15,pointRadius:0,borderWidth:1.5}]},options:{animation:false,responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Distance (mi)',color:'#777',font:{size:9}},ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true},grid:{color:'rgba(42,42,42,0.5)'}},y:{title:{display:true,text:'ft',color:'#378ADD',font:{size:9}},ticks:{color:'#378ADD',font:{size:9}},grid:{color:'rgba(42,42,42,0.5)'}}}}});
+}
+function decRenderPowerPredictor(){
+  const area=document.getElementById('decGpxPowerArea');
+  if(!decGpxProfile){area.innerHTML='';return;}
+  const defaultCda=(decAeroBuiltCda&&decAeroBuiltCda.cda)||0.30;
+  area.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:14px"><div class="field" style="margin-bottom:0"><label>CdA override</label><input class="zc-input" type="number" id="decGpxCda" step="0.001" value="'+defaultCda.toFixed(4)+'" oninput="decScheduleGpxPredict()"></div></div>'
+    +'<div style="margin-top:18px"><label style="display:block;font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">Target power</label>'
+    +'<div style="display:flex;align-items:center;gap:16px"><input type="range" id="decGpxPowerSlider" min="50" max="500" step="5" value="200" style="flex:1" oninput="decSyncGpxPowerInputs(this.value);decScheduleGpxPredict()"><input class="zc-input" type="number" id="decGpxPowerNum" min="0" max="2000" step="5" value="200" style="width:90px" oninput="decSyncGpxPowerInputs(this.value);decScheduleGpxPredict()"><span style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--tc3)">watts</span></div></div>'
+    +'<div id="decGpxPredictedTime" style="margin-top:18px;background:var(--bc3);border:1px solid var(--border);padding:16px 20px;font-family:\'Barlow Condensed\',sans-serif;font-size:32px;font-weight:700;color:var(--acc)"></div>';
+  decRunGpxPredict();
+}
+function decSyncGpxPowerInputs(val){const slider=document.getElementById('decGpxPowerSlider'),num=document.getElementById('decGpxPowerNum');if(slider&&slider.value!==String(val))slider.value=val;if(num&&num.value!==String(val))num.value=val;}
+function decScheduleGpxPredict(){clearTimeout(decGpxPowerDebounce);decGpxPowerDebounce=setTimeout(decRunGpxPredict,120);}
+function decRunGpxPredict(){
+  if(!decGpxProfile)return;
+  const out=document.getElementById('decGpxPredictedTime');if(!out)return;
+  const targetPower=parseFloat(document.getElementById('decGpxPowerNum')?.value)||0;
+  const cda=parseFloat(document.getElementById('decGpxCda')?.value)||0.30;
+  const crrMode=document.getElementById('pf_crr_mode')?.value;
+  const fixedCrrVal=parseFloat(document.getElementById('pf_crr_fixed')?.value);
+  const crr=(crrMode==='fixed'&&!isNaN(fixedCrrVal))?fixedCrrVal:0.0040;
+  const weightLbs=parseFloat(document.getElementById('credWeight').value)||(currentAthlete&&currentAthlete.weight_lbs)||168;
+  const bikeWeightLbs=parseFloat(document.getElementById('pf_bike_weight_lbs')?.value)||19.8;
+  const mass=(weightLbs+bikeWeightLbs)/2.20462;
+  const result=predictCourseTimeDynamic(decGpxProfile,targetPower,cda,crr,mass,1.225,0.975);
+  out.innerHTML=fmtTime(result.totalSec)+' <span style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--tc3);font-weight:400">at '+targetPower+'W, CdA '+cda.toFixed(4)+', Crr '+crr.toFixed(4)+'</span>';
+}
+
+// ── general trend ──
+const DEC_AERO_G2=9.8067;
+function estimateCdaCrr(powerStream,speedStream,altitudeStream,opts){
+  opts=opts||{};const mass=opts.mass||75,rho=opts.rho||1.225,eta=opts.eta||0.975,dt=opts.dt||1;
+  const n=Math.min(powerStream.length,speedStream.length,altitudeStream.length);
+  if(n<300/dt)return null;
+  function buildVirtualElevation(cda,crr){const ve=new Array(n);ve[0]=0;let cum=0;for(let i=1;i<n;i++){const v=Number(speedStream[i])||0,p=Number(powerStream[i])||0;if(v>=0.5){const pAero=0.5*rho*cda*v*v*v,pRR=crr*mass*DEC_AERO_G*v,pWheel=p*eta,pGrade=pWheel-pAero-pRR,gradeImplied=pGrade/(mass*DEC_AERO_G*v);cum+=gradeImplied*v*dt;}ve[i]=cum;}return ve;}
+  function sseAgainstActual(ve){let meanVe=0,meanAct=0;for(let i=0;i<n;i++){meanVe+=ve[i];meanAct+=Number(altitudeStream[i])||0;}meanVe/=n;meanAct/=n;let sse=0;for(let i=0;i<n;i++){const dv=(ve[i]-meanVe)-((Number(altitudeStream[i])||0)-meanAct);sse+=dv*dv;}return sse;}
+  function scoreOf(cda,crr){return sseAgainstActual(buildVirtualElevation(cda,crr));}
+  if(opts.fixedCrr!=null){const fixedCrr=opts.fixedCrr;let best1={cda:0.30,err:Infinity};for(let cda=0.10;cda<=0.50+1e-9;cda+=0.005){const err=scoreOf(cda,fixedCrr);if(err<best1.err)best1={cda,err};}let fine1={...best1};for(let cda=best1.cda-0.01;cda<=best1.cda+0.01+1e-9;cda+=0.0005){if(cda<=0)continue;const err=scoreOf(cda,fixedCrr);if(err<fine1.err)fine1={cda,err};}return{cda:fine1.cda,crr:fixedCrr,rmse:Math.sqrt(fine1.err/n)};}
+  let best={cda:0.30,crr:0.004,err:Infinity};for(let cda=0.15;cda<=0.45+1e-9;cda+=0.02)for(let crr=0.0020;crr<=0.0070+1e-9;crr+=0.0005){const err=scoreOf(cda,crr);if(err<best.err)best={cda,crr,err};}
+  let fine={...best};for(let cda=best.cda-0.04;cda<=best.cda+0.04+1e-9;cda+=0.002)for(let crr=best.crr-0.0015;crr<=best.crr+0.0015+1e-9;crr+=0.00005){if(cda<=0||crr<=0)continue;const err=scoreOf(cda,crr);if(err<fine.err)fine={cda,crr,err};}
+  return{cda:fine.cda,crr:fine.crr,rmse:Math.sqrt(fine.err/n)};
+}
+function decDownsample(arr,factor,mode){const out=[];for(let i=0;i<arr.length;i+=factor){const end=Math.min(i+factor,arr.length);if(mode==='last'){out.push(arr[end-1]);}else{let sum=0,count=0;for(let j=i;j<end;j++){sum+=Number(arr[j])||0;count++;}out.push(count?sum/count:0);}}return out;}
+async function decRenderAeroTrend(){
+  const box=document.getElementById('decAeroBox'),btn=document.getElementById('decAeroBuildBtn');
+  btn.disabled=true;
+  box.innerHTML='<div class="curve-loading">Estimating aero drag from steady rides…<div class="curve-progress-bar"><div class="curve-progress-fill" id="decAeroProg" style="width:0%"></div></div></div>';
+  try{
+    const nameFilter=(document.getElementById('decAeroNameFilter')?.value||'').trim().toLowerCase();
+    let candidates=allActivities.filter(a=>sportClass(a.type)==='cycling').filter(a=>(a.moving_time||a.elapsed_time||0)>=DEC_MIN_DURATION_SEC).sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local)).slice(0,DEC_AERO_MAX_CANDIDATES).map(a=>({act:a}));
+    if(nameFilter)candidates=candidates.filter(({act})=>(act.name||'').toLowerCase().includes(nameFilter));
+    if(!candidates.length){box.innerHTML='<div class="empty-note">No qualifying steady rides'+(nameFilter?' matching "'+nameFilter+'"':'')+' found (40+ min).</div>';return;}
+    const weightLbs=parseFloat(document.getElementById('credWeight').value)||(currentAthlete&&currentAthlete.weight_lbs)||168;
+    const riderKg=weightLbs/2.20462,bikeWeightLbs=parseFloat(document.getElementById('pf_bike_weight_lbs')?.value)||19.8,bikeKg=bikeWeightLbs/2.20462,mass=riderKg+bikeKg;
+    const crrMode=document.getElementById('pf_crr_mode')?.value,fixedCrrVal=parseFloat(document.getElementById('pf_crr_fixed')?.value),fixedCrr=crrMode==='fixed'&&!isNaN(fixedCrrVal)?fixedCrrVal:null;
+    let done=0;const points=[];
+    await Promise.all(candidates.map(async({act})=>{
+      try{
+        const[watts,speed,altitude]=await Promise.all([fetchStream(act.id,'watts'),fetchStream(act.id,'velocity_smooth'),fetchStream(act.id,'altitude')]);
+        done++;const prog=document.getElementById('decAeroProg');if(prog)prog.style.width=Math.round(done/candidates.length*100)+'%';
+        if(!watts||!speed||!altitude||!watts.length||!speed.length||!altitude.length)return;
+        let altMin=Infinity,altMax=-Infinity;for(let i=0;i<altitude.length;i++){const v=Number(altitude[i]);if(v<altMin)altMin=v;if(v>altMax)altMax=v;}
+        if(fixedCrr==null&&!(altMax-altMin>=DEC_AERO_MIN_ELEV_RANGE_M))return;
+        const meanAlt=altitude.reduce((s,v)=>s+(Number(v)||0),0)/altitude.length,rho=1.225*Math.exp(-meanAlt/8434);
+        const wattsDs=decDownsample(watts,DEC_AERO_DOWNSAMPLE,'avg'),speedDs=decDownsample(speed,DEC_AERO_DOWNSAMPLE,'avg'),altDs=decDownsample(altitude,DEC_AERO_DOWNSAMPLE,'last');
+        const r=estimateCdaCrr(wattsDs,speedDs,altDs,{mass,rho,dt:DEC_AERO_DOWNSAMPLE,fixedCrr});
+        if(!r)return;
+        points.push({date:(act.start_date_local||'').slice(0,10),cda:r.cda,crr:r.crr,name:act.name||act.type});
+      }catch(e){done++;const prog=document.getElementById('decAeroProg');if(prog)prog.style.width=Math.round(done/candidates.length*100)+'%';}
+    }));
+    points.sort((a,b)=>a.date.localeCompare(b.date));
+    if(!points.length){box.innerHTML=fixedCrr!=null?'<div class="empty-note">Found '+candidates.length+' ride(s), but none had usable data.</div>':'<div class="empty-note">Found '+candidates.length+' ride(s), but none had enough elevation variation ('+DEC_AERO_MIN_ELEV_RANGE_M+'m+ range). Try with a fixed Crr value.</div>';return;}
+    const isFixedCrr=fixedCrr!=null;
+    const crrLine=isFixedCrr?'<b style="color:#E24B4A">Crr</b> held fixed at your entered value.<br>':'<b style="color:#E24B4A">Crr</b> — rolling resistance. Typically 0.003-0.006.<br>';
+    box.innerHTML='<div style="position:relative;height:240px"><canvas id="decAeroChart"></canvas></div>'
+      +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:6px">'+points.length+' ride'+(points.length===1?'':'s')+' analyzed — hover a point for the ride name</div>'
+      +'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--tc3);margin-top:8px;line-height:1.6"><b style="color:#378ADD">CdA</b> — drag area (m²). Road ~0.30-0.36, TT ~0.21-0.27.<br>'+crrLine+'Watch the trend across rides, not single points.</div>';
+    const ctx=document.getElementById('decAeroChart').getContext('2d');
+    if(window._decAeroChartInstance)window._decAeroChartInstance.destroy();
+    window._decAeroChartInstance=new Chart(ctx,{type:'line',data:{labels:points.map(p=>decFmtDate(p.date)),datasets:[{label:'CdA (m²)',data:points.map(p=>p.cda),borderColor:'#378ADD',backgroundColor:'transparent',tension:0.2,pointRadius:3,borderWidth:2,yAxisID:'yCda'},{label:'Crr',data:points.map(p=>p.crr),borderColor:'#E24B4A',backgroundColor:'transparent',borderDash:[5,3],tension:0.2,pointRadius:3,borderWidth:1.5,yAxisID:'yCrr'}]},options:{animation:false,responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{afterTitle:(items)=>points[items[0].dataIndex].name}}},scales:{x:{ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true},grid:{color:'rgba(42,42,42,0.5)'}},yCda:{type:'linear',position:'left',title:{display:true,text:'m²',color:'#378ADD',font:{size:9}},ticks:{color:'#378ADD',font:{size:9}},grid:{color:'rgba(42,42,42,0.5)'}},yCrr:{type:'linear',position:'right',title:{display:true,text:'Crr',color:'#E24B4A',font:{size:9}},ticks:{color:'#E24B4A',font:{size:9}},grid:{display:false}}}}});
+  }catch(e){box.innerHTML='<div class="empty-note">Could not build trend: '+(e.message||'error')+'</div>';}
+  finally{btn.disabled=false;}
+}
+</script>
+</body>
+</html>
