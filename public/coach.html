@@ -363,6 +363,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
             <button class="tab" data-tab="chat" onclick="switchTab('chat')">AI Coach Chat</button>
             <button class="tab" data-tab="nutrition" onclick="switchTab('nutrition')">Nutrition</button>
             <button class="tab" data-tab="aero" onclick="switchTab('aero')">Aero</button>
+            <button class="tab" data-tab="library" onclick="switchTab('library')">Library</button>
             <button class="tab" data-tab="profile" onclick="switchTab('profile')">Profile</button>
           </div>
 
@@ -547,6 +548,66 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
             </div>
           </div>
 
+          <!-- Library tab -->
+          <div class="tab-panel" id="tab-library">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:1rem">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                <input type="text" id="libSearch" placeholder="Search templates…" oninput="renderLibrary()" style="padding:6px 10px;background:var(--bc3);border:1px solid var(--border);color:var(--tc1);border-radius:4px;font-size:13px;width:180px" />
+                <select id="libSportFilter" onchange="renderLibrary()" style="padding:6px 8px;background:var(--bc3);border:1px solid var(--border);color:var(--tc1);border-radius:4px;font-size:13px">
+                  <option value="">All sports</option>
+                  <option value="cycling">Bike</option>
+                  <option value="running">Run</option>
+                  <option value="swimming">Swim</option>
+                  <option value="strength">Strength</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <button class="btn" onclick="openTemplateEdit(null)">+ New template</button>
+            </div>
+
+            <!-- Template list -->
+            <div id="libList"></div>
+
+            <!-- Create / edit form (hidden by default) -->
+            <div id="libEditForm" style="display:none;background:var(--bc3);border:1px solid var(--border);border-radius:6px;padding:1.25rem;margin-top:1rem">
+              <div class="section-label" style="margin-top:0" id="libFormTitle">New template</div>
+              <input type="hidden" id="libEditId" />
+              <div class="field"><label>Title</label><input type="text" id="libTitle" placeholder="e.g. Threshold intervals 4×8 min" /></div>
+              <div class="field"><label>Sport</label>
+                <select id="libSport">
+                  <option value="cycling">Bike</option>
+                  <option value="running">Run</option>
+                  <option value="swimming">Swim</option>
+                  <option value="strength">Strength</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="field"><label>Intensity</label>
+                <select id="libIntensity">
+                  <option value="">— none —</option>
+                  <option value="easy">Easy / Recovery</option>
+                  <option value="endurance">Endurance / Base</option>
+                  <option value="tempo">Tempo</option>
+                  <option value="threshold">Threshold</option>
+                  <option value="intervals">Intervals</option>
+                </select>
+              </div>
+              <div class="field"><label>FuelPro Type</label>
+                <select id="libFuelpro">
+                  <option value="">— none —</option>
+                  <option value="1">1 - Rest Day</option><option value="2">2 - Active Recovery</option><option value="3">3 - Yoga</option><option value="4">4 - Mobility / Stretching</option><option value="5">5 - Foam Roll / Recovery Work</option><option value="6">6 - Strength — Upper Body</option><option value="7">7 - Strength — Lower Body</option><option value="8">8 - Strength — Full Body / Dynamic</option><option value="9">9 - Strength — Core</option><option value="10">10 - Easy / Technique Swim</option><option value="11">11 - Aerobic Endurance Swim</option><option value="12">12 - Threshold / CSS Swim</option><option value="13">13 - VO2 / Speed Swim</option><option value="14">14 - Open Water Swim</option><option value="15">15 - Race Simulation Swim</option><option value="16">16 - Recovery Ride</option><option value="17">17 - Aerobic Base / Z2 Ride</option><option value="18">18 - Tempo / Sweet Spot Ride</option><option value="19">19 - Threshold / FTP Intervals</option><option value="20">20 - VO2max Intervals</option><option value="21">21 - Neuromuscular / Cadence Drills</option><option value="22">22 - Sprint / Power Work</option><option value="23">23 - Long Endurance Ride</option><option value="24">24 - Race Simulation Ride</option><option value="25">25 - Recovery Run</option><option value="26">26 - Easy Base Run</option><option value="27">27 - Easy Base Run — Short Brick</option><option value="28">28 - Easy Base Run — Long Brick</option><option value="29">29 - Long Easy Run</option><option value="30">30 - Tempo Run</option><option value="31">31 - Tempo Run — Short Brick</option><option value="32">32 - Tempo Run — Long Brick</option><option value="33">33 - Threshold / Track Intervals</option><option value="34">34 - VO2max / Speed Work</option><option value="35">35 - Hill Repeats</option><option value="36">36 - Race Simulation Run</option><option value="37">37 - Triathlon Race — Sprint</option><option value="38">38 - Triathlon Race — Olympic</option><option value="39">39 - Triathlon Race — 70.3</option><option value="40">40 - Triathlon Race — Full IM</option><option value="41">41 - Hockey</option><option value="42">42 - Other Aerobic</option>
+                </select>
+              </div>
+              <div class="field"><label>Description</label><textarea id="libDesc" rows="4" placeholder="Workout structure, intervals, sets…"></textarea></div>
+              <div style="display:flex;gap:8px;margin-top:0.5rem">
+                <button class="btn" onclick="saveTemplate()">Save</button>
+                <button class="btn btn-ghost" onclick="closeTemplateEdit()">Cancel</button>
+                <button class="btn btn-ghost" id="libDeleteBtn" style="display:none;color:#E24B4A" onclick="deleteTemplate()">Delete</button>
+              </div>
+              <div id="libError" class="error-msg" style="display:none">Could not save template.</div>
+            </div>
+          </div>
+
           <div class="tab-panel" id="tab-profile">
             <!-- W/kg banner -->
             <div id="coachProfWkg" style="display:none;background:var(--bc3);border:1px solid var(--border);padding:14px 20px;margin-bottom:1.5rem;font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;color:var(--acc)">
@@ -728,6 +789,9 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 
     <!-- Workout panel -->
     <div class="modal-panel active" id="mp-workout">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openLibraryPicker()">From library</button>
+      </div>
       <div class="field"><label>Date</label><input type="date" id="woDate" /></div>
       <div class="field"><label>Sport</label>
         <select id="woSport" onchange="woAutoSuggestFuelpro()">
@@ -977,6 +1041,7 @@ function switchTab(name){
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
   if((name==='profile'||name==='aero')&&selectedAthlete&&selectedAthlete.id) loadCoachProfile();
+  if(name==='library') loadLibrary();
   if(name==='nutrition'&&selectedAthlete&&selectedAthlete.id) loadCoachNutrition();
   if(name==='chat'&&selectedAthlete&&selectedAthlete.id) fetchAthleteWellness();
   if(name==='calendar'&&selectedAthlete){
@@ -3245,6 +3310,7 @@ async function openBlockModal(evt, mode, woId, icuId){
     footerBtns='<div style="display:flex;gap:8px">'
       +'<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete</button>'
       +'<button class="modal-btn-save" onclick="openWoEdit(\''+String(wo.id)+'\')">Edit</button>'
+      +'<button class="modal-btn-save" onclick="saveWorkoutAsTemplate('+JSON.stringify({title:wo.title||'',sport:wo.sport||'cycling',intensity:wo.intensity||'',fuelpro_type:wo.fuelpro_type??null,description:wo.description||''})+')" style="background:transparent;border-color:var(--tc3);color:var(--tc3)">Save to library</button>'
       +'</div>';
   }else if(mode==='completed'&&wo){
     footerBtns='<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete planned</button>';
@@ -4628,6 +4694,200 @@ function toggleAthletePanel(){
   const isOpen=content.classList.contains('open');
   content.classList.toggle('open',!isOpen);
   toggle.classList.toggle('open',!isOpen);
+}
+
+// ─── Workout Library ──────────────────────────────────────────────────────────
+var _libTemplates=[];
+
+async function loadLibrary(){
+  try{
+    const r=await fetch('/api/workout-templates');
+    if(!r.ok) throw new Error('Failed to load');
+    const d=await r.json();
+    _libTemplates=d.templates||[];
+  }catch(e){
+    _libTemplates=[];
+  }
+  renderLibrary();
+}
+
+function renderLibrary(){
+  const search=(document.getElementById('libSearch')||{}).value||'';
+  const sport=(document.getElementById('libSportFilter')||{}).value||'';
+  const q=search.toLowerCase();
+  const list=document.getElementById('libList');
+  if(!list) return;
+
+  const filtered=_libTemplates.filter(t=>{
+    if(sport&&t.sport!==sport) return false;
+    if(q&&!(t.title.toLowerCase().includes(q)||(t.description||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  if(!filtered.length){
+    list.innerHTML='<div style="color:var(--tc3);font-size:13px;padding:1rem 0">No templates yet. Create one above.</div>';
+    return;
+  }
+
+  const sportLabel={cycling:'Bike',running:'Run',swimming:'Swim',strength:'Strength',other:'Other'};
+  list.innerHTML=filtered.map(t=>`
+    <div style="background:var(--bc3);border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:14px;color:var(--tc1);margin-bottom:4px">${escHtml(t.title)}</div>
+        <div style="font-size:11px;color:var(--tc3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">
+          ${sportLabel[t.sport]||t.sport}${t.intensity?' · '+t.intensity:''}${t.fuelpro_type?' · FP'+t.fuelpro_type:''}
+        </div>
+        ${t.description?`<div style="font-size:12px;color:var(--tc2);white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${escHtml(t.description)}</div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="openTemplateEdit(${JSON.stringify(t).replace(/"/g,'&quot;')})">Edit</button>
+        <button class="btn" style="font-size:11px;padding:4px 10px" onclick="applyTemplateToForm(${JSON.stringify(t).replace(/"/g,'&quot;')})">Use</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openTemplateEdit(tpl){
+  document.getElementById('libEditForm').style.display='block';
+  document.getElementById('libFormTitle').textContent=tpl?'Edit template':'New template';
+  document.getElementById('libEditId').value=tpl?tpl.id:'';
+  document.getElementById('libTitle').value=tpl?tpl.title:'';
+  document.getElementById('libSport').value=tpl?tpl.sport:'cycling';
+  document.getElementById('libIntensity').value=tpl?tpl.intensity||'':'';
+  document.getElementById('libFuelpro').value=tpl&&tpl.fuelpro_type!=null?String(tpl.fuelpro_type):'';
+  document.getElementById('libDesc').value=tpl?tpl.description||'':'';
+  document.getElementById('libDeleteBtn').style.display=tpl?'':'none';
+  document.getElementById('libError').style.display='none';
+  document.getElementById('libEditForm').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function closeTemplateEdit(){
+  document.getElementById('libEditForm').style.display='none';
+}
+
+async function saveTemplate(){
+  const id=document.getElementById('libEditId').value;
+  const title=document.getElementById('libTitle').value.trim();
+  const sport=document.getElementById('libSport').value;
+  const intensity=document.getElementById('libIntensity').value;
+  const fp=document.getElementById('libFuelpro').value;
+  const description=document.getElementById('libDesc').value.trim();
+  const errEl=document.getElementById('libError');
+  errEl.style.display='none';
+  if(!title){errEl.textContent='Title is required.';errEl.style.display='block';return;}
+  const payload={title,sport,intensity:intensity||null,fuelpro_type:fp!==''?parseInt(fp):null,description:description||null};
+  if(id) payload.id=id;
+  try{
+    const r=await fetch('/api/workout-templates',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok){const d=await r.json().catch(()=>({}));throw new Error(d.error||'Save failed');}
+    closeTemplateEdit();
+    await loadLibrary();
+  }catch(e){
+    errEl.textContent='Could not save: '+e.message;
+    errEl.style.display='block';
+  }
+}
+
+async function deleteTemplate(){
+  const id=document.getElementById('libEditId').value;
+  if(!id) return;
+  if(!confirm('Delete this template?')) return;
+  try{
+    const r=await fetch('/api/workout-templates',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    if(!r.ok) throw new Error('Delete failed');
+    closeTemplateEdit();
+    await loadLibrary();
+  }catch(e){
+    const errEl=document.getElementById('libError');
+    errEl.textContent='Could not delete: '+e.message;
+    errEl.style.display='block';
+  }
+}
+
+async function saveWorkoutAsTemplate(wo){
+  try{
+    const r=await fetch('/api/workout-templates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      title:wo.title||'Untitled',sport:wo.sport||'cycling',
+      intensity:wo.intensity||null,fuelpro_type:wo.fuelpro_type??null,
+      description:wo.description||null
+    })});
+    if(!r.ok) throw new Error('Save failed');
+    alert('Saved to library.');
+  }catch(e){
+    alert('Could not save to library: '+e.message);
+  }
+}
+
+function applyTemplateToForm(tpl){
+  document.getElementById('woSport').value=tpl.sport||'cycling';
+  document.getElementById('woTitle').value=tpl.title||'';
+  document.getElementById('woIntensity').value=tpl.intensity||'endurance';
+  document.getElementById('woFuelpro').value=tpl.fuelpro_type!=null?String(tpl.fuelpro_type):'';
+  document.getElementById('woDesc').value=tpl.description||'';
+  closeLibraryPicker();
+  switchTab('calendar');
+}
+
+// Library picker overlay (triggered from workout form "From library" button)
+var _libPickerOpen=false;
+function openLibraryPicker(){
+  let overlay=document.getElementById('libPickerOverlay');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='libPickerOverlay';
+    overlay.style.cssText='position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6)';
+    overlay.innerHTML=`
+      <div style="background:var(--bc2);border:1px solid var(--border);border-radius:8px;width:min(520px,95vw);max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600;font-size:15px">Pick a template</span>
+          <button onclick="closeLibraryPicker()" style="background:none;border:none;color:var(--tc3);font-size:20px;cursor:pointer;line-height:1">×</button>
+        </div>
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px">
+          <input type="text" id="libPickerSearch" placeholder="Search…" oninput="renderLibraryPicker()" style="flex:1;padding:6px 10px;background:var(--bc3);border:1px solid var(--border);color:var(--tc1);border-radius:4px;font-size:13px" />
+          <select id="libPickerSport" onchange="renderLibraryPicker()" style="padding:6px 8px;background:var(--bc3);border:1px solid var(--border);color:var(--tc1);border-radius:4px;font-size:13px">
+            <option value="">All</option>
+            <option value="cycling">Bike</option>
+            <option value="running">Run</option>
+            <option value="swimming">Swim</option>
+            <option value="strength">Strength</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div id="libPickerList" style="overflow-y:auto;padding:12px 16px;flex:1"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click',e=>{if(e.target===overlay)closeLibraryPicker();});
+  }
+  overlay.style.display='flex';
+  _libPickerOpen=true;
+  if(!_libTemplates.length) loadLibrary().then(renderLibraryPicker); else renderLibraryPicker();
+}
+
+function closeLibraryPicker(){
+  const ov=document.getElementById('libPickerOverlay');
+  if(ov) ov.style.display='none';
+  _libPickerOpen=false;
+}
+
+function renderLibraryPicker(){
+  const list=document.getElementById('libPickerList');
+  if(!list) return;
+  const q=(document.getElementById('libPickerSearch')||{}).value||'';
+  const sport=(document.getElementById('libPickerSport')||{}).value||'';
+  const filtered=_libTemplates.filter(t=>{
+    if(sport&&t.sport!==sport) return false;
+    if(q&&!(t.title.toLowerCase().includes(q.toLowerCase())||(t.description||'').toLowerCase().includes(q.toLowerCase()))) return false;
+    return true;
+  });
+  const sportLabel={cycling:'Bike',running:'Run',swimming:'Swim',strength:'Strength',other:'Other'};
+  if(!filtered.length){list.innerHTML='<div style="color:var(--tc3);font-size:13px">No templates match.</div>';return;}
+  list.innerHTML=filtered.map(t=>`
+    <div onclick="applyTemplateToForm(${JSON.stringify(t).replace(/"/g,'&quot;')})" style="padding:10px 12px;border:1px solid var(--border);border-radius:5px;margin-bottom:6px;cursor:pointer;background:var(--bc3)" onmouseover="this.style.borderColor='var(--acc)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-weight:600;font-size:13px;color:var(--tc1)">${escHtml(t.title)}</div>
+      <div style="font-size:11px;color:var(--tc3);font-family:'DM Mono',monospace;text-transform:uppercase;margin-top:2px">${sportLabel[t.sport]||t.sport}${t.intensity?' · '+t.intensity:''}</div>
+      ${t.description?`<div style="font-size:12px;color:var(--tc2);margin-top:4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${escHtml(t.description)}</div>`:''}
+    </div>
+  `).join('');
 }
 </script>
 
