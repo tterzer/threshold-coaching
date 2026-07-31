@@ -2,7 +2,7 @@
 // ?type=weight   — weight_logs table
 // ?type=week     — week_plans table
 // ?type=profile  — profiles table (nutrition profile)
-import { supabase } from './supabase.js';
+import { supabase } from './_supabase.js';
 
 const PROFILE_DEFAULTS = {
   weight_lbs: 168,

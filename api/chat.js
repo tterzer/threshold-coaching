@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase } from './_supabase.js';
 
 const BASE_SYSTEM_PROMPT = `You are an expert endurance sports coach assistant for HM2L Racing, working alongside coach Travis Terzer. Your role is to help Travis analyze athlete data and prescribe workouts that align with his coaching philosophy and methodology.
 

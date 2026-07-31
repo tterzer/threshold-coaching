@@ -1,4 +1,4 @@
-import { supabase } from './supabase.js';
+import { supabase } from './_supabase.js';
 
 const COACH_ID = 'fdba3831-f111-41d4-bc02-4c80340ce10a';
 

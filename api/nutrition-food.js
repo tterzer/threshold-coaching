@@ -3,7 +3,7 @@
 // ?type=history GET ?q=&athlete_id=&is_favorite=true&is_combo=true|false&limit=8  — food history search
 // ?type=history POST {food,athlete_id,is_combo,combo_name,combo_items}  — upsert food history / combo
 // ?type=history PATCH ?id=xxx  {is_favorite: bool}  — toggle favorite by id
-import { supabase } from './supabase.js';
+import { supabase } from './_supabase.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
