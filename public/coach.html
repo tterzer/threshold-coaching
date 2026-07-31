@@ -3225,18 +3225,19 @@ async function openBlockModal(evt, mode, woId, icuId){
     }
   }
 
-  // Athlete note section — fetch existing note
-  let athleteNote = wo ? (wo.compliance_note||'') : '';
+  // Athlete note section — always load from coaching_notes
+  let athleteNote = '';
   const _noteActDate = act ? (act.start_date_local||'').slice(0,10) : (wo ? wo.date : '');
   const _noteAthleteId = selectedAthlete ? selectedAthlete.id : null;
-  if (!wo && act && _noteAthleteId && _noteActDate) {
+  if (_noteAthleteId && _noteActDate) {
     try {
       const nr = await fetch('/api/coaching-notes?athlete_id='+_noteAthleteId+'&date='+_noteActDate);
       if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) athleteNote = nd.notes[0].note || ''; }
     } catch(e) {}
   }
+  if (!athleteNote && wo && wo.compliance_note) athleteNote = wo.compliance_note;
   html+='<div class="modal-section-label" style="margin-top:1rem">Athlete Note</div>'
-    +'<textarea class="modal-note-input" id="coachCompNote" placeholder="No note yet..." data-wo-id="'+(wo?wo.id:'')+'" data-act-date="'+_noteActDate+'" data-athlete-id="'+(_noteAthleteId||'')+'">'+escHtml(athleteNote)+'</textarea>';
+    +'<textarea class="modal-note-input" id="coachCompNote" placeholder="No note yet..." data-act-date="'+_noteActDate+'" data-athlete-id="'+(_noteAthleteId||'')+'">'+escHtml(athleteNote)+'</textarea>';
 
   // Footer buttons
   let footerBtns='';
@@ -3273,26 +3274,19 @@ async function saveCoachNote(){
   const ta = document.getElementById('coachCompNote');
   if (!ta) return;
   const note = ta.value.trim();
-  const woId = ta.dataset.woId ? Number(ta.dataset.woId)||ta.dataset.woId : null;
   const actDate = ta.dataset.actDate || '';
   const athleteId = ta.dataset.athleteId || '';
   const btn = document.querySelector('#blockModal .modal-btn-save');
+  if (!actDate || !athleteId) {
+    if (btn) { btn.textContent = 'Nothing to save'; setTimeout(() => btn.textContent = 'Save note', 2000); }
+    return;
+  }
   try {
-    if (woId) {
-      const res = await fetch('/api/workouts', {
-        method: 'PUT', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ id: woId, compliance_note: note })
-      });
-      if (!res.ok) throw new Error('Save failed');
-      const wo = (workoutsCache||[]).find(w => String(w.id)===String(woId));
-      if (wo) wo.compliance_note = note;
-    } else if (actDate && athleteId) {
-      const res = await fetch('/api/coaching-notes', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ athlete_id: athleteId, date: actDate, note })
-      });
-      if (!res.ok) throw new Error('Save failed');
-    } else { return; }
+    const res = await fetch('/api/coaching-notes', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ athlete_id: athleteId, date: actDate, note })
+    });
+    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.error||'Save failed'); }
     if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save note', 1500); }
   } catch(e) { alert('Could not save note: ' + e.message); }
 }
