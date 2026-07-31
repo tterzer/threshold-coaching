@@ -3191,10 +3191,13 @@ function _fmtBlockTime(iso){
   return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
 }
 
+var _currentBlockWo = null;
+
 // Open a block detail modal (coach view — read only, shows planned vs actual)
 async function openBlockModal(evt, mode, woId, icuId){
   if(evt)evt.stopPropagation();
   const wo=woId?workoutsCache.find(x=>String(x.id)===woId):null;
+  _currentBlockWo = wo || null;
   const act=icuId?athleteIcuActivities.find(x=>String(x.id)===icuId):null;
 
   function _fmtDur2(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
@@ -3310,7 +3313,7 @@ async function openBlockModal(evt, mode, woId, icuId){
     footerBtns='<div style="display:flex;gap:8px">'
       +'<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete</button>'
       +'<button class="modal-btn-save" onclick="openWoEdit(\''+String(wo.id)+'\')">Edit</button>'
-      +'<button class="modal-btn-save" onclick="saveWorkoutAsTemplate('+JSON.stringify({title:wo.title||'',sport:wo.sport||'cycling',intensity:wo.intensity||'',fuelpro_type:wo.fuelpro_type??null,description:wo.description||''})+')" style="background:transparent;border-color:var(--tc3);color:var(--tc3)">Save to library</button>'
+      +'<button class="modal-btn-save" onclick="saveCurrentBlockAsTemplate()" style="background:transparent;border-color:var(--tc3);color:var(--tc3)">Save to library</button>'
       +'</div>';
   }else if(mode==='completed'&&wo){
     footerBtns='<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete planned</button>';
@@ -4802,6 +4805,12 @@ async function deleteTemplate(){
     errEl.textContent='Could not delete: '+e.message;
     errEl.style.display='block';
   }
+}
+
+async function saveCurrentBlockAsTemplate(){
+  const wo=_currentBlockWo;
+  if(!wo){alert('No planned workout to save.');return;}
+  await saveWorkoutAsTemplate({title:wo.title||'',sport:wo.sport||'cycling',intensity:wo.intensity||null,fuelpro_type:wo.fuelpro_type??null,description:wo.description||null});
 }
 
 async function saveWorkoutAsTemplate(wo){
