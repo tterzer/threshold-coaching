@@ -1520,7 +1520,7 @@ async function loadAthleteMetrics(athlete){
     const calcSport=(acts2,sport)=>{
       const tss2={};acts2.filter(x=>sportFn(x.type)===sport).forEach(x=>{const d=(x.start_date_local||'').slice(0,10);if(d)tss2[d]=(tss2[d]||0)+(Number(x.icu_training_load)||0);});
       const res={};let prev=0;
-      for(let i=0;i<FIT_DAYS;i++){const d=new Date(fitStart);d.setDate(fitStart.getDate()+i);const k=dkFn(d);prev=prev+((tss2[k]||0)-prev)*ctlDecay;if(i>=WARMUP)res[k]=prev;}
+      for(let i=0;i<FIT_DAYS;i++){const d=new Date(fitStart);d.setDate(fitStart.getDate()+i);const k=dkFn(d);prev=prev+((tss2[k]||0)-prev)*ctlDecay;res[k]=prev;}
       return res;
     };
     const cycBD=calcSport(fitSorted,'cycling'),runBD=calcSport(fitSorted,'running'),swimBD=calcSport(fitSorted,'swimming');
