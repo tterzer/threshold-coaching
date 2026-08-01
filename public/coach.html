@@ -3795,7 +3795,7 @@ let _detailSelDragging = false;
 let _detailSelStartX = null;
 let _detailSelMoved = false;
 let _detailBounds = null;
-let _detailSmoothing = 1;
+let _detailSmoothingBySport = {};
 
 function smoothStream(arr, win) {
   if (!arr || win <= 1) return arr || [];
@@ -3809,15 +3809,7 @@ function smoothStream(arr, win) {
   });
 }
 function _computeDetailBounds(sport) {
-  const b = { yLeft: {}, yRight: {}, yCad: {}, ySpd: {}, yEle: {} };
-  function overlayBounds(vals, minSpan) {
-    if (!vals || vals.length < 10) return {};
-    const s = vals.slice().sort((a,c)=>a-c);
-    const p5=s[Math.floor(s.length*0.05)], p95=s[Math.floor(s.length*0.95)];
-    const span=Math.max(minSpan,p95-p5);
-    // position data in bottom ~1-11% of chart area so overlay lines sit clearly below HR
-    return {min:Math.floor(p5-span*0.1), max:Math.ceil(p5+span*9.9)};
-  }
+  const b = { yLeft: {}, yRight: {} };
   if (sport==='cycling'&&_detailStreams.watts) {
     const v=_detailStreams.watts.filter(v=>v!=null&&v>=0).sort((a,b)=>a-b);
     if(v.length>10){const p99=v[Math.floor(v.length*0.99)];b.yLeft={min:0,max:Math.ceil(p99*1.05)};}
@@ -3832,13 +3824,10 @@ function _computeDetailBounds(sport) {
     const hr=_detailStreams.heartrate.filter(v=>v>40&&v<220).sort((a,b)=>a-b);
     if(hr.length>10){const p2=hr[Math.floor(hr.length*0.02)],p98=hr[Math.floor(hr.length*0.98)];const raw=p98-p2,mid=(p2+p98)/2,pad=Math.max(5,raw*0.1);b.yRight=raw<30?{min:Math.max(40,Math.floor(mid-18)),max:Math.ceil(mid+18)}:{min:Math.max(40,Math.floor(p2-pad)),max:Math.ceil(p98+pad)};}
   }
-  if (_detailStreams.cadence) b.yCad=overlayBounds(_detailStreams.cadence.filter(v=>v>0),10);
-  if (sport==='cycling'&&_detailStreams.velocity_smooth) b.ySpd=overlayBounds(_detailStreams.velocity_smooth.filter(v=>v>0).map(v=>v*2.23694),5);
-  if (_detailStreams.altitude) b.yEle=overlayBounds(_detailStreams.altitude.map(v=>v*3.28084),50);
   return b;
 }
 function _setDetailSmoothing(v) {
-  _detailSmoothing = Number(v);
+  _detailSmoothingBySport[_detailSport] = Number(v);
   const lbl = document.getElementById('detailSmoothLabel');
   if (lbl) lbl.textContent = v + 's';
   _renderDetailChart(_detailSport);
@@ -3911,6 +3900,9 @@ async function _setupDetailStreams(actId, sport, act) {
   togglesEl.innerHTML = streams.map(s =>
     `<button class="stream-toggle active" id="dtoggle_${s}" onclick="_toggleDetailStream('${s}')" style="border-color:${streamColors[s]};color:${streamColors[s]}">${streamLabels[s]||s}</button>`
   ).join('');
+  const sl=document.getElementById('detailSmoothSlider');
+  const lbl2=document.getElementById('detailSmoothLabel');
+  if(sl&&lbl2){const sv=_detailSmoothingBySport[sport]||1;sl.value=sv;lbl2.textContent=sv+'s';}
 
   const chartContainer = document.getElementById('detailChart').parentElement;
   chartContainer.style.opacity = '0.4';
@@ -3989,9 +3981,24 @@ function _renderDetailChart(sport) {
   }
   const maxLen = Math.max(...streamArrays.map(a => a.length));
 
-  const wStream = smoothStream(_detailStreams.watts, _detailSmoothing);
-  const vStream = smoothStream(_detailStreams.velocity_smooth, _detailSmoothing);
-  const cStream = smoothStream(_detailStreams.cadence, _detailSmoothing);
+  const _sm = _detailSmoothingBySport[sport] || 1;
+  const wStream = smoothStream(_detailStreams.watts, _sm);
+  const vStream = smoothStream(_detailStreams.velocity_smooth, _sm);
+  const cStream = smoothStream(_detailStreams.cadence, _sm);
+
+  const yLmin = (_detailBounds?.yLeft?.min) ?? 0;
+  const yLmax = (_detailBounds?.yLeft?.max) ?? 100;
+  const reversed = sport==='running'||sport==='swimming';
+  function normOverlay(arr, srcArr, f1, f2) {
+    const active=(srcArr||[]).filter(v=>v!=null&&v>0);
+    if(active.length<5||!arr) return (arr||[]).map(()=>null);
+    const s=active.slice().sort((a,b)=>a-b);
+    const sMin=s[Math.floor(s.length*0.05)],sMax=s[Math.floor(s.length*0.95)];
+    const sRange=sMax-sMin||1, yRange=yLmax-yLmin;
+    const lo=reversed?yLmax-yRange*f2:yLmin+yRange*f1;
+    const hi=reversed?yLmax-yRange*f1:yLmin+yRange*f2;
+    return arr.map(v=>v==null||v<=0?null:lo+(v-sMin)/sRange*(hi-lo));
+  }
 
   const datasets = [];
 
@@ -4006,10 +4013,14 @@ function _renderDetailChart(sport) {
       datasets.push({ label:'HR (bpm)', data:_detailStreams.heartrate.slice(0,maxLen), borderColor:'#E24B4A', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:2 });
     }
     if (_detailStreams.velocity_smooth && _detailVisible.velocity_smooth) {
-      datasets.push({ label:'Speed (mph)', data:vStream.slice(0,maxLen).map(v=>v*2.23694), borderColor:'#378ADD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'ySpd', order:1 });
+      const spdReal=vStream.slice(0,maxLen).map(v=>v*2.23694);
+      const spdNorm=normOverlay(spdReal,_detailStreams.velocity_smooth?.filter(v=>v>0).map(v=>v*2.23694),0.02,0.09);
+      datasets.push({ label:'Speed (mph)', data:spdNorm, _realData:spdReal, borderColor:'#378ADD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yLeft', order:1 });
     }
     if (_detailStreams.cadence && _detailVisible.cadence) {
-      datasets.push({ label:'Cadence (rpm)', data:cStream.slice(0,maxLen), borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yCad', order:0 });
+      const cadReal=cStream.slice(0,maxLen);
+      const cadNorm=normOverlay(cadReal,_detailStreams.cadence?.filter(v=>v>0),0.09,0.16);
+      datasets.push({ label:'Cadence (rpm)', data:cadNorm, _realData:cadReal, borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yLeft', order:0 });
     }
   } else if (sport === 'running') {
     if (_detailStreams.altitude && _detailVisible.altitude) {
@@ -4022,7 +4033,9 @@ function _renderDetailChart(sport) {
       datasets.push({ label:'HR (bpm)', data:_detailStreams.heartrate.slice(0,maxLen), borderColor:'#E24B4A', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:2 });
     }
     if (_detailStreams.cadence && _detailVisible.cadence) {
-      datasets.push({ label:'Cadence (spm)', data:cStream.slice(0,maxLen), borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yCad', order:1 });
+      const cadRealRun=cStream.slice(0,maxLen);
+      const cadNormRun=normOverlay(cadRealRun,_detailStreams.cadence?.filter(v=>v>0),0.02,0.10);
+      datasets.push({ label:'Cadence (spm)', data:cadNormRun, _realData:cadRealRun, borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yLeft', order:1 });
     }
   } else {
     if (_detailStreams.velocity_smooth && _detailVisible.velocity_smooth) {
@@ -4038,7 +4051,7 @@ function _renderDetailChart(sport) {
   const scales = {
     x: { type:'category', labels:Array.from({length:maxLen},(_,i)=>i%300===0?(()=>{const h=Math.floor(i/3600),m=Math.floor((i%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';})():''), ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12}, grid:{color:'rgba(42,42,42,0.5)'} },
     yLeft: { type:'linear', position:'left', reverse:sport==='running'||sport==='swimming', ...yLeftBounds, ticks:{ color:'#555', font:{family:"'DM Mono'",size:9}, callback: (sport==='running'||sport==='swimming') ? (v)=>{const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return mm+':'+(ss<10?'0':'')+ss;} : undefined }, grid:{color:'rgba(42,42,42,0.5)'} },
-    yRight: { type:'linear', position:'right', ticks:{color:'#666',font:{family:"'DM Mono'",size:9}}, grid:{display:false} },
+    yRight: { type:'linear', position:'right', ...(_detailBounds?.yRight||{}), ticks:{color:'#666',font:{family:"'DM Mono'",size:9}}, grid:{display:false} },
     yEle: { type:'linear', position:'right', display:false },
   };
 
@@ -4050,7 +4063,7 @@ function _renderDetailChart(sport) {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false,backgroundColor:'#1a1a1a',titleColor:'#888',bodyColor:'#ccc',borderColor:'#2a2a2a',borderWidth:1,callbacks:{
         title:function(items){const sec=items[0]?.parsed?.x;if(sec==null)return'';const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=Math.round(sec%60);return h>0?h+'h '+String(m).padStart(2,'0')+'m '+String(s).padStart(2,'0')+'s':m+'m '+String(s).padStart(2,'0')+'s';},
-        label:ctx=>{const v=ctx.parsed.y;if(v==null)return ctx.dataset.label+': —';if(ctx.dataset.label==='Pace (min/mi)'){const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return'Pace: '+mm+':'+(ss<10?'0':'')+ss+'/mi';}return ctx.dataset.label+': '+(Number.isInteger(v)?v:v.toFixed(1));}
+        label:ctx=>{if(ctx.dataset._realData){const real=ctx.dataset._realData[ctx.dataIndex];if(real==null)return ctx.dataset.label+': —';return ctx.dataset.label+': '+Math.round(real);}const v=ctx.parsed.y;if(v==null)return ctx.dataset.label+': —';if(ctx.dataset.label==='Pace (min/mi)'){const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return'Pace: '+mm+':'+(ss<10?'0':'')+ss+'/mi';}return ctx.dataset.label+': '+(Number.isInteger(v)?v:v.toFixed(1));}
       }} },
       scales,
       elements: { line:{capBezierPoints:false} },
