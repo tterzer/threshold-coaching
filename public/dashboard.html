@@ -6830,7 +6830,7 @@ function _renderDetailChart(sport) {
   }
 
   const scales = {
-    x: { type:'linear', min:0, max:maxLen-1, ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,stepSize:300,autoSkip:false,callback:function(v){const h=Math.floor(v/3600),m=Math.floor((v%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';}}, grid:{color:'rgba(42,42,42,0.5)'} },
+    x: { type:'category', labels:Array.from({length:maxLen},(_,i)=>i%300===0?(()=>{const h=Math.floor(i/3600),m=Math.floor((i%3600)/60);return h>0?h+'h'+String(m).padStart(2,'0'):m+'m';})():''), ticks:{color:'#666',font:{family:"'DM Mono'",size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12}, grid:{color:'rgba(42,42,42,0.5)'} },
     yLeft: { type:'linear', position:'left', reverse:sport==='running'||sport==='swimming', ...yLeftBounds, ticks:{ color:'#555', font:{family:"'DM Mono'",size:9}, callback: (sport==='running'||sport==='swimming') ? (v)=>{const _t=Math.round(v),mm=Math.floor(_t/60),ss=_t%60;return mm+':'+(ss<10?'0':'')+ss;} : undefined }, grid:{color:'rgba(42,42,42,0.5)'} },
     yRight: { type:'linear', position:'right', ticks:{color:'#666',font:{family:"'DM Mono'",size:9}}, grid:{display:false} },
     yEle: { type:'linear', position:'right', display:false },
