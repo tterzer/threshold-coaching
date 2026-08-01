@@ -3809,29 +3809,31 @@ function smoothStream(arr, win) {
   });
 }
 function _computeDetailBounds(sport) {
-  const b = { yLeft: {} };
-  if (sport === 'cycling' && _detailStreams.watts) {
-    const vals = _detailStreams.watts.filter(v=>v!=null&&v>0).sort((a,b)=>a-b);
-    if (vals.length > 10) {
-      const p5=vals[Math.floor(vals.length*0.05)], p95=vals[Math.floor(vals.length*0.95)];
-      const span=Math.max(150,p95-p5), mid=(p5+p95)/2;
-      b.yLeft = {min:Math.max(0,Math.floor(mid-span/2-15)), max:Math.ceil(mid+span/2+15)};
-    }
-  } else if (sport === 'running' && _detailStreams.velocity_smooth) {
-    const pv = _detailStreams.velocity_smooth.filter(v=>v>0.1).map(v=>1609.34/v).sort((a,b)=>a-b);
-    if (pv.length > 10) {
-      const p5=pv[Math.floor(pv.length*0.05)], p95=pv[Math.floor(pv.length*0.95)];
-      const span=Math.max(120,p95-p5), mid=(p5+p95)/2;
-      b.yLeft = {min:Math.max(0,Math.floor(mid-span/2-15)), max:Math.ceil(mid+span/2+15)};
-    }
-  } else if (sport === 'swimming' && _detailStreams.velocity_smooth) {
-    const sv = _detailStreams.velocity_smooth.filter(v=>v>0.01).map(v=>91.44/v).sort((a,b)=>a-b);
-    if (sv.length > 10) {
-      const p5=sv[Math.floor(sv.length*0.05)], p95=sv[Math.floor(sv.length*0.95)];
-      const span=Math.max(30,p95-p5), mid=(p5+p95)/2;
-      b.yLeft = {min:Math.max(0,Math.floor(mid-span/2-5)), max:Math.ceil(mid+span/2+5)};
-    }
+  const b = { yLeft: {}, yRight: {}, yCad: {}, ySpd: {}, yEle: {} };
+  function overlayBounds(vals, minSpan) {
+    if (!vals || vals.length < 10) return {};
+    const s = vals.slice().sort((a,c)=>a-c);
+    const p5=s[Math.floor(s.length*0.05)], p95=s[Math.floor(s.length*0.95)];
+    const span=Math.max(minSpan,p95-p5);
+    return {min:Math.floor(p5-span*0.25), max:Math.ceil(p5+span*4.75)};
   }
+  if (sport==='cycling'&&_detailStreams.watts) {
+    const v=_detailStreams.watts.filter(v=>v!=null&&v>=0).sort((a,b)=>a-b);
+    if(v.length>10){const p99=v[Math.floor(v.length*0.99)];b.yLeft={min:0,max:Math.ceil(p99*1.05)};}
+  } else if (sport==='running'&&_detailStreams.velocity_smooth) {
+    const pv=_detailStreams.velocity_smooth.filter(v=>v>0.1).map(v=>1609.34/v).sort((a,b)=>a-b);
+    if(pv.length>10){const p2=pv[Math.floor(pv.length*0.02)],p98=pv[Math.floor(pv.length*0.98)];const raw=p98-p2,mid=(p2+p98)/2,pad=Math.max(15,raw*0.1);b.yLeft=raw<120?{min:Math.max(0,Math.floor(mid-75)),max:Math.ceil(mid+75)}:{min:Math.max(0,Math.floor(p2-pad)),max:Math.ceil(p98+pad)};}
+  } else if (sport==='swimming'&&_detailStreams.velocity_smooth) {
+    const sv=_detailStreams.velocity_smooth.filter(v=>v>0.01).map(v=>91.44/v).sort((a,b)=>a-b);
+    if(sv.length>10){const p2=sv[Math.floor(sv.length*0.02)],p98=sv[Math.floor(sv.length*0.98)];const raw=p98-p2,mid=(p2+p98)/2,pad=Math.max(5,raw*0.1);b.yLeft=raw<30?{min:Math.max(0,Math.floor(mid-18)),max:Math.ceil(mid+18)}:{min:Math.max(0,Math.floor(p2-pad)),max:Math.ceil(p98+pad)};}
+  }
+  if (_detailStreams.heartrate) {
+    const hr=_detailStreams.heartrate.filter(v=>v>40&&v<220).sort((a,b)=>a-b);
+    if(hr.length>10){const p2=hr[Math.floor(hr.length*0.02)],p98=hr[Math.floor(hr.length*0.98)];const raw=p98-p2,mid=(p2+p98)/2,pad=Math.max(5,raw*0.1);b.yRight=raw<30?{min:Math.max(40,Math.floor(mid-18)),max:Math.ceil(mid+18)}:{min:Math.max(40,Math.floor(p2-pad)),max:Math.ceil(p98+pad)};}
+  }
+  if (_detailStreams.cadence) b.yCad=overlayBounds(_detailStreams.cadence.filter(v=>v>0),10);
+  if (sport==='cycling'&&_detailStreams.velocity_smooth) b.ySpd=overlayBounds(_detailStreams.velocity_smooth.filter(v=>v>0).map(v=>v*2.23694),5);
+  if (_detailStreams.altitude) b.yEle=overlayBounds(_detailStreams.altitude.map(v=>v*3.28084),50);
   return b;
 }
 function _setDetailSmoothing(v) {
@@ -4003,10 +4005,10 @@ function _renderDetailChart(sport) {
       datasets.push({ label:'HR (bpm)', data:_detailStreams.heartrate.slice(0,maxLen), borderColor:'#E24B4A', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:2 });
     }
     if (_detailStreams.velocity_smooth && _detailVisible.velocity_smooth) {
-      datasets.push({ label:'Speed (mph)', data:vStream.slice(0,maxLen).map(v=>v*2.23694), borderColor:'#378ADD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:1 });
+      datasets.push({ label:'Speed (mph)', data:vStream.slice(0,maxLen).map(v=>v*2.23694), borderColor:'#378ADD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'ySpd', order:1 });
     }
     if (_detailStreams.cadence && _detailVisible.cadence) {
-      datasets.push({ label:'Cadence (rpm)', data:cStream.slice(0,maxLen), borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:0 });
+      datasets.push({ label:'Cadence (rpm)', data:cStream.slice(0,maxLen), borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yCad', order:0 });
     }
   } else if (sport === 'running') {
     if (_detailStreams.altitude && _detailVisible.altitude) {
@@ -4019,7 +4021,7 @@ function _renderDetailChart(sport) {
       datasets.push({ label:'HR (bpm)', data:_detailStreams.heartrate.slice(0,maxLen), borderColor:'#E24B4A', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:2 });
     }
     if (_detailStreams.cadence && _detailVisible.cadence) {
-      datasets.push({ label:'Cadence (spm)', data:cStream.slice(0,maxLen), borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yRight', order:1 });
+      datasets.push({ label:'Cadence (spm)', data:cStream.slice(0,maxLen), borderColor:'#7F77DD', backgroundColor:'transparent', fill:false, tension:0.2, pointRadius:0, borderWidth:1.5, yAxisID:'yCad', order:1 });
     }
   } else {
     if (_detailStreams.velocity_smooth && _detailVisible.velocity_smooth) {
