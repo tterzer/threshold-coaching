@@ -1415,7 +1415,7 @@ async function loadAthleteMetrics(athlete){
   }
   try{
     const id=a.intervals_athlete_id, key=a.intervals_api_key;
-    const today=new Date();
+    const today=new Date();today.setHours(0,0,0,0);
     const oldest90=new Date(today);oldest90.setDate(today.getDate()-90);
     const oldest90Str=oldest90.toISOString().split('T')[0];
     const fitOldestStr='2020-01-01';
