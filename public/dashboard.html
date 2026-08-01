@@ -6640,7 +6640,7 @@ function _computeDetailBounds(sport) {
     if(v.length>10){const p99=v[Math.floor(v.length*0.99)];b.yLeft={min:0,max:Math.ceil(p99*1.05)};}
   } else if (sport==='running'&&_detailStreams.velocity_smooth) {
     const pv=_detailStreams.velocity_smooth.filter(v=>v>0.1).map(v=>1609.34/v).sort((a,b)=>a-b);
-    if(pv.length>10){const p2=pv[Math.floor(pv.length*0.02)],p98=pv[Math.floor(pv.length*0.98)];const raw=p98-p2,mid=(p2+p98)/2,pad=Math.max(15,raw*0.1);b.yLeft=raw<120?{min:Math.max(0,Math.floor(mid-75)),max:Math.ceil(mid+75)}:{min:Math.max(0,Math.floor(p2-pad)),max:Math.ceil(p98+pad)};}
+    if(pv.length>10){const p2=pv[Math.floor(pv.length*0.02)],p98=pv[Math.floor(pv.length*0.98)];const raw=p98-p2,mid=(p2+p98)/2,pad=Math.max(30,raw*0.1);b.yLeft=raw<300?{min:Math.max(0,Math.floor(mid-150)),max:Math.ceil(mid+150)}:{min:Math.max(0,Math.floor(p2-pad)),max:Math.ceil(p98+pad)};}
   } else if (sport==='swimming'&&_detailStreams.velocity_smooth) {
     const sv=_detailStreams.velocity_smooth.filter(v=>v>0.01).map(v=>91.44/v).sort((a,b)=>a-b);
     if(sv.length>10){const p2=sv[Math.floor(sv.length*0.02)],p98=sv[Math.floor(sv.length*0.98)];const raw=p98-p2,mid=(p2+p98)/2,pad=Math.max(5,raw*0.1);b.yLeft=raw<30?{min:Math.max(0,Math.floor(mid-18)),max:Math.ceil(mid+18)}:{min:Math.max(0,Math.floor(p2-pad)),max:Math.ceil(p98+pad)};}
