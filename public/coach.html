@@ -1418,8 +1418,7 @@ async function loadAthleteMetrics(athlete){
     const today=new Date();
     const oldest90=new Date(today);oldest90.setDate(today.getDate()-90);
     const oldest90Str=oldest90.toISOString().split('T')[0];
-    const fitOldest=new Date(today);fitOldest.setDate(today.getDate()-1095);
-    const fitOldestStr=fitOldest.toISOString().split('T')[0];
+    const fitOldestStr='2020-01-01';
     const[acts,fitActs]=await Promise.all([
       intervalsCall(id,key,'activities','oldest='+oldest90Str+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name,athlete_id'),
       intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type,athlete_id')
@@ -1428,21 +1427,21 @@ async function loadAthleteMetrics(athlete){
     const sorted=[...ownActs(acts)].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
     athleteIcuActivities=sorted;
 
-    // Full Banister model — identical to athlete portal
-    const FIT_DAYS=1095, WARMUP=180;
+    // Full Banister model — same seed date as athlete portal (2020-01-01, no warmup cutoff)
     const dkFn=d=>{const dt=d instanceof Date?d:new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');};
     const fitSorted=[...ownActs(fitActs)].sort((p,q)=>new Date(p.start_date_local)-new Date(q.start_date_local));
     const tssByDay={};
     fitSorted.forEach(act=>{const day=(act.start_date_local||'').slice(0,10);if(day)tssByDay[day]=(tssByDay[day]||0)+(Number(act.icu_training_load)||0);});
     const ctlDecay=1-Math.exp(-1/42), atlDecay=1-Math.exp(-1/7);
-    const fitStart=new Date();fitStart.setHours(0,0,0,0);fitStart.setDate(fitStart.getDate()-(FIT_DAYS-1));
+    const fitStart=new Date(fitOldestStr+'T00:00:00');
+    const FIT_DAYS=Math.round((today-fitStart)/86400000)+1;
     const series=[],byDate={};let ctlPrev=0,atlPrev=0;
     for(let i=0;i<FIT_DAYS;i++){
       const d=new Date(fitStart);d.setDate(fitStart.getDate()+i);
       const k=dkFn(d);const tss=tssByDay[k]||0;
       const ctl=ctlPrev+(tss-ctlPrev)*ctlDecay;
       const atl=atlPrev+(tss-atlPrev)*atlDecay;
-      if(i>=WARMUP){const e={date:k,ctl,atl,tsb:ctl-atl,tss};series.push(e);byDate[k]=e;}
+      const e={date:k,ctl,atl,tsb:ctl-atl,tss};series.push(e);byDate[k]=e;
       ctlPrev=ctl;atlPrev=atl;
     }
     // Apply TP reference offset (same key as athlete portal)
