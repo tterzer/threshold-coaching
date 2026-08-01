@@ -644,6 +644,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
                   </div>
                   <div class="field"><label>Weight (lbs)</label><input class="zc-input" type="number" id="cpf_weight_lbs" min="80" max="400" placeholder="e.g. 165" oninput="coachUpdateWkg()"></div>
                   <div class="field"><label>FTP (watts)</label><input class="zc-input" type="number" id="cpf_ftp_watts" min="50" max="700" placeholder="e.g. 280" oninput="coachUpdateWkg()"></div>
+                  <div class="field"><label>CTL offset (TP alignment)</label><input class="zc-input" type="number" id="cpf_ctl_offset" min="-50" max="50" placeholder="e.g. 13" title="Shifts CTL/ATL to match TrainingPeaks. Leave 0 if no TP account."></div>
                   <div class="field"><label>Height — feet</label>
                     <select class="zc-select" id="cpf_height_feet">
                       <option value="">—</option>
@@ -1106,6 +1107,7 @@ function fillCoachProfileForm(p){
   set('cpf_max_weekly_hours',p.max_weekly_hours);
   set('cpf_preferred_time',p.preferred_time);
   set('cpf_ftp_watts',p.ftp_watts);
+  set('cpf_ctl_offset',p.ctl_offset!=null?p.ctl_offset:'');
   set('cpf_pool_days_per_week',p.pool_days_per_week);
   setChk('cpf_has_indoor_trainer',p.has_indoor_trainer);
   setChk('cpf_has_track_access',p.has_track_access);
@@ -1326,6 +1328,7 @@ async function saveCoachProfile(){
     crr_mode:get('cpf_crr_mode'),
     crr_fixed:getN('cpf_crr_fixed'),
     aero_setup_notes:get('cpf_aero_setup_notes'),
+    ctl_offset:getN('cpf_ctl_offset'),
   };
   const coachNote=document.getElementById('cpf_coach_notes')?.value.trim()||'';
   // Profile fields now render on two tabs (Profile and Aero) sharing one
@@ -1419,9 +1422,10 @@ async function loadAthleteMetrics(athlete){
     const oldest90=new Date(today);oldest90.setDate(today.getDate()-90);
     const oldest90Str=oldest90.toISOString().split('T')[0];
     const fitOldestStr='2020-01-01';
-    const[acts,fitActs]=await Promise.all([
+    const[acts,fitActs,profForOffset]=await Promise.all([
       intervalsCall(id,key,'activities','oldest='+oldest90Str+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name,athlete_id'),
-      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type,athlete_id')
+      intervalsCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type,athlete_id'),
+      fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(a.id)).then(r=>r.json()).catch(()=>({profile:null}))
     ]);
     const ownActs=a=>Array.isArray(a)?a.filter(x=>!x.athlete_id||String(x.athlete_id)===String(id)):[];
     const sorted=[...ownActs(acts)].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local));
@@ -1445,7 +1449,7 @@ async function loadAthleteMetrics(athlete){
       ctlPrev=ctl;atlPrev=atl;
     }
     // Apply TP reference offset (same key as athlete portal)
-    const storedOffset=Number(localStorage.getItem('hm2l_ctl_offset')||0)||0;
+    const storedOffset=Number(profForOffset?.profile?.ctl_offset||0)||0;
     let fitSeries=series,fitByDate=byDate;
     if(storedOffset){
       const atlOff=storedOffset*(7/42);
