@@ -1016,7 +1016,7 @@ function renderAthleteList(){
 
 async function fetchUnreadCounts(){
   try{
-    const r=await fetch('/api/unread-notes');
+    const r=await fetch('/api/workouts?resource=unread-counts');
     const d=await r.json();
     _unreadCounts=d.counts||{};
     renderAthleteList();
@@ -1026,7 +1026,7 @@ async function fetchUnreadCounts(){
 async function markAthleteNotesRead(athleteId){
   if(!(_unreadCounts[athleteId]>0))return;
   try{
-    await fetch('/api/unread-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:athleteId})});
+    await fetch('/api/workouts?resource=mark-read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:athleteId})});
     _unreadCounts[athleteId]=0;
     renderAthleteList();
   }catch(e){}

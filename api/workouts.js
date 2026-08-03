@@ -7,6 +7,33 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
+    // ── Unread note counts across all athletes (resource=unread-counts) ──
+    if (req.method === 'GET' && req.query.resource === 'unread-counts') {
+      const { data, error } = await supabase
+        .from('athlete_cal_notes')
+        .select('athlete_id')
+        .is('coach_read_at', null);
+      if (error) return res.status(500).json({ error: error.message });
+      const counts = {};
+      (data || []).forEach(row => { counts[row.athlete_id] = (counts[row.athlete_id] || 0) + 1; });
+      return res.status(200).json({ counts });
+    }
+
+    // ── Mark athlete notes as read (resource=mark-read) ──────────────────
+    if (req.method === 'POST' && req.query.resource === 'mark-read') {
+      let body = req.body;
+      if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
+      const { athlete_id } = body || {};
+      if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
+      const { error } = await supabase
+        .from('athlete_cal_notes')
+        .update({ coach_read_at: new Date().toISOString() })
+        .eq('athlete_id', athlete_id)
+        .is('coach_read_at', null);
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ ok: true });
+    }
+
     // ── Calendar notes (resource=notes) ──────────────────────────────────
     if (req.method === 'GET' && req.query.resource === 'notes') {
       const { athlete_id } = req.query;
