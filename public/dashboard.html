@@ -1003,12 +1003,13 @@ function buildSportCTL() {
   const n = sportCtlRangeDays;
   const days = Array.from({length:n}, (_,i) => { const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return d; });
 
+  const sportOff = _ctlOffset/3;
   const cycData = [], runData = [], swimData = [];
   days.forEach(d => {
     const k = dayKey(d);
-    cycData.push(cyclingByDate[k] != null ? Math.round(cyclingByDate[k]) : null);
-    runData.push(runningByDate[k] != null ? Math.round(runningByDate[k]) : null);
-    swimData.push(swimmingByDate[k] != null ? Math.round(swimmingByDate[k]) : null);
+    cycData.push(cyclingByDate[k] != null ? Math.round(cyclingByDate[k]+sportOff) : null);
+    runData.push(runningByDate[k] != null ? Math.round(runningByDate[k]+sportOff) : null);
+    swimData.push(swimmingByDate[k] != null ? Math.round(swimmingByDate[k]+sportOff) : null);
   });
 
   if (sportCtlInst) sportCtlInst.destroy();
@@ -6212,7 +6213,7 @@ function sportClass(type){
 }
 
 // Total fetch window: 3 years. First 0 days run the model without
-var fitnessSeries=[],fitnessByDate={};
+var fitnessSeries=[],fitnessByDate={},_ctlOffset=0;
 
 function dayKey(d){const dt=d instanceof Date?d:new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
 
@@ -6231,11 +6232,12 @@ async function loadDashboard(){
     const fitOldestStr='2020-01-01';
     const allTimeOldest=new Date(today);allTimeOldest.setDate(today.getDate()-548); // 18 months
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
-    const[athlete,activities,fitnessActs,allTimeActs]=await Promise.all([
+    const[athlete,activities,fitnessActs,allTimeActs,profForOffset]=await Promise.all([
       apiCall(id,key,'profile'),
       apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name,athlete_id'),
       apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type,athlete_id'),
-      apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local,athlete_id')
+      apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local,athlete_id'),
+      fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()).catch(()=>({profile:null}))
     ]);
     const ownActs=a=>Array.isArray(a)?a.filter(x=>!x.athlete_id||String(x.athlete_id)===String(id)):[];
     allTimeActivities=ownActs(allTimeActs);
@@ -6253,8 +6255,15 @@ async function loadDashboard(){
     const fitSorted=[...ownActs(fitnessActs)].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
     window._fitnessFetchedActs=fitSorted;
     const fit=window.computeFitness(fitSorted);
-    fitnessSeries=fit.series;
-    fitnessByDate=fit.byDate;
+    _ctlOffset=Number(profForOffset?.profile?.ctl_offset||0)||0;
+    if(_ctlOffset){
+      const atlOff=_ctlOffset*(7/42);
+      const adj=fit.series.map(e=>({date:e.date,ctl:e.ctl+_ctlOffset,atl:e.atl+atlOff,tsb:(e.ctl+_ctlOffset)-(e.atl+atlOff),tss:e.tss}));
+      const adjBD={};adj.forEach(e=>adjBD[e.date]=e);
+      fitnessSeries=adj;fitnessByDate=adjBD;
+    }else{
+      fitnessSeries=fit.series;fitnessByDate=fit.byDate;
+    }
     const todayEntry=fitnessSeries[fitnessSeries.length-1];
     let ctl=0,atl=0,tsb=0;
     if(todayEntry){
