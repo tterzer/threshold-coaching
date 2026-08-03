@@ -57,6 +57,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .athlete-item:hover{background:var(--bc3)}
 .athlete-item.active{border-color:var(--acc);background:var(--bc3)}
 .ath-avatar{width:32px;height:32px;border-radius:50%;background:var(--bc3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0}
+.notif-dot{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;background:#E24B4A;border-radius:8px;border:2px solid var(--bc2);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;color:#fff;padding:0 3px;box-sizing:border-box;pointer-events:none;line-height:1}
 .ath-name{font-size:13px;color:var(--tc)}
 .ath-email{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)}
 .empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#777}
@@ -952,6 +953,7 @@ function mondayOf(d){
 let workoutsCache=[];
 let racesCache=[];
 let coachNotesCache=[];
+let _unreadCounts={};
 let coachNotesByDate={};
 let chatHistory=[];
 let athleteWellness=null;
@@ -989,6 +991,8 @@ async function loadAthletes(){
     athletes=await r.json();
     athletes.forEach(a=>delete a.password_hash);
     renderAthleteList();
+    fetchUnreadCounts();
+    if(!window._unreadPollId) window._unreadPollId=setInterval(fetchUnreadCounts,90000);
   }catch(err){
     listEl.innerHTML='<div class="empty-note">'+(err.message||'Could not load athletes')+'</div>';
   }
@@ -1001,11 +1005,31 @@ function renderAthleteList(){
     const initials=(a.name||a.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const active=selectedAthlete&&selectedAthlete.id===a.id?'active':'';
     const pendingBadge=a.account_status==='pending'?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:#E24B4A;border:1px solid #E24B4A;padding:1px 5px;border-radius:2px;letter-spacing:0.06em;margin-left:6px">PENDING</span>':'';
+    const unread=_unreadCounts[a.id]||0;
+    const notifDot=unread?'<span class="notif-dot">'+(unread>9?'9+':unread)+'</span>':'';
     return '<div class="athlete-item '+active+'" onclick="selectAthlete(\''+a.id+'\')">'
-      +'<div class="ath-avatar">'+initials+'</div>'
+      +'<div style="position:relative;flex-shrink:0"><div class="ath-avatar">'+initials+'</div>'+notifDot+'</div>'
       +'<div><div class="ath-name">'+(a.name||'Unnamed athlete')+pendingBadge+'</div><div class="ath-email">'+(a.email||'')+'</div></div>'
       +'</div>';
   }).join('');
+}
+
+async function fetchUnreadCounts(){
+  try{
+    const r=await fetch('/api/unread-notes');
+    const d=await r.json();
+    _unreadCounts=d.counts||{};
+    renderAthleteList();
+  }catch(e){}
+}
+
+async function markAthleteNotesRead(athleteId){
+  if(!(_unreadCounts[athleteId]>0))return;
+  try{
+    await fetch('/api/unread-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:athleteId})});
+    _unreadCounts[athleteId]=0;
+    renderAthleteList();
+  }catch(e){}
 }
 
 async function selectAthlete(id){
@@ -1032,6 +1056,7 @@ async function selectAthlete(id){
   document.getElementById('chatHistoryList').innerHTML='';
   switchTab('overview');
   await Promise.all([loadAthleteMetrics(selectedAthlete), loadWorkouts(), loadRaces(), loadCoachNotes()]);
+  markAthleteNotesRead(selectedAthlete.id);
   coachCalInit();
   updateARaceBadge();
   coachCalRenderCountdown();
