@@ -194,6 +194,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-close-x:hover{color:var(--tc)}
 .modal-note-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-family:'DM Mono',monospace;font-size:12px;padding:10px 12px;resize:vertical;min-height:64px;margin-bottom:12px;outline:none}
 .modal-note-input:focus{border-color:var(--acc)}
+.wo-unread-dot{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:#E24B4A;align-self:center}
 .prof-check{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);background:var(--bc3)}
 .prof-check input{accent-color:var(--acc);cursor:pointer}
 .prof-check:has(input:checked){border-color:var(--acc);color:var(--acc)}
@@ -966,6 +967,7 @@ let workoutsCache=[];
 let racesCache=[];
 let coachNotesCache=[];
 let _unreadCounts={};
+let _unreadWorkoutDates=new Set();
 let coachNotesByDate={};
 let _coachCalNoteMap={};
 let _noteChatDate=null,_noteChatAthleteId=null;
@@ -1042,7 +1044,9 @@ async function markAthleteNotesRead(athleteId){
   try{
     await fetch('/api/workouts?resource=mark-read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:athleteId})});
     _unreadCounts[athleteId]=0;
+    coachNotesCache.forEach(n=>{ if(!n.coach_read_at)n.coach_read_at=new Date().toISOString(); });
     renderAthleteList();
+    coachCalRefresh();
   }catch(e){}
 }
 
@@ -1629,6 +1633,12 @@ async function loadCoachNotes(){
   coachNotesByDate={};
   _coachCalNoteMap={};
   coachNotesCache.forEach(n=>{ _coachCalNoteMap[n.id]=n; (coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n); });
+  _rebuildUnreadWorkoutDates();
+}
+
+function _rebuildUnreadWorkoutDates(){
+  _unreadWorkoutDates=new Set();
+  coachNotesCache.forEach(n=>{ if(!n.coach_read_at)_unreadWorkoutDates.add(n.date); });
 }
 
 async function openNoteChat(noteId){
@@ -2730,6 +2740,7 @@ function coachCalRenderDay(d){
 
   const matchedIcuIds=new Set();
   const dayItems=[]; // {html, sortKey, createdAt}
+  const noteDot=_unreadWorkoutDates.has(key)?'<span class="wo-unread-dot"></span>':'';
 
   wos.forEach(w=>{
     const spClass='sport-'+(w.sport||'other');
@@ -2748,10 +2759,10 @@ function coachCalRenderDay(d){
       const durSuffix=planned>0&&Math.abs(delta)>=5?(delta<0?' (↓'+Math.abs(delta)+' mins)':' (↑'+delta+' mins)'):'';
       const label=escHtml((timePrefix?timePrefix+' · ':'')+(actLabel)+(mins?' · '+mins+'min'+durSuffix:'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
-      dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:icu.start_date_local||''});
+      dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+noteDot+'<span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:icu.start_date_local||''});
     }else{
       const label=escHtml((w.title||w.sport||'Workout')+(w.duration_minutes?' · '+w.duration_minutes+'min':''));
-      dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,\''+woIdStr+'\')" ondragend="coachCalDragEnd(event)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add(\'drag-over-block\')" ondragleave="coachCalBlockDragLeave(event)" ondrop="event.stopPropagation();coachCalDropOnBlock(event,\''+woIdStr+'\')" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:'',sortOrder:w.sort_order??null,createdAt:w.created_at||''});
+      dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,\''+woIdStr+'\')" ondragend="coachCalDragEnd(event)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add(\'drag-over-block\')" ondragleave="coachCalBlockDragLeave(event)" ondrop="event.stopPropagation();coachCalDropOnBlock(event,\''+woIdStr+'\')" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+noteDot+'<span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:'',sortOrder:w.sort_order??null,createdAt:w.created_at||''});
     }
   });
 
@@ -2763,7 +2774,7 @@ function coachCalRenderDay(d){
     const timePrefix=_fmtBlockTime(a.start_date_local);
     const label=escHtml((timePrefix?timePrefix+' · ':'')+(a.name||a.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
     const icuIdStr=String(a.id);
-    dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
+    dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+noteDot+'<span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
   });
 
   (coachNotesByDate[key]||[]).forEach(n=>{
@@ -2860,6 +2871,7 @@ function coachCalRefresh(){
   racesCache.forEach(r=>{(coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r);});
   coachNotesByDate={};_coachCalNoteMap={};
   coachNotesCache.forEach(n=>{_coachCalNoteMap[n.id]=n;(coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n);});
+  _rebuildUnreadWorkoutDates();
   const weeksEl=document.getElementById('coachCalWeeks');
   const scrollEl=document.getElementById('coachCalScroll');
   if(!weeksEl||!coachCalEarliestMonday||!coachCalLatestMonday)return;
@@ -2887,6 +2899,7 @@ async function coachCalInit(){
   racesCache.forEach(r=>{ (coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r); });
   coachNotesByDate={};
   coachNotesCache.forEach(n=>{ (coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n); });
+  _rebuildUnreadWorkoutDates();
   coachCalActCache={};
   coachCalActFetchedFrom=null;
   coachCalActFetchedTo=null;
