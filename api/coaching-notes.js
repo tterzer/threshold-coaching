@@ -8,8 +8,20 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const { athlete_id, date } = req.query;
+      const { athlete_id, date, has_reply } = req.query;
       if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
+
+      // Return only dates that have a coach reply (for athlete notification dots)
+      if (has_reply) {
+        const { data, error } = await supabase
+          .from('coaching_notes')
+          .select('date, coach_reply_at')
+          .eq('athlete_id', athlete_id)
+          .not('coach_reply_at', 'is', null);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ dates: data });
+      }
+
       let q = supabase.from('coaching_notes').select('*').eq('athlete_id', athlete_id).order('date', { ascending: false });
       if (date) q = q.eq('date', date);
       const { data, error } = await q;
@@ -31,7 +43,10 @@ export default async function handler(req, res) {
       if (!athlete_id || !date) return res.status(400).json({ error: 'Missing athlete_id or date' });
       const fields = {};
       if (note !== undefined) fields.note = note;
-      if (coach_reply !== undefined) fields.coach_reply = coach_reply;
+      if (coach_reply !== undefined) {
+        fields.coach_reply = coach_reply;
+        fields.coach_reply_at = coach_reply ? new Date().toISOString() : null;
+      }
       if (!Object.keys(fields).length) return res.status(400).json({ error: 'No fields to update' });
 
       // Check for existing row first to avoid needing a unique constraint
