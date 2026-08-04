@@ -27,8 +27,12 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       console.log('[coaching-notes POST] body:', JSON.stringify(body));
-      const { athlete_id, date, note } = body;
+      const { athlete_id, date, note, coach_reply } = body;
       if (!athlete_id || !date) return res.status(400).json({ error: 'Missing athlete_id or date' });
+      const fields = {};
+      if (note !== undefined) fields.note = note;
+      if (coach_reply !== undefined) fields.coach_reply = coach_reply;
+      if (!Object.keys(fields).length) return res.status(400).json({ error: 'No fields to update' });
 
       // Check for existing row first to avoid needing a unique constraint
       const { data: existing, error: selectError } = await supabase
@@ -49,14 +53,14 @@ export default async function handler(req, res) {
       if (existing) {
         result = await supabase
           .from('coaching_notes')
-          .update({ note })
+          .update(fields)
           .eq('id', existing.id)
           .select()
           .single();
       } else {
         result = await supabase
           .from('coaching_notes')
-          .insert({ athlete_id, date, note })
+          .insert({ athlete_id, date, ...fields })
           .select()
           .single();
       }
