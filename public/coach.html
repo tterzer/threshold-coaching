@@ -58,6 +58,18 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .athlete-item.active{border-color:var(--acc);background:var(--bc3)}
 .ath-avatar{width:32px;height:32px;border-radius:50%;background:var(--bc3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--acc);flex-shrink:0}
 .notif-dot{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;background:#E24B4A;border-radius:8px;border:2px solid var(--bc2);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:8px;font-weight:700;color:#fff;padding:0 3px;box-sizing:border-box;pointer-events:none;line-height:1}
+/* Note chat modal */
+#noteChatModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1001;align-items:center;justify-content:center;padding:20px}
+#noteChatModal.show{display:flex}
+.note-chat-box{background:var(--bc2);border:1px solid var(--border);width:100%;max-width:460px;padding:20px;display:flex;flex-direction:column;gap:14px;max-height:80vh}
+.note-chat-bubbles{display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1}
+.note-bubble{font-size:13px;line-height:1.6;padding:10px 14px;max-width:88%;white-space:pre-wrap}
+.note-bubble-athlete{background:var(--bc3);border:1px solid var(--border);color:var(--tc);align-self:flex-start}
+.note-bubble-coach{background:rgba(200,240,54,0.07);border:1px solid rgba(200,240,54,0.25);color:var(--tc);align-self:flex-end}
+.note-bubble-meta{font-family:'DM Mono',monospace;font-size:9px;color:var(--tc3);margin-top:3px}
+.note-chat-input-row{display:flex;gap:8px;flex-shrink:0}
+.note-chat-textarea{flex:1;background:var(--bc3);border:1px solid var(--border);color:var(--tc);padding:8px 10px;font-family:'DM Mono',monospace;font-size:12px;resize:none;height:64px;line-height:1.5}
+.note-chat-send{background:var(--acc);color:#000;border:none;padding:0 18px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.04em;flex-shrink:0}
 .ath-name{font-size:13px;color:var(--tc)}
 .ath-email{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3)}
 .empty-note{font-family:'DM Mono',monospace;font-size:11px;color:#777}
@@ -955,6 +967,8 @@ let racesCache=[];
 let coachNotesCache=[];
 let _unreadCounts={};
 let coachNotesByDate={};
+let _coachCalNoteMap={};
+let _noteChatDate=null,_noteChatAthleteId=null;
 let chatHistory=[];
 let athleteWellness=null;
 let editingWorkout=null;
@@ -1613,7 +1627,51 @@ async function loadCoachNotes(){
     coachNotesCache=[];
   }
   coachNotesByDate={};
-  coachNotesCache.forEach(n=>{ (coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n); });
+  _coachCalNoteMap={};
+  coachNotesCache.forEach(n=>{ _coachCalNoteMap[n.id]=n; (coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n); });
+}
+
+async function openNoteChat(noteId){
+  const n=_coachCalNoteMap[noteId];
+  if(!n||!selectedAthlete)return;
+  _noteChatDate=n.date;
+  _noteChatAthleteId=selectedAthlete.id;
+  document.getElementById('noteChatDate').textContent=n.date;
+  const bubblesEl=document.getElementById('noteChatBubbles');
+  const athName=selectedAthlete.name||'Athlete';
+  bubblesEl.innerHTML='<div style="display:flex;flex-direction:column;align-items:flex-start"><div class="note-bubble note-bubble-athlete">'+escHtml(n.note_text||'')+'</div><div class="note-bubble-meta">'+escHtml(athName)+'</div></div>';
+  document.getElementById('noteChatInput').value='';
+  document.getElementById('noteChatSendBtn').textContent='Send';
+  try{
+    const r=await fetch('/api/coaching-notes?athlete_id='+encodeURIComponent(_noteChatAthleteId)+'&date='+_noteChatDate);
+    const d=await r.json();
+    const existing=(d.notes&&d.notes[0])?d.notes[0].note||'':'';
+    if(existing){
+      bubblesEl.innerHTML+='<div style="display:flex;flex-direction:column;align-items:flex-end"><div class="note-bubble note-bubble-coach">'+escHtml(existing)+'</div><div class="note-bubble-meta" style="text-align:right">You</div></div>';
+      document.getElementById('noteChatInput').value=existing;
+    }
+  }catch(e){}
+  document.getElementById('noteChatModal').classList.add('show');
+  if(_unreadCounts[_noteChatAthleteId]>0) markAthleteNotesRead(_noteChatAthleteId);
+}
+
+function closeNoteChat(){
+  document.getElementById('noteChatModal').classList.remove('show');
+}
+
+async function sendNoteReply(){
+  const note=document.getElementById('noteChatInput').value.trim();
+  const btn=document.getElementById('noteChatSendBtn');
+  if(!note||!_noteChatAthleteId||!_noteChatDate)return;
+  btn.textContent='...';
+  try{
+    await fetch('/api/coaching-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:_noteChatAthleteId,date:_noteChatDate,note})});
+    btn.textContent='Sent ✓';
+    setTimeout(()=>closeNoteChat(),700);
+  }catch(e){
+    btn.textContent='Error';
+    setTimeout(()=>{btn.textContent='Send';},1500);
+  }
 }
 
 function sportClass(sport){
@@ -2710,7 +2768,7 @@ function coachCalRenderDay(d){
 
   (coachNotesByDate[key]||[]).forEach(n=>{
     const label=escHtml(n.note_text||'Note');
-    dayItems.push({html:'<div class="cal-block cal-note" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:'',createdAt:n.created_at||''});
+    dayItems.push({html:'<div class="cal-block cal-note" style="cursor:pointer" onclick="event.stopPropagation();openNoteChat(\''+n.id+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:'',createdAt:n.created_at||''});
   });
 
   dayItems.sort((a,b)=>{
@@ -2800,8 +2858,8 @@ function coachCalRefresh(){
   workoutsCache.forEach(w=>{(coachCalWoByDate[w.date]=coachCalWoByDate[w.date]||[]).push(w);});
   coachCalRaceByDate={};
   racesCache.forEach(r=>{(coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r);});
-  coachNotesByDate={};
-  coachNotesCache.forEach(n=>{(coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n);});
+  coachNotesByDate={};_coachCalNoteMap={};
+  coachNotesCache.forEach(n=>{_coachCalNoteMap[n.id]=n;(coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n);});
   const weeksEl=document.getElementById('coachCalWeeks');
   const scrollEl=document.getElementById('coachCalScroll');
   if(!weeksEl||!coachCalEarliestMonday||!coachCalLatestMonday)return;
@@ -3322,18 +3380,22 @@ async function openBlockModal(evt, mode, woId, icuId){
   }
 
   // Athlete note section — always load from coaching_notes
-  let athleteNote = '';
+  let athleteNote = '', coachReply = '';
   const _noteActDate = act ? (act.start_date_local||'').slice(0,10) : (wo ? wo.date : '');
   const _noteAthleteId = selectedAthlete ? selectedAthlete.id : null;
   if (_noteAthleteId && _noteActDate) {
     try {
       const nr = await fetch('/api/coaching-notes?athlete_id='+_noteAthleteId+'&date='+_noteActDate);
-      if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) athleteNote = nd.notes[0].note || ''; }
+      if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) { athleteNote = nd.notes[0].note || ''; coachReply = nd.notes[0].coach_reply || ''; } }
     } catch(e) {}
   }
   if (!athleteNote && wo && wo.compliance_note) athleteNote = wo.compliance_note;
-  html+='<div class="modal-section-label" style="margin-top:1rem">Athlete Note</div>'
-    +'<textarea class="modal-note-input" id="coachCompNote" placeholder="No note yet..." data-act-date="'+_noteActDate+'" data-athlete-id="'+(_noteAthleteId||'')+'">'+escHtml(athleteNote)+'</textarea>';
+  if (athleteNote) {
+    html+='<div class="modal-section-label" style="margin-top:1rem">Athlete Note</div>'
+      +'<div class="modal-coach-notes" style="border-style:dashed;margin-bottom:4px">'+escHtml(athleteNote)+'</div>';
+  }
+  html+='<div class="modal-section-label" style="margin-top:0.75rem">Your Reply <span style="font-size:9px;opacity:0.5">(visible to athlete)</span></div>'
+    +'<textarea class="modal-note-input" id="coachReplyInput" placeholder="Add a reply for the athlete..." data-act-date="'+_noteActDate+'" data-athlete-id="'+(_noteAthleteId||'')+'">'+escHtml(coachReply)+'</textarea>';
 
   // Footer buttons
   let footerBtns='';
@@ -3352,7 +3414,7 @@ async function openBlockModal(evt, mode, woId, icuId){
   html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem">'
     +footerBtns
     +'<div style="display:flex;gap:8px">'
-      +'<button class="modal-btn-save" onclick="saveCoachNote()">Save note</button>'
+      +'<button class="modal-btn-save" id="coachReplySaveBtn" onclick="saveCoachNote()">Save reply</button>'
       +detailBtn
       +'<button class="modal-btn-close" onclick="closeBlockModal()">Close</button>'
     +'</div>'
@@ -3368,24 +3430,24 @@ function closeBlockModal(){
 }
 
 async function saveCoachNote(){
-  const ta = document.getElementById('coachCompNote');
+  const ta = document.getElementById('coachReplyInput');
   if (!ta) return;
-  const note = ta.value.trim();
+  const coach_reply = ta.value.trim();
   const actDate = ta.dataset.actDate || '';
   const athleteId = ta.dataset.athleteId || '';
-  const btn = document.querySelector('#blockModal .modal-btn-save');
+  const btn = document.getElementById('coachReplySaveBtn');
   if (!actDate || !athleteId) {
-    if (btn) { btn.textContent = 'Nothing to save'; setTimeout(() => btn.textContent = 'Save note', 2000); }
+    if (btn) { btn.textContent = 'Nothing to save'; setTimeout(() => btn.textContent = 'Save reply', 2000); }
     return;
   }
   try {
     const res = await fetch('/api/coaching-notes', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ athlete_id: athleteId, date: actDate, note })
+      body: JSON.stringify({ athlete_id: athleteId, date: actDate, coach_reply })
     });
     if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.error||'Save failed'); }
-    if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save note', 1500); }
-  } catch(e) { alert('Could not save note: ' + e.message); }
+    if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save reply', 1500); }
+  } catch(e) { alert('Could not save reply: ' + e.message); }
 }
 
 async function deleteCoachWorkout(id){
@@ -5031,6 +5093,21 @@ function renderLibraryPicker(){
     <div id="detailLapsSection">
       <div id="detailLapsTitle" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Lap Splits</div>
       <div id="detailLapsTable" style="overflow-x:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Note chat modal -->
+<div id="noteChatModal">
+  <div class="note-chat-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+      <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em" id="noteChatDate"></span>
+      <button onclick="closeNoteChat()" style="background:none;border:none;color:var(--tc3);cursor:pointer;font-size:18px;line-height:1;padding:0">✕</button>
+    </div>
+    <div class="note-chat-bubbles" id="noteChatBubbles"></div>
+    <div class="note-chat-input-row">
+      <textarea class="note-chat-textarea" id="noteChatInput" placeholder="Reply to athlete..."></textarea>
+      <button class="note-chat-send" id="noteChatSendBtn" onclick="sendNoteReply()">Send</button>
     </div>
   </div>
 </div>

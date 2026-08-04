@@ -3767,17 +3767,21 @@ async function openAthBlockModal(mode, woId, icuId){
 
   // Fetch note from coaching_notes for all activity types
   const _noteActDate = act ? (act.start_date_local||'').slice(0,10) : (wo ? wo.date : '');
-  let existingNote = '';
+  let existingNote = '', existingCoachReply = '';
   if (_noteActDate && currentAthlete && currentAthlete.id) {
     try {
       const nr = await fetch('/api/coaching-notes?athlete_id='+currentAthlete.id+'&date='+_noteActDate);
-      if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) existingNote = nd.notes[0].note || ''; }
+      if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) { existingNote = nd.notes[0].note || ''; existingCoachReply = nd.notes[0].coach_reply || ''; } }
     } catch(e) {}
   }
   // Fallback: legacy compliance_note on planned workout (older data only)
   if (!existingNote && wo && wo.compliance_note) existingNote = wo.compliance_note;
   html+='<div class="modal-section-label">How did it go?</div>'
     +'<textarea class="modal-note-input" id="athCompNote" placeholder="Add a note about this session..." data-act-date="'+_noteActDate+'">'+athEscHtml(existingNote)+'</textarea>';
+  if (existingCoachReply) {
+    html+='<div class="modal-section-label" style="margin-top:0.25rem">Coach Reply</div>'
+      +'<div style="background:rgba(255,255,255,0.05);border:1px solid var(--border);padding:10px 12px;font-size:13px;color:var(--tc2);white-space:pre-wrap;line-height:1.5">'+athEscHtml(existingCoachReply)+'</div>';
+  }
 
   // Footer: delete button only for planned-only workouts
   const deleteBtn=(mode==='planned'&&wo)
