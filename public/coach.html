@@ -195,6 +195,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-note-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-family:'DM Mono',monospace;font-size:12px;padding:10px 12px;resize:vertical;min-height:64px;margin-bottom:12px;outline:none}
 .modal-note-input:focus{border-color:var(--acc)}
 .wo-unread-dot{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:#E24B4A;align-self:center}
+.cal-block.cal-coach-note{border:1.5px solid var(--acc);background:rgba(200,240,54,0.06);color:var(--acc);cursor:pointer}
 .prof-check{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);background:var(--bc3)}
 .prof-check input{accent-color:var(--acc);cursor:pointer}
 .prof-check:has(input:checked){border-color:var(--acc);color:var(--acc)}
@@ -800,6 +801,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
     <div class="modal-tabs" id="dayModalTabs">
       <button class="modal-tab active" data-mtab="workout" onclick="switchModalTab('workout')">Plan Workout</button>
       <button class="modal-tab" data-mtab="race" onclick="switchModalTab('race')">Add Race</button>
+      <button class="modal-tab" data-mtab="note" onclick="switchModalTab('note')">Add Note</button>
     </div>
 
     <!-- Workout panel -->
@@ -932,6 +934,17 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
         <button class="btn btn-ghost" id="rcDeleteBtn" style="display:none;color:#E24B4A" onclick="deleteRace()">Delete</button>
       </div>
     </div>
+
+    <!-- Coach cal note panel -->
+    <div class="modal-panel" id="mp-note">
+      <div class="field"><label>Note for athlete</label><textarea id="calNoteText" rows="5" placeholder="e.g. Rest week, travel day, important reminder for the athlete..."></textarea></div>
+      <div class="error-msg" id="calNoteError">Could not save note.</div>
+      <div class="modal-actions">
+        <button class="btn" onclick="saveCoachCalNote()">Save</button>
+        <button class="btn btn-ghost" onclick="closeDayModal()">Cancel</button>
+        <button class="btn btn-ghost" id="calNoteDeleteBtn" style="display:none;color:#E24B4A" onclick="deleteCoachCalNote()">Delete</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -970,6 +983,9 @@ let _unreadCounts={};
 let _unreadWorkoutDates=new Set();
 let coachNotesByDate={};
 let _coachCalNoteMap={};
+let coachCalNotesCache=[];
+let coachCalNotesByDate={};
+let editingCoachCalNote=null;
 let _noteChatDate=null,_noteChatAthleteId=null;
 let chatHistory=[];
 let athleteWellness=null;
@@ -1624,15 +1640,21 @@ async function loadRaces(){
 async function loadCoachNotes(){
   if(!selectedAthlete)return;
   try{
-    const r=await fetch('/api/workouts?resource=notes&athlete_id='+encodeURIComponent(selectedAthlete.id));
-    const data=await r.json();
-    coachNotesCache=data.notes||[];
+    const [nr,cnr]=await Promise.all([
+      fetch('/api/workouts?resource=notes&athlete_id='+encodeURIComponent(selectedAthlete.id)).then(r=>r.json()),
+      fetch('/api/coaching-notes?resource=coach-cal-notes&athlete_id='+encodeURIComponent(selectedAthlete.id)).then(r=>r.json()).catch(()=>({notes:[]}))
+    ]);
+    coachNotesCache=nr.notes||[];
+    coachCalNotesCache=cnr.notes||[];
   }catch{
     coachNotesCache=[];
+    coachCalNotesCache=[];
   }
   coachNotesByDate={};
   _coachCalNoteMap={};
   coachNotesCache.forEach(n=>{ _coachCalNoteMap[n.id]=n; (coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n); });
+  coachCalNotesByDate={};
+  coachCalNotesCache.forEach(n=>{ (coachCalNotesByDate[n.date]=coachCalNotesByDate[n.date]||[]).push(n); });
   _rebuildUnreadWorkoutDates();
 }
 
@@ -2782,6 +2804,11 @@ function coachCalRenderDay(d){
     dayItems.push({html:'<div class="cal-block cal-note" style="cursor:pointer" onclick="event.stopPropagation();openNoteChat(\''+n.id+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:'',createdAt:n.created_at||''});
   });
 
+  (coachCalNotesByDate[key]||[]).forEach(n=>{
+    const label=escHtml(n.note_text||'Note');
+    dayItems.push({html:'<div class="cal-block cal-coach-note" onclick="event.stopPropagation();openCoachCalNoteEdit(\''+n.id+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:'',createdAt:n.created_at||''});
+  });
+
   dayItems.sort((a,b)=>{
     const aT=a.sortKey,bT=b.sortKey;
     if(aT&&bT)return aT.localeCompare(bT);
@@ -2871,6 +2898,8 @@ function coachCalRefresh(){
   racesCache.forEach(r=>{(coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r);});
   coachNotesByDate={};_coachCalNoteMap={};
   coachNotesCache.forEach(n=>{_coachCalNoteMap[n.id]=n;(coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n);});
+  coachCalNotesByDate={};
+  coachCalNotesCache.forEach(n=>{(coachCalNotesByDate[n.date]=coachCalNotesByDate[n.date]||[]).push(n);});
   _rebuildUnreadWorkoutDates();
   const weeksEl=document.getElementById('coachCalWeeks');
   const scrollEl=document.getElementById('coachCalScroll');
@@ -2899,6 +2928,8 @@ async function coachCalInit(){
   racesCache.forEach(r=>{ (coachCalRaceByDate[r.date]=coachCalRaceByDate[r.date]||[]).push(r); });
   coachNotesByDate={};
   coachNotesCache.forEach(n=>{ (coachNotesByDate[n.date]=coachNotesByDate[n.date]||[]).push(n); });
+  coachCalNotesByDate={};
+  coachCalNotesCache.forEach(n=>{ (coachCalNotesByDate[n.date]=coachCalNotesByDate[n.date]||[]).push(n); });
   _rebuildUnreadWorkoutDates();
   coachCalActCache={};
   coachCalActFetchedFrom=null;
@@ -3540,6 +3571,11 @@ function openDayModal(dateStr){
   document.getElementById('rcNotes').value='';
   document.getElementById('rcDeleteBtn').style.display='none';
   document.getElementById('rcError').style.display='none';
+  // Reset note form
+  editingCoachCalNote=null;
+  document.getElementById('calNoteText').value='';
+  document.getElementById('calNoteDeleteBtn').style.display='none';
+  document.getElementById('calNoteError').style.display='none';
   document.getElementById('dayModal').classList.add('show');
 }
 
@@ -3592,7 +3628,52 @@ function closeDayModal(){
   document.getElementById('dayModal').classList.remove('show');
   editingWorkout=null;
   editingRace=null;
+  editingCoachCalNote=null;
   pendingDate=null;
+}
+
+function openCoachCalNoteEdit(id){
+  const n=coachCalNotesCache.find(x=>String(x.id)===String(id));
+  if(!n)return;
+  editingCoachCalNote=n;
+  pendingDate=n.date;
+  document.getElementById('dayModalTitle').textContent='Edit note';
+  document.getElementById('dayModalTabs').style.display='none';
+  switchModalTab('note');
+  document.getElementById('calNoteText').value=n.note_text||'';
+  document.getElementById('calNoteDeleteBtn').style.display='block';
+  document.getElementById('calNoteError').style.display='none';
+  document.getElementById('dayModal').classList.add('show');
+}
+
+async function saveCoachCalNote(){
+  if(!selectedAthlete)return;
+  const text=(document.getElementById('calNoteText').value||'').trim();
+  const errEl=document.getElementById('calNoteError');
+  errEl.style.display='none';
+  try{
+    let res;
+    if(editingCoachCalNote){
+      res=await fetch('/api/coaching-notes?resource=coach-cal-notes',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({resource:'coach-cal-notes',id:editingCoachCalNote.id,note_text:text})});
+    }else{
+      res=await fetch('/api/coaching-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resource:'coach-cal-notes',athlete_id:selectedAthlete.id,date:pendingDate,note_text:text})});
+    }
+    if(!res.ok){const d=await res.json().catch(()=>({}));throw new Error(d.error||'Save failed');}
+    closeDayModal();
+    await loadCoachNotes();
+    coachCalRefresh();
+  }catch(e){errEl.textContent='Could not save note: '+e.message;errEl.style.display='block';}
+}
+
+async function deleteCoachCalNote(){
+  if(!editingCoachCalNote||!confirm('Delete this note?'))return;
+  try{
+    const res=await fetch('/api/coaching-notes?resource=coach-cal-notes',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({resource:'coach-cal-notes',id:editingCoachCalNote.id})});
+    if(!res.ok)throw new Error('Delete failed');
+    closeDayModal();
+    await loadCoachNotes();
+    coachCalRefresh();
+  }catch(e){alert('Could not delete note: '+e.message);}
 }
 
 // Also support opening workout modal directly from chat "Add to calendar" button
