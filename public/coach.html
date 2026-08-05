@@ -3322,6 +3322,7 @@ function _fmtBlockTime(iso){
 }
 
 var _currentBlockWo = null;
+var _currentBlockAct = null;
 
 // Open a block detail modal (coach view — read only, shows planned vs actual)
 async function openBlockModal(evt, mode, woId, icuId){
@@ -3329,6 +3330,7 @@ async function openBlockModal(evt, mode, woId, icuId){
   const wo=woId?workoutsCache.find(x=>String(x.id)===woId):null;
   _currentBlockWo = wo || null;
   const act=icuId?athleteIcuActivities.find(x=>String(x.id)===icuId):null;
+  _currentBlockAct = act || null;
 
   function _fmtDur2(s){if(!s)return'—';const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';}
   function _fmtDist2(m){if(!m)return'—';const mi=m/1609.34;return mi.toFixed(1)+' mi';}
@@ -3450,7 +3452,12 @@ async function openBlockModal(evt, mode, woId, icuId){
       +'<button class="modal-btn-save" onclick="saveCurrentBlockAsTemplate()" style="background:transparent;border-color:var(--tc3);color:var(--tc3)">Save to library</button>'
       +'</div>';
   }else if(mode==='completed'&&wo){
-    footerBtns='<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete planned</button>';
+    footerBtns='<div style="display:flex;gap:8px">'
+      +'<button class="modal-btn-delete" onclick="deleteCoachWorkout(\''+String(wo.id)+'\')">Delete planned</button>'
+      +'<button class="modal-btn-save" onclick="saveCurrentBlockAsTemplate()" style="background:transparent;border-color:var(--tc3);color:var(--tc3)">Save to library</button>'
+      +'</div>';
+  }else if(act){
+    footerBtns='<button class="modal-btn-save" onclick="saveCurrentBlockAsTemplate()" style="background:transparent;border-color:var(--tc3);color:var(--tc3)">Save to library</button>';
   }
 
   const detailBtn=act?'<button class="modal-btn-close" onclick="document.getElementById(\'blockModal\').style.display=\'none\';openDetailView(\''+String(act.id)+'\',\''+sport+'\')" style="border-color:var(--acc);color:var(--acc)">Detailed view →</button>':'';
@@ -5066,8 +5073,12 @@ async function deleteTemplate(){
 
 async function saveCurrentBlockAsTemplate(){
   const wo=_currentBlockWo;
-  if(!wo){alert('No planned workout to save.');return;}
-  await saveWorkoutAsTemplate({title:wo.title||'',sport:wo.sport||'cycling',intensity:wo.intensity||null,fuelpro_type:wo.fuelpro_type??null,description:wo.description||null});
+  const act=_currentBlockAct;
+  if(!wo&&!act){alert('Nothing to save.');return;}
+  const data=wo
+    ?{title:wo.title||'',sport:wo.sport||'cycling',intensity:wo.intensity||null,fuelpro_type:wo.fuelpro_type??null,description:wo.description||null}
+    :{title:act.name||act.type||'',sport:icuTypeToSport(act.type)||'other',intensity:null,fuelpro_type:null,description:null};
+  await saveWorkoutAsTemplate(data);
 }
 
 async function saveWorkoutAsTemplate(wo){
@@ -5085,13 +5096,15 @@ async function saveWorkoutAsTemplate(wo){
 }
 
 function applyTemplateToForm(tpl){
+  closeLibraryPicker();
+  switchTab('calendar');
+  openDayModal(pendingDate||toYMD(new Date()));
+  // Override after openDayModal resets the form
   document.getElementById('woSport').value=tpl.sport||'cycling';
   document.getElementById('woTitle').value=tpl.title||'';
   document.getElementById('woIntensity').value=tpl.intensity||'endurance';
   document.getElementById('woFuelpro').value=tpl.fuelpro_type!=null?String(tpl.fuelpro_type):'';
   document.getElementById('woDesc').value=tpl.description||'';
-  closeLibraryPicker();
-  switchTab('calendar');
 }
 
 // Library picker overlay (triggered from workout form "From library" button)
