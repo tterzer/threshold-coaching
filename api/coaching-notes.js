@@ -48,6 +48,37 @@ export default async function handler(req, res) {
     if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
     body = body || {};
 
+    // ── Coach calendar notes — must be checked before the generic POST ──────
+    if (body.resource === 'coach-cal-notes' || req.query.resource === 'coach-cal-notes') {
+      if (req.method === 'POST') {
+        const { athlete_id, date, note_text } = body;
+        if (!athlete_id || !date) return res.status(400).json({ error: 'Missing athlete_id or date' });
+        const { data, error } = await supabase
+          .from('coach_cal_notes')
+          .insert({ athlete_id, date, note_text: note_text || '' })
+          .select().single();
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ note: data });
+      }
+      if (req.method === 'PUT') {
+        const { id, note_text } = body;
+        if (!id) return res.status(400).json({ error: 'Missing id' });
+        const { data, error } = await supabase
+          .from('coach_cal_notes')
+          .update({ note_text: note_text || '' })
+          .eq('id', id).select().single();
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ note: data });
+      }
+      if (req.method === 'DELETE') {
+        const id = body.id || req.query.id;
+        if (!id) return res.status(400).json({ error: 'Missing id' });
+        const { error } = await supabase.from('coach_cal_notes').delete().eq('id', id);
+        if (error) return res.status(500).json({ error: error.message });
+        return res.status(200).json({ ok: true });
+      }
+    }
+
     if (req.method === 'POST') {
       console.log('[coaching-notes POST] body:', JSON.stringify(body));
       const { athlete_id, date, note, coach_reply } = body;
@@ -97,37 +128,6 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({ note: result.data });
-    }
-
-    // ── Coach calendar notes (resource=coach-cal-notes) ──────────────────
-    if (body.resource === 'coach-cal-notes' || req.query.resource === 'coach-cal-notes') {
-      if (req.method === 'POST') {
-        const { athlete_id, date, note_text } = body;
-        if (!athlete_id || !date) return res.status(400).json({ error: 'Missing athlete_id or date' });
-        const { data, error } = await supabase
-          .from('coach_cal_notes')
-          .insert({ athlete_id, date, note_text: note_text || '' })
-          .select().single();
-        if (error) return res.status(500).json({ error: error.message });
-        return res.status(200).json({ note: data });
-      }
-      if (req.method === 'PUT') {
-        const { id, note_text } = body;
-        if (!id) return res.status(400).json({ error: 'Missing id' });
-        const { data, error } = await supabase
-          .from('coach_cal_notes')
-          .update({ note_text: note_text || '' })
-          .eq('id', id).select().single();
-        if (error) return res.status(500).json({ error: error.message });
-        return res.status(200).json({ note: data });
-      }
-      if (req.method === 'DELETE') {
-        const id = body.id || req.query.id;
-        if (!id) return res.status(400).json({ error: 'Missing id' });
-        const { error } = await supabase.from('coach_cal_notes').delete().eq('id', id);
-        if (error) return res.status(500).json({ error: error.message });
-        return res.status(200).json({ ok: true });
-      }
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
