@@ -1001,6 +1001,7 @@ function mondayOf(d){
 let workoutsCache=[];
 let racesCache=[];
 let coachNotesCache=[];
+let workoutNotesCache=[];
 let _unreadCounts={};
 let _unreadWorkoutDates=new Set();
 let coachNotesByDate={};
@@ -1662,15 +1663,18 @@ async function loadRaces(){
 async function loadCoachNotes(){
   if(!selectedAthlete)return;
   try{
-    const [nr,cnr]=await Promise.all([
+    const [nr,cnr,wnr]=await Promise.all([
       fetch('/api/workouts?resource=notes&athlete_id='+encodeURIComponent(selectedAthlete.id)).then(r=>r.json()),
-      fetch('/api/coaching-notes?resource=coach-cal-notes&athlete_id='+encodeURIComponent(selectedAthlete.id)).then(r=>r.json()).catch(()=>({notes:[]}))
+      fetch('/api/coaching-notes?resource=coach-cal-notes&athlete_id='+encodeURIComponent(selectedAthlete.id)).then(r=>r.json()).catch(()=>({notes:[]})),
+      fetch('/api/coaching-notes?athlete_id='+encodeURIComponent(selectedAthlete.id)).then(r=>r.json()).catch(()=>({notes:[]}))
     ]);
     coachNotesCache=nr.notes||[];
     coachCalNotesCache=cnr.notes||[];
+    workoutNotesCache=wnr.notes||[];
   }catch{
     coachNotesCache=[];
     coachCalNotesCache=[];
+    workoutNotesCache=[];
   }
   coachNotesByDate={};
   _coachCalNoteMap={};
@@ -1682,7 +1686,7 @@ async function loadCoachNotes(){
 
 function _rebuildUnreadWorkoutDates(){
   _unreadWorkoutDates=new Set();
-  coachNotesCache.forEach(n=>{ if(!n.coach_read_at)_unreadWorkoutDates.add(n.date); });
+  workoutNotesCache.forEach(n=>{ if(n.note && !n.coach_reply)_unreadWorkoutDates.add(n.date); });
 }
 
 async function openNoteChat(noteId){
@@ -3529,6 +3533,10 @@ async function saveCoachNote(){
     });
     if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.error||'Save failed'); }
     if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save reply', 1500); }
+    const wo=workoutNotesCache.find(n=>n.date===actDate);
+    if(wo) wo.coach_reply=coach_reply||'replied';
+    _rebuildUnreadWorkoutDates();
+    coachCalRefresh();
   } catch(e) { alert('Could not save reply: ' + e.message); }
 }
 
