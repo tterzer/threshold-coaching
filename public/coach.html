@@ -325,6 +325,19 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   .chat-layout{grid-template-columns:1fr}
   .chat-history-sidebar{display:none}
   .modal{width:96%;max-height:92vh}
+  /* Calendar: fixed height so scroll container is bounded on mobile */
+  #tab-calendar.active{height:calc(100vh - 130px);overflow:hidden;display:flex;flex-direction:column;padding:0}
+  /* 7 columns only — hide summary panel */
+  #calHeadRow{grid-template-columns:repeat(7,1fr)}
+  .cal-week{grid-template-columns:repeat(7,1fr)}
+  #calHeadRow .cal-head:last-child,.cal-summary{display:none}
+  .cal-scroll{scroll-snap-type:none;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  .cal-head{font-size:7px;padding:3px 2px;letter-spacing:0}
+  .cal-cell{padding:4px 3px;gap:2px;overflow:hidden;min-height:0}
+  .cal-date{font-size:10px}
+  .cal-block{font-size:10px;padding:2px 3px;height:20px;line-height:16px;margin-bottom:2px;overflow:hidden;align-items:center}
+  .cal-block .pill-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}
+  .cal-coach-note.cal-block{height:20px;line-height:16px;font-size:10px;padding:2px 3px}
 }
 @media(max-width:479px){
   .metrics{grid-template-columns:repeat(2,1fr)}
@@ -2882,12 +2895,15 @@ function coachCalSizeWeeks(){
   const headRow=document.getElementById('calHeadRow');
   const topSentinel=document.getElementById('coachCalTopSentinel');
   if(!scrollEl)return;
+  if(window.innerWidth<=767){
+    scrollEl.style.setProperty('--cal-week-h','88px');
+    scrollEl.style.scrollPaddingTop='0px';
+    return;
+  }
   const headH=headRow?headRow.offsetHeight:0;
   const sentinelH=topSentinel?topSentinel.offsetHeight:0;
   const h=scrollEl.clientHeight-headH-sentinelH;
   if(h>0)scrollEl.style.setProperty('--cal-week-h',h+'px');
-  // Sticky head covers the first headH px of the scrollport, so a snap
-  // target's "start" edge needs to land just below it, not at literal y=0.
   scrollEl.style.scrollPaddingTop=headH+'px';
 }
 
@@ -3204,8 +3220,14 @@ function coachCalScrollToMonday(monday){
   const scrollEl=document.getElementById('coachCalScroll');
   const weekEl=document.querySelector('.cal-week[data-week-key="'+toYMD(monday)+'"]');
   if(weekEl&&scrollEl){
-    const weekCenter=weekEl.offsetTop+weekEl.offsetHeight/2;
-    scrollEl.scrollTop=Math.max(0,weekCenter-scrollEl.clientHeight/2);
+    if(window.innerWidth<=767){
+      const headRow=document.getElementById('calHeadRow');
+      const headH=headRow?headRow.offsetHeight:0;
+      scrollEl.scrollTop=Math.max(0,weekEl.offsetTop-headH);
+    } else {
+      const weekCenter=weekEl.offsetTop+weekEl.offsetHeight/2;
+      scrollEl.scrollTop=Math.max(0,weekCenter-scrollEl.clientHeight/2);
+    }
   }
 }
 
