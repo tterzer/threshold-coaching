@@ -327,17 +327,26 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   .modal{width:96%;max-height:92vh}
   /* Calendar: fixed height so scroll container is bounded on mobile */
   #tab-calendar.active{height:calc(100vh - 130px);overflow:hidden;display:flex;flex-direction:column;padding:0}
-  /* 7 columns only — hide summary panel */
-  #calHeadRow{grid-template-columns:repeat(7,1fr)}
-  .cal-week{grid-template-columns:repeat(7,1fr)}
-  #calHeadRow .cal-head:last-child,.cal-summary{display:none}
-  .cal-scroll{scroll-snap-type:none;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  /* Day cols fill screen width; summary visible by swiping right */
+  #calHeadRow{grid-template-columns:repeat(7,1fr) 200px;min-width:575px}
+  .cal-week{grid-template-columns:repeat(7,1fr) 200px;min-width:575px}
+  .cal-scroll{scroll-snap-type:none;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
   .cal-head{font-size:7px;padding:3px 2px;letter-spacing:0}
   .cal-cell{padding:4px 3px;gap:2px;overflow:hidden;min-height:0}
   .cal-date{font-size:10px}
   .cal-block{font-size:10px;padding:2px 3px;height:20px;line-height:16px;margin-bottom:2px;overflow:hidden;align-items:center}
   .cal-block .pill-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}
   .cal-coach-note.cal-block{height:20px;line-height:16px;font-size:10px;padding:2px 3px}
+  /* Block modal: more space, readable label sizes */
+  .block-modal-bg{padding:8px}
+  .block-modal{padding:16px 14px}
+  .block-modal-title{font-size:22px}
+  .block-metric-label{font-size:11px}
+  .block-metric-value{font-size:18px}
+  .block-row{font-size:12px}
+  .block-row-label{font-size:11px;min-width:55px}
+  .modal-metric-label{font-size:11px}
+  .modal-metric-val{font-size:20px}
 }
 @media(max-width:479px){
   .metrics{grid-template-columns:repeat(2,1fr)}
