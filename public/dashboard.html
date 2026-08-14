@@ -322,14 +322,14 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
   #athCalHeadRow{grid-template-columns:repeat(7,1fr)}
   .ath-cal-week{grid-template-columns:repeat(7,1fr)}
   #athCalHeadRow .ath-cal-head:last-child,.ath-cal-summary{display:none}
-  .ath-cal-scroll{scroll-snap-type:none}
+  .ath-cal-scroll{scroll-snap-type:none;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
   .ath-cal-head{font-size:7px;padding:3px 2px;letter-spacing:0}
   .ath-cal-cell{padding:4px 3px;gap:2px;overflow:hidden}
   .ath-cal-date{font-size:10px}
   /* Compact blocks: single-line truncated, still tappable */
-  .ath-cal-block{font-size:9px;padding:2px 3px;height:16px;line-height:12px;margin-bottom:2px;overflow:hidden;align-items:center}
+  .ath-cal-block{font-size:10px;padding:2px 3px;height:20px;line-height:16px;margin-bottom:2px;overflow:hidden;align-items:center}
   .ath-cal-block .pill-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}
-  .ath-cal-race{font-size:9px;height:16px;line-height:16px;padding:0 3px;margin-bottom:2px}
+  .ath-cal-race{font-size:10px;height:20px;line-height:20px;padding:0 3px;margin-bottom:2px}
   /* Modals: full-width, no min-width constraint */
   .ath-modal{min-width:unset;padding:20px 16px}
   .ath-add-modal{padding:20px 16px}
@@ -3577,8 +3577,14 @@ function athCalScrollToMonday(monday){
   const scrollEl=document.getElementById('athCalScroll');
   const weekEl=document.querySelector('.ath-cal-week[data-week-key="'+toYMD(monday)+'"]');
   if(weekEl&&scrollEl){
-    const weekCenter=weekEl.offsetTop+weekEl.offsetHeight/2;
-    scrollEl.scrollTop=Math.max(0,weekCenter-scrollEl.clientHeight/2);
+    if(window.innerWidth<=767){
+      const headRow=document.getElementById('athCalHeadRow');
+      const headH=headRow?headRow.offsetHeight:0;
+      scrollEl.scrollTop=Math.max(0,weekEl.offsetTop-headH);
+    } else {
+      const weekCenter=weekEl.offsetTop+weekEl.offsetHeight/2;
+      scrollEl.scrollTop=Math.max(0,weekCenter-scrollEl.clientHeight/2);
+    }
   }
 }
 
