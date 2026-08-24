@@ -33,6 +33,24 @@ export default async function handler(req, res) {
         return res.status(200).json({ dates: data });
       }
 
+      // Workout chat thread for a specific date
+      if (req.query.resource === 'workout-chat') {
+        if (!date) return res.status(400).json({ error: 'Missing date' });
+        const { data: chatRow, error: chatErr } = await supabase
+          .from('coaching_notes')
+          .select('messages, note, coach_reply, coach_reply_at')
+          .eq('athlete_id', athlete_id)
+          .eq('date', date)
+          .maybeSingle();
+        if (chatErr) return res.status(500).json({ error: chatErr.message });
+        let messages = (chatRow && chatRow.messages) ? chatRow.messages : [];
+        if (!messages.length) {
+          if (chatRow && chatRow.note) messages.push({ sender: 'athlete', text: chatRow.note, created_at: null });
+          if (chatRow && chatRow.coach_reply) messages.push({ sender: 'coach', text: chatRow.coach_reply, created_at: chatRow.coach_reply_at || null });
+        }
+        return res.status(200).json({ messages });
+      }
+
       let q = supabase.from('coaching_notes').select('*').eq('athlete_id', athlete_id).order('date', { ascending: false });
       if (date) q = q.eq('date', date);
       const { data, error } = await q;
@@ -47,6 +65,34 @@ export default async function handler(req, res) {
     let body = req.body;
     if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
     body = body || {};
+
+    // ── Workout chat messages — append a new message to coaching_notes.messages ─
+    if (body.resource === 'workout-chat' || req.query.resource === 'workout-chat') {
+      if (req.method === 'POST') {
+        const { athlete_id, date, sender, text } = body;
+        if (!athlete_id || !date || !sender || !text) return res.status(400).json({ error: 'Missing params' });
+        const newMsg = { sender, text, created_at: new Date().toISOString() };
+        const { data: existing, error: selErr } = await supabase
+          .from('coaching_notes')
+          .select('id, messages, note')
+          .eq('athlete_id', athlete_id)
+          .eq('date', date)
+          .maybeSingle();
+        if (selErr) return res.status(500).json({ error: selErr.message });
+        const messages = [...((existing && existing.messages) ? existing.messages : []), newMsg];
+        const fields = { messages };
+        if (sender === 'coach') { fields.coach_reply = text; fields.coach_reply_at = new Date().toISOString(); }
+        if (sender === 'athlete' && !(existing && existing.note)) fields.note = text;
+        let result;
+        if (existing) {
+          result = await supabase.from('coaching_notes').update(fields).eq('id', existing.id).select('messages').single();
+        } else {
+          result = await supabase.from('coaching_notes').insert({ athlete_id, date, ...fields }).select('messages').single();
+        }
+        if (result.error) return res.status(500).json({ error: result.error.message });
+        return res.status(200).json({ messages: (result.data && result.data.messages) ? result.data.messages : messages });
+      }
+    }
 
     // ── Coach calendar notes — must be checked before the generic POST ──────
     if (body.resource === 'coach-cal-notes' || req.query.resource === 'coach-cal-notes') {
