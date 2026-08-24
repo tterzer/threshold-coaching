@@ -185,6 +185,15 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-comp-val{font-family:'DM Mono',monospace;color:var(--tc)}
 .modal-section-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
 .modal-coach-notes{font-size:13px;color:var(--tc2);line-height:1.6;margin-bottom:20px;background:var(--bc3);border:1px solid var(--border);padding:12px 14px;white-space:pre-wrap}
+.wo-chat-thread{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:4px 0;margin-bottom:10px}
+.wo-chat-bubble{max-width:82%;padding:7px 11px;font-size:13px;line-height:1.45;word-break:break-word;border-radius:6px}
+.wo-chat-mine{align-self:flex-end;background:rgba(200,240,54,0.12);border:1px solid rgba(200,240,54,0.25);color:var(--tc)}
+.wo-chat-theirs{align-self:flex-start;background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--tc)}
+.wo-chat-empty{color:var(--tc3);font-size:11px;font-family:'DM Mono',monospace;padding:4px 0}
+.wo-chat-input-row{display:flex;gap:8px;align-items:flex-end}
+.wo-chat-input{flex:1;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-size:13px;padding:8px 10px;resize:vertical;min-height:56px;font-family:inherit;border-radius:2px;box-sizing:border-box}
+.wo-chat-send{background:var(--acc);color:#000;border:none;padding:8px 14px;font-size:11px;font-family:'DM Mono',monospace;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;border-radius:2px;white-space:nowrap;height:56px}
+.wo-chat-send:disabled{opacity:0.4;cursor:default}
 .modal-btn-close{font-family:'DM Mono',monospace;font-size:11px;background:none;color:var(--tc2);border:1px solid var(--border);padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
 .modal-btn-close:hover{border-color:var(--tc2);color:var(--tc)}
 .modal-btn-save{font-family:'DM Mono',monospace;font-size:11px;background:var(--acc);color:#000;border:none;padding:10px 24px;cursor:pointer;letter-spacing:0.04em}
@@ -1686,7 +1695,14 @@ async function loadCoachNotes(){
 
 function _rebuildUnreadWorkoutDates(){
   _unreadWorkoutDates=new Set();
-  workoutNotesCache.forEach(n=>{ if(n.note && !n.coach_reply)_unreadWorkoutDates.add(n.date); });
+  workoutNotesCache.forEach(n=>{
+    const msgs=n.messages||[];
+    if(msgs.length>0){
+      if(msgs[msgs.length-1].sender==='athlete')_unreadWorkoutDates.add(n.date);
+    } else if(n.note && !n.coach_reply){
+      _unreadWorkoutDates.add(n.date);
+    }
+  });
 }
 
 async function openNoteChat(noteId){
@@ -3460,23 +3476,15 @@ async function openBlockModal(evt, mode, woId, icuId){
     }
   }
 
-  // Athlete note section — always load from coaching_notes
-  let athleteNote = '', coachReply = '';
+  // Workout chat thread
   const _noteActDate = act ? (act.start_date_local||'').slice(0,10) : (wo ? wo.date : '');
   const _noteAthleteId = selectedAthlete ? selectedAthlete.id : null;
-  if (_noteAthleteId && _noteActDate) {
-    try {
-      const nr = await fetch('/api/coaching-notes?athlete_id='+_noteAthleteId+'&date='+_noteActDate);
-      if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) { athleteNote = nd.notes[0].note || ''; coachReply = nd.notes[0].coach_reply || ''; } }
-    } catch(e) {}
-  }
-  if (!athleteNote && wo && wo.compliance_note) athleteNote = wo.compliance_note;
-  if (athleteNote) {
-    html+='<div class="modal-section-label" style="margin-top:1rem">Athlete Note</div>'
-      +'<div class="modal-coach-notes" style="border-style:dashed;margin-bottom:4px">'+escHtml(athleteNote)+'</div>';
-  }
-  html+='<div class="modal-section-label" style="margin-top:0.75rem">Your Reply <span style="font-size:9px;opacity:0.5">(visible to athlete)</span></div>'
-    +'<textarea class="modal-note-input" id="coachReplyInput" placeholder="Add a reply for the athlete..." data-act-date="'+_noteActDate+'" data-athlete-id="'+(_noteAthleteId||'')+'">'+escHtml(coachReply)+'</textarea>';
+  html+='<div class="modal-section-label" style="margin-top:1rem">Athlete Chat</div>'
+    +'<div id="coachChatThread" class="wo-chat-thread"><div class="wo-chat-empty">Loading...</div></div>'
+    +'<div class="wo-chat-input-row">'
+    +'<textarea class="wo-chat-input" id="coachChatInput" placeholder="Reply to athlete..." data-act-date="'+_noteActDate+'" data-athlete-id="'+(_noteAthleteId||'')+'" rows="2"></textarea>'
+    +'<button class="wo-chat-send" id="coachChatSendBtn" onclick="sendCoachChatMsg()">Send</button>'
+    +'</div>';
 
   // Footer buttons
   let footerBtns='';
@@ -3500,7 +3508,6 @@ async function openBlockModal(evt, mode, woId, icuId){
   html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem">'
     +footerBtns
     +'<div style="display:flex;gap:8px">'
-      +'<button class="modal-btn-save" id="coachReplySaveBtn" onclick="saveCoachNote()">Save reply</button>'
       +detailBtn
       +'<button class="modal-btn-close" onclick="closeBlockModal()">Close</button>'
     +'</div>'
@@ -3509,35 +3516,55 @@ async function openBlockModal(evt, mode, woId, icuId){
   document.getElementById('blockModalBody').innerHTML=html;
   document.getElementById('blockModalTitle').innerHTML='';
   document.getElementById('blockModal').classList.add('show');
+  if(_noteAthleteId&&_noteActDate)loadCoachChatThread(_noteAthleteId,_noteActDate);
 }
 
 function closeBlockModal(){
   document.getElementById('blockModal').classList.remove('show');
 }
 
-async function saveCoachNote(){
-  const ta = document.getElementById('coachReplyInput');
-  if (!ta) return;
-  const coach_reply = ta.value.trim();
-  const actDate = ta.dataset.actDate || '';
-  const athleteId = ta.dataset.athleteId || '';
-  const btn = document.getElementById('coachReplySaveBtn');
-  if (!actDate || !athleteId) {
-    if (btn) { btn.textContent = 'Nothing to save'; setTimeout(() => btn.textContent = 'Save reply', 2000); }
-    return;
-  }
-  try {
-    const res = await fetch('/api/coaching-notes', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ athlete_id: athleteId, date: actDate, coach_reply })
-    });
-    if (!res.ok) { const d = await res.json().catch(()=>({})); throw new Error(d.error||'Save failed'); }
-    if (btn) { btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = 'Save reply', 1500); }
-    const wo=workoutNotesCache.find(n=>n.date===actDate);
-    if(wo) wo.coach_reply=coach_reply||'replied';
+async function loadCoachChatThread(athleteId,date){
+  const el=document.getElementById('coachChatThread');
+  if(!el)return;
+  try{
+    const r=await fetch('/api/coaching-notes?resource=workout-chat&athlete_id='+encodeURIComponent(athleteId)+'&date='+date);
+    if(!r.ok)return;
+    const d=await r.json();
+    renderCoachChatThread(d.messages||[]);
+  }catch(e){if(el)el.innerHTML='<div class="wo-chat-empty">Could not load messages</div>';}
+}
+
+function renderCoachChatThread(messages){
+  const el=document.getElementById('coachChatThread');
+  if(!el)return;
+  if(!messages.length){el.innerHTML='<div class="wo-chat-empty">No messages yet</div>';return;}
+  el.innerHTML=messages.map(m=>'<div class="wo-chat-bubble '+(m.sender==='coach'?'wo-chat-mine':'wo-chat-theirs')+'">'+escHtml(m.text||'')+'</div>').join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+async function sendCoachChatMsg(){
+  const input=document.getElementById('coachChatInput');
+  if(!input)return;
+  const text=input.value.trim();
+  if(!text)return;
+  const date=input.dataset.actDate;
+  const athleteId=input.dataset.athleteId;
+  if(!date||!athleteId)return;
+  const btn=document.getElementById('coachChatSendBtn');
+  if(btn)btn.disabled=true;
+  try{
+    const res=await fetch('/api/coaching-notes',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({resource:'workout-chat',athlete_id:athleteId,date,sender:'coach',text})});
+    if(!res.ok)throw new Error('Failed');
+    const d=await res.json();
+    input.value='';
+    renderCoachChatThread(d.messages||[]);
+    const wn=workoutNotesCache.find(n=>n.date===date);
+    if(wn){if(!wn.messages)wn.messages=[];wn.messages.push({sender:'coach',text});wn.coach_reply='y';}
     _rebuildUnreadWorkoutDates();
     coachCalRefresh();
-  } catch(e) { alert('Could not save reply: ' + e.message); }
+  }catch(e){alert('Could not send: '+e.message);}
+  if(btn)btn.disabled=false;
 }
 
 async function deleteCoachWorkout(id){

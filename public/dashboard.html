@@ -260,6 +260,15 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-comp-val{font-family:'DM Mono',monospace;color:var(--tc)}
 .modal-section-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--tc3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
 .modal-coach-notes{font-size:13px;color:var(--tc2);line-height:1.6;margin-bottom:20px;background:var(--bc3);border:1px solid var(--border);padding:12px 14px;white-space:pre-wrap}
+.wo-chat-thread{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:4px 0;margin-bottom:10px}
+.wo-chat-bubble{max-width:82%;padding:7px 11px;font-size:13px;line-height:1.45;word-break:break-word;border-radius:6px}
+.wo-chat-mine{align-self:flex-end;background:rgba(200,240,54,0.12);border:1px solid rgba(200,240,54,0.25);color:var(--tc)}
+.wo-chat-theirs{align-self:flex-start;background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--tc)}
+.wo-chat-empty{color:var(--tc3);font-size:11px;font-family:'DM Mono',monospace;padding:4px 0}
+.wo-chat-input-row{display:flex;gap:8px;align-items:flex-end}
+.wo-chat-input{flex:1;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-size:13px;padding:8px 10px;resize:vertical;min-height:56px;font-family:inherit;border-radius:2px;box-sizing:border-box}
+.wo-chat-send{background:var(--acc);color:#000;border:none;padding:8px 14px;font-size:11px;font-family:'DM Mono',monospace;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;border-radius:2px;white-space:nowrap;height:56px}
+.wo-chat-send:disabled{opacity:0.4;cursor:default}
 .modal-note-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-family:'DM Mono',monospace;font-size:12px;padding:10px 12px;resize:vertical;min-height:64px;margin-bottom:16px;outline:none}
 .modal-note-input:focus{border-color:var(--acc)}
 .modal-actions{display:flex;justify-content:space-between;align-items:center}
@@ -3807,32 +3816,14 @@ async function openAthBlockModal(mode, woId, icuId){
     }
   }
 
-  // Fetch note from coaching_notes for all activity types
+  // Workout chat thread
   const _noteActDate = act ? (act.start_date_local||'').slice(0,10) : (wo ? wo.date : '');
-  let existingNote = '', existingCoachReply = '', existingCoachReplyAt = '';
-  if (_noteActDate && currentAthlete && currentAthlete.id) {
-    try {
-      const nr = await fetch('/api/coaching-notes?athlete_id='+currentAthlete.id+'&date='+_noteActDate);
-      if (nr.ok) { const nd = await nr.json(); if (nd.notes && nd.notes[0]) { existingNote = nd.notes[0].note || ''; existingCoachReply = nd.notes[0].coach_reply || ''; existingCoachReplyAt = nd.notes[0].coach_reply_at || ''; } }
-    } catch(e) {}
-  }
-  if (existingCoachReply && existingCoachReplyAt && _noteActDate && currentAthlete) {
-    try {
-      const seenKey='cr_seen_'+currentAthlete.id;
-      const seen=JSON.parse(localStorage.getItem(seenKey)||'{}');
-      seen[_noteActDate]=existingCoachReplyAt;
-      localStorage.setItem(seenKey,JSON.stringify(seen));
-      _coachReplyDates.delete(_noteActDate);
-    } catch(e) {}
-  }
-  // Fallback: legacy compliance_note on planned workout (older data only)
-  if (!existingNote && wo && wo.compliance_note) existingNote = wo.compliance_note;
-  html+='<div class="modal-section-label">How did it go?</div>'
-    +'<textarea class="modal-note-input" id="athCompNote" placeholder="Add a note about this session..." data-act-date="'+_noteActDate+'">'+athEscHtml(existingNote)+'</textarea>';
-  if (existingCoachReply) {
-    html+='<div class="modal-section-label" style="margin-top:0.25rem">Coach Reply</div>'
-      +'<div style="background:rgba(255,255,255,0.05);border:1px solid var(--border);padding:10px 12px;font-size:13px;color:var(--tc2);white-space:pre-wrap;line-height:1.5">'+athEscHtml(existingCoachReply)+'</div>';
-  }
+  html+='<div class="modal-section-label">Chat with Coach</div>'
+    +'<div id="athChatThread" class="wo-chat-thread"><div class="wo-chat-empty">Loading...</div></div>'
+    +'<div class="wo-chat-input-row">'
+    +'<textarea class="wo-chat-input" id="athChatInput" placeholder="Add a note or message..." data-act-date="'+_noteActDate+'" rows="2"></textarea>'
+    +'<button class="wo-chat-send" id="athChatSendBtn" onclick="sendAthChatMsg()">Send</button>'
+    +'</div>';
 
   // Footer: delete button only for planned-only workouts
   const deleteBtn=(mode==='planned'&&wo)
@@ -3846,7 +3837,6 @@ async function openAthBlockModal(mode, woId, icuId){
     +'<div style="display:flex;gap:8px">'
       +deleteBtn
       +editBtn
-      +'<button class="modal-btn-save" onclick="saveAthNote()">Save note</button>'
     +'</div>'
     +'<div style="display:flex;gap:8px">'
       +addSessionBtn
@@ -3857,6 +3847,7 @@ async function openAthBlockModal(mode, woId, icuId){
 
   document.getElementById('athWoModalContent').innerHTML=html;
   document.getElementById('athWoModal').classList.add('show');
+  if(_noteActDate&&currentAthlete&&currentAthlete.id)loadAthChatThread(_noteActDate);
 }
 
 function closeAthModal(){
@@ -4100,6 +4091,55 @@ async function saveAthNote(){
 }
 
 function closeAthWoModal(){ closeAthModal(); }
+
+async function loadAthChatThread(date){
+  const el=document.getElementById('athChatThread');
+  if(!el||!currentAthlete)return;
+  try{
+    const r=await fetch('/api/coaching-notes?resource=workout-chat&athlete_id='+encodeURIComponent(currentAthlete.id)+'&date='+date);
+    if(!r.ok)return;
+    const d=await r.json();
+    renderAthChatThread(d.messages||[],date);
+  }catch(e){if(el)el.innerHTML='<div class="wo-chat-empty">Could not load messages</div>';}
+}
+
+function renderAthChatThread(messages,date){
+  const el=document.getElementById('athChatThread');
+  if(!el)return;
+  if(!messages.length){el.innerHTML='<div class="wo-chat-empty">No messages yet — add one below!</div>';return;}
+  el.innerHTML=messages.map(m=>'<div class="wo-chat-bubble '+(m.sender==='athlete'?'wo-chat-mine':'wo-chat-theirs')+'">'+athEscHtml(m.text||'')+'</div>').join('');
+  el.scrollTop=el.scrollHeight;
+  const lastCoach=messages.slice().reverse().find(m=>m.sender==='coach');
+  if(lastCoach&&lastCoach.created_at&&date&&currentAthlete){
+    try{
+      const seenKey='cr_seen_'+currentAthlete.id;
+      const seen=JSON.parse(localStorage.getItem(seenKey)||'{}');
+      seen[date]=lastCoach.created_at;
+      localStorage.setItem(seenKey,JSON.stringify(seen));
+      _coachReplyDates.delete(date);
+    }catch(e){}
+  }
+}
+
+async function sendAthChatMsg(){
+  const input=document.getElementById('athChatInput');
+  if(!input||!currentAthlete)return;
+  const text=input.value.trim();
+  if(!text)return;
+  const date=input.dataset.actDate;
+  if(!date)return;
+  const btn=document.getElementById('athChatSendBtn');
+  if(btn)btn.disabled=true;
+  try{
+    const res=await fetch('/api/coaching-notes',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({resource:'workout-chat',athlete_id:currentAthlete.id,date,sender:'athlete',text})});
+    if(!res.ok)throw new Error('Failed');
+    const d=await res.json();
+    input.value='';
+    renderAthChatThread(d.messages||[],date);
+  }catch(e){alert('Could not send: '+e.message);}
+  if(btn)btn.disabled=false;
+}
 
 async function deleteAthWorkout(id){
   if(!confirm('Delete this planned workout?'))return;
