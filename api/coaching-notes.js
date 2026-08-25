@@ -8,6 +8,23 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      // Cross-athlete unread workout chat counts (no athlete_id required)
+      if (req.query.resource === 'unread-workout-counts') {
+        const { data, error } = await supabase
+          .from('coaching_notes')
+          .select('athlete_id, messages, note, coach_reply');
+        if (error) return res.status(500).json({ error: error.message });
+        const counts = {};
+        (data || []).forEach(row => {
+          const msgs = row.messages || [];
+          const unread = msgs.length > 0
+            ? msgs[msgs.length - 1].sender === 'athlete'
+            : (row.note && !row.coach_reply);
+          if (unread) counts[row.athlete_id] = (counts[row.athlete_id] || 0) + 1;
+        });
+        return res.status(200).json({ counts });
+      }
+
       const { athlete_id, date, has_reply } = req.query;
       if (!athlete_id) return res.status(400).json({ error: 'Missing athlete_id' });
 

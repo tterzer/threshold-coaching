@@ -1012,6 +1012,7 @@ let racesCache=[];
 let coachNotesCache=[];
 let workoutNotesCache=[];
 let _unreadCounts={};
+let _workoutUnreadCounts={};
 let _unreadWorkoutDates=new Set();
 let coachNotesByDate={};
 let _coachCalNoteMap={};
@@ -1069,7 +1070,7 @@ function renderAthleteList(){
     const initials=(a.name||a.email||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     const active=selectedAthlete&&selectedAthlete.id===a.id?'active':'';
     const pendingBadge=a.account_status==='pending'?'<span style="font-family:\'DM Mono\',monospace;font-size:8px;color:#E24B4A;border:1px solid #E24B4A;padding:1px 5px;border-radius:2px;letter-spacing:0.06em;margin-left:6px">PENDING</span>':'';
-    const unread=_unreadCounts[a.id]||0;
+    const unread=(_unreadCounts[a.id]||0)+(_workoutUnreadCounts[a.id]||0);
     const notifDot=unread?'<span class="notif-dot">'+(unread>9?'9+':unread)+'</span>':'';
     return '<div class="athlete-item '+active+'" onclick="selectAthlete(\''+a.id+'\')">'
       +'<div style="position:relative;flex-shrink:0"><div class="ath-avatar">'+initials+'</div>'+notifDot+'</div>'
@@ -1080,9 +1081,13 @@ function renderAthleteList(){
 
 async function fetchUnreadCounts(){
   try{
-    const r=await fetch('/api/workouts?resource=unread-counts');
-    const d=await r.json();
-    _unreadCounts=d.counts||{};
+    const [r1,r2]=await Promise.all([
+      fetch('/api/workouts?resource=unread-counts'),
+      fetch('/api/coaching-notes?resource=unread-workout-counts')
+    ]);
+    const [d1,d2]=await Promise.all([r1.json(),r2.json()]);
+    _unreadCounts=d1.counts||{};
+    _workoutUnreadCounts=d2.counts||{};
     renderAthleteList();
   }catch(e){}
 }
@@ -3546,7 +3551,14 @@ function renderCoachChatThread(messages){
   const date=input?input.dataset.actDate:'';
   if(date){
     const wn=workoutNotesCache.find(n=>n.date===date);
-    if(wn){wn._coachViewed=true;}
+    if(wn&&!wn._coachViewed){
+      wn._coachViewed=true;
+      // Decrement athlete list badge immediately
+      if(selectedAthlete&&_workoutUnreadCounts[selectedAthlete.id]>0){
+        _workoutUnreadCounts[selectedAthlete.id]--;
+        renderAthleteList();
+      }
+    }
     _rebuildUnreadWorkoutDates();
     coachCalRefresh();
   }
