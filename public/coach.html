@@ -1696,6 +1696,7 @@ async function loadCoachNotes(){
 function _rebuildUnreadWorkoutDates(){
   _unreadWorkoutDates=new Set();
   workoutNotesCache.forEach(n=>{
+    if(n._coachViewed)return;
     const msgs=n.messages||[];
     if(msgs.length>0){
       if(msgs[msgs.length-1].sender==='athlete')_unreadWorkoutDates.add(n.date);
@@ -3540,6 +3541,15 @@ function renderCoachChatThread(messages){
   if(!messages.length){el.innerHTML='<div class="wo-chat-empty">No messages yet</div>';return;}
   el.innerHTML=messages.map(m=>'<div class="wo-chat-bubble '+(m.sender==='coach'?'wo-chat-mine':'wo-chat-theirs')+'">'+escHtml(m.text||'')+'</div>').join('');
   el.scrollTop=el.scrollHeight;
+  // Clear dot: coach has now seen this thread
+  const input=document.getElementById('coachChatInput');
+  const date=input?input.dataset.actDate:'';
+  if(date){
+    const wn=workoutNotesCache.find(n=>n.date===date);
+    if(wn){wn._coachViewed=true;}
+    _rebuildUnreadWorkoutDates();
+    coachCalRefresh();
+  }
 }
 
 async function sendCoachChatMsg(){
