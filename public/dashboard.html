@@ -3192,9 +3192,12 @@ async function fetchCoachReplyDates(){
     const r=await fetch('/api/coaching-notes?athlete_id='+encodeURIComponent(currentAthlete.id)+'&has_reply=1');
     const data=await r.json();
     const seenKey='cr_seen_'+currentAthlete.id;
-    const seen=JSON.parse(localStorage.getItem(seenKey)||'{}');
+    let seen={};try{seen=JSON.parse(localStorage.getItem(seenKey)||'{}');}catch(e){}
     (data.dates||[]).forEach(row=>{
-      if(!seen[row.date]||seen[row.date]!==row.coach_reply_at)_coachReplyDates.add(row.date);
+      const k=row.date+'_'+(row.planned_workout_id||'null');
+      // Check new key format, then old format (backward compat for existing localStorage entries)
+      const seenTs=seen[k]||(row.planned_workout_id==null?seen[row.date]:null);
+      if(!seenTs||seenTs!==row.coach_reply_at)_coachReplyDates.add(k);
     });
   }catch(e){}
   updateCalTabBadge();
@@ -3309,7 +3312,8 @@ function athCalRenderDay(d){
   });
 
   const isToday=key===toYMD(new Date());
-  const dateDot=_coachReplyDates.has(key)?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#E24B4A;vertical-align:middle;margin-left:3px"></span>':'';
+  const hasCoachReply=[..._coachReplyDates].some(k=>k.startsWith(key+'_'));
+  const dateDot=hasCoachReply?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#E24B4A;vertical-align:middle;margin-left:3px"></span>':'';
   return '<div class="ath-cal-cell'+(isToday?' is-today':'')+'" onclick="openAthDayModal(\''+key+'\')">'
     +'<div class="ath-cal-date">'+d.getDate()+dateDot+'</div>'
     +racesHtml+dayItems.map(x=>x.html).join('')
@@ -3828,10 +3832,11 @@ async function openAthBlockModal(mode, woId, icuId){
 
   // Workout chat thread
   const _noteActDate = act ? (act.start_date_local||'').slice(0,10) : (wo ? wo.date : '');
+  const _noteWoId = woId || null; // planned_workout_id for per-workout threading
   html+='<div class="modal-section-label">Chat with Coach</div>'
     +'<div id="athChatThread" class="wo-chat-thread"><div class="wo-chat-empty">Loading...</div></div>'
     +'<div class="wo-chat-input-row">'
-    +'<textarea class="wo-chat-input" id="athChatInput" placeholder="Add a note or message..." data-act-date="'+_noteActDate+'" rows="2"></textarea>'
+    +'<textarea class="wo-chat-input" id="athChatInput" placeholder="Add a note or message..." data-act-date="'+_noteActDate+'" data-wo-id="'+(_noteWoId||'')+'" rows="2"></textarea>'
     +'<button class="wo-chat-send" id="athChatSendBtn" onclick="sendAthChatMsg()">Send</button>'
     +'</div>';
 
@@ -3857,7 +3862,7 @@ async function openAthBlockModal(mode, woId, icuId){
 
   document.getElementById('athWoModalContent').innerHTML=html;
   document.getElementById('athWoModal').classList.add('show');
-  if(_noteActDate&&currentAthlete&&currentAthlete.id)loadAthChatThread(_noteActDate);
+  if(_noteActDate&&currentAthlete&&currentAthlete.id)loadAthChatThread(_noteActDate,_noteWoId);
 }
 
 function closeAthModal(){
@@ -4102,31 +4107,35 @@ async function saveAthNote(){
 
 function closeAthWoModal(){ closeAthModal(); }
 
-async function loadAthChatThread(date){
+async function loadAthChatThread(date,woId){
   const el=document.getElementById('athChatThread');
   if(!el||!currentAthlete)return;
   try{
-    const r=await fetch('/api/coaching-notes?resource=workout-chat&athlete_id='+encodeURIComponent(currentAthlete.id)+'&date='+date);
+    let url='/api/coaching-notes?resource=workout-chat&athlete_id='+encodeURIComponent(currentAthlete.id)+'&date='+date;
+    if(woId)url+='&planned_workout_id='+encodeURIComponent(woId);
+    const r=await fetch(url);
     if(!r.ok)return;
     const d=await r.json();
-    renderAthChatThread(d.messages||[],date);
+    renderAthChatThread(d.messages||[],date,woId||null,d.coach_reply_at||null);
   }catch(e){if(el)el.innerHTML='<div class="wo-chat-empty">Could not load messages</div>';}
 }
 
-function renderAthChatThread(messages,date){
+function renderAthChatThread(messages,date,woId,coachReplyAt){
   const el=document.getElementById('athChatThread');
   if(!el)return;
   if(!messages.length){el.innerHTML='<div class="wo-chat-empty">No messages yet — add one below!</div>';return;}
   el.innerHTML=messages.map(m=>'<div class="wo-chat-bubble '+(m.sender==='athlete'?'wo-chat-mine':'wo-chat-theirs')+'">'+athEscHtml(m.text||'')+'</div>').join('');
   el.scrollTop=el.scrollHeight;
-  const lastCoach=messages.slice().reverse().find(m=>m.sender==='coach');
-  if(lastCoach&&lastCoach.created_at&&date&&currentAthlete){
+  const hasCoachMsg=messages.some(m=>m.sender==='coach');
+  const ts=coachReplyAt||(messages.slice().reverse().find(m=>m.sender==='coach')||{}).created_at;
+  if(hasCoachMsg&&ts&&date&&currentAthlete){
     try{
       const seenKey='cr_seen_'+currentAthlete.id;
       const seen=JSON.parse(localStorage.getItem(seenKey)||'{}');
-      seen[date]=lastCoach.created_at;
+      const k=date+'_'+(woId||'null');
+      seen[k]=ts;
       localStorage.setItem(seenKey,JSON.stringify(seen));
-      _coachReplyDates.delete(date);
+      _coachReplyDates.delete(k);
       updateCalTabBadge();
     }catch(e){}
   }
@@ -4138,16 +4147,18 @@ async function sendAthChatMsg(){
   const text=input.value.trim();
   if(!text)return;
   const date=input.dataset.actDate;
+  const woId=input.dataset.woId||null;
   if(!date)return;
   const btn=document.getElementById('athChatSendBtn');
   if(btn)btn.disabled=true;
   try{
-    const res=await fetch('/api/coaching-notes',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({resource:'workout-chat',athlete_id:currentAthlete.id,date,sender:'athlete',text})});
+    const body={resource:'workout-chat',athlete_id:currentAthlete.id,date,sender:'athlete',text};
+    if(woId)body.planned_workout_id=woId;
+    const res=await fetch('/api/coaching-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!res.ok)throw new Error('Failed');
     const d=await res.json();
     input.value='';
-    renderAthChatThread(d.messages||[],date);
+    renderAthChatThread(d.messages||[],date,woId,null);
   }catch(e){alert('Could not send: '+e.message);}
   if(btn)btn.disabled=false;
 }

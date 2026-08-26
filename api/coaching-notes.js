@@ -43,29 +43,31 @@ export default async function handler(req, res) {
       if (has_reply) {
         const { data, error } = await supabase
           .from('coaching_notes')
-          .select('date, coach_reply_at')
+          .select('date, planned_workout_id, coach_reply_at')
           .eq('athlete_id', athlete_id)
           .not('coach_reply_at', 'is', null);
         if (error) return res.status(500).json({ error: error.message });
         return res.status(200).json({ dates: data });
       }
 
-      // Workout chat thread for a specific date
+      // Workout chat thread for a specific date+workout
       if (req.query.resource === 'workout-chat') {
         if (!date) return res.status(400).json({ error: 'Missing date' });
-        const { data: chatRow, error: chatErr } = await supabase
+        const { planned_workout_id } = req.query;
+        let chatQ = supabase
           .from('coaching_notes')
           .select('messages, note, coach_reply, coach_reply_at')
           .eq('athlete_id', athlete_id)
-          .eq('date', date)
-          .maybeSingle();
+          .eq('date', date);
+        chatQ = planned_workout_id ? chatQ.eq('planned_workout_id', planned_workout_id) : chatQ.is('planned_workout_id', null);
+        const { data: chatRow, error: chatErr } = await chatQ.maybeSingle();
         if (chatErr) return res.status(500).json({ error: chatErr.message });
         let messages = (chatRow && chatRow.messages) ? chatRow.messages : [];
         if (!messages.length) {
           if (chatRow && chatRow.note) messages.push({ sender: 'athlete', text: chatRow.note, created_at: null });
           if (chatRow && chatRow.coach_reply) messages.push({ sender: 'coach', text: chatRow.coach_reply, created_at: chatRow.coach_reply_at || null });
         }
-        return res.status(200).json({ messages });
+        return res.status(200).json({ messages, coach_reply_at: chatRow?.coach_reply_at || null });
       }
 
       let q = supabase.from('coaching_notes').select('*').eq('athlete_id', athlete_id).order('date', { ascending: false });
@@ -86,16 +88,17 @@ export default async function handler(req, res) {
     // ── Workout chat messages — append a new message to coaching_notes.messages ─
     if (body.resource === 'workout-chat' || req.query.resource === 'workout-chat') {
       if (req.method === 'POST') {
-        const { athlete_id, date, sender, text } = body;
+        const { athlete_id, date, sender, text, planned_workout_id } = body;
         if (!athlete_id || !date || !sender || !text) return res.status(400).json({ error: 'Missing params' });
         const now = new Date().toISOString();
         const newMsg = { sender, text, created_at: now };
-        const { data: existing, error: selErr } = await supabase
+        let selQ = supabase
           .from('coaching_notes')
           .select('id, messages, note')
           .eq('athlete_id', athlete_id)
-          .eq('date', date)
-          .maybeSingle();
+          .eq('date', date);
+        selQ = planned_workout_id ? selQ.eq('planned_workout_id', planned_workout_id) : selQ.is('planned_workout_id', null);
+        const { data: existing, error: selErr } = await selQ.maybeSingle();
         if (selErr) return res.status(500).json({ error: selErr.message });
         const messages = [...((existing && existing.messages) ? existing.messages : []), newMsg];
         const fields = { messages };
@@ -105,7 +108,9 @@ export default async function handler(req, res) {
         if (existing) {
           result = await supabase.from('coaching_notes').update(fields).eq('id', existing.id).select('messages').single();
         } else {
-          result = await supabase.from('coaching_notes').insert({ athlete_id, date, ...fields }).select('messages').single();
+          const insertRow = { athlete_id, date, ...fields };
+          if (planned_workout_id) insertRow.planned_workout_id = planned_workout_id;
+          result = await supabase.from('coaching_notes').insert(insertRow).select('messages').single();
         }
         if (result.error) return res.status(500).json({ error: result.error.message });
         return res.status(200).json({ messages: (result.data && result.data.messages) ? result.data.messages : messages });
