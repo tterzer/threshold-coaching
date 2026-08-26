@@ -3256,7 +3256,6 @@ function athCalRenderDay(d){
 
   const matchedIcuIds=new Set();
   const dayItems=[]; // {html, sortKey} — sortKey is ISO string or '' for untimed planned
-  const replyDot=_coachReplyDates.has(key)?'<span class="ath-wo-reply-dot"></span>':'';
 
   wos.forEach(w=>{
     const spClass='sport-'+(w.sport||'other');
@@ -3271,11 +3270,11 @@ function athCalRenderDay(d){
       const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||icu.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
       const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-      dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+replyDot+'<span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:icu.start_date_local||''});
+      dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:icu.start_date_local||''});
     }else{
       const label=athEscHtml((w.title||w.sport||'Workout')+(w.duration_minutes?' · '+w.duration_minutes+'min':''));
       const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-      dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+replyDot+'<span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:'',createdAt:w.created_at||''});
+      dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+'</div>',sortKey:'',createdAt:w.created_at||''});
     }
   });
 
@@ -3287,7 +3286,7 @@ function athCalRenderDay(d){
     const timePrefix=_fmtBlockTime(a.start_date_local);
     const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(a.name||a.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
     const icuIdStr=String(a.id);
-    dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+replyDot+'<span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
+    dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
   });
 
   (athCalNotesByDate[key]||[]).forEach(n=>{
@@ -3310,8 +3309,9 @@ function athCalRenderDay(d){
   });
 
   const isToday=key===toYMD(new Date());
+  const dateDot=_coachReplyDates.has(key)?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#E24B4A;vertical-align:middle;margin-left:3px"></span>':'';
   return '<div class="ath-cal-cell'+(isToday?' is-today':'')+'" onclick="openAthDayModal(\''+key+'\')">'
-    +'<div class="ath-cal-date">'+d.getDate()+'</div>'
+    +'<div class="ath-cal-date">'+d.getDate()+dateDot+'</div>'
     +racesHtml+dayItems.map(x=>x.html).join('')
     +'</div>';
 }

@@ -17,10 +17,10 @@ export default async function handler(req, res) {
         const counts = {};
         (data || []).forEach(row => {
           const msgs = row.messages || [];
-          const unread = msgs.length > 0
-            ? msgs[msgs.length - 1].sender === 'athlete'
-            : (row.note && !row.coach_reply);
-          if (unread) counts[row.athlete_id] = (counts[row.athlete_id] || 0) + 1;
+          // Only count rows with actual chat messages (not legacy-only rows)
+          if (msgs.length > 0 && msgs[msgs.length - 1].sender === 'athlete') {
+            counts[row.athlete_id] = (counts[row.athlete_id] || 0) + 1;
+          }
         });
         return res.status(200).json({ counts });
       }
@@ -88,7 +88,8 @@ export default async function handler(req, res) {
       if (req.method === 'POST') {
         const { athlete_id, date, sender, text } = body;
         if (!athlete_id || !date || !sender || !text) return res.status(400).json({ error: 'Missing params' });
-        const newMsg = { sender, text, created_at: new Date().toISOString() };
+        const now = new Date().toISOString();
+        const newMsg = { sender, text, created_at: now };
         const { data: existing, error: selErr } = await supabase
           .from('coaching_notes')
           .select('id, messages, note')
@@ -98,7 +99,7 @@ export default async function handler(req, res) {
         if (selErr) return res.status(500).json({ error: selErr.message });
         const messages = [...((existing && existing.messages) ? existing.messages : []), newMsg];
         const fields = { messages };
-        if (sender === 'coach') { fields.coach_reply = text; fields.coach_reply_at = new Date().toISOString(); }
+        if (sender === 'coach') { fields.coach_reply = text; fields.coach_reply_at = now; }
         if (sender === 'athlete' && !(existing && existing.note)) fields.note = text;
         let result;
         if (existing) {

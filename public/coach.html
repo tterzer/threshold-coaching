@@ -2829,10 +2829,10 @@ function coachCalRenderDay(d){
       const durSuffix=planned>0&&Math.abs(delta)>=5?(delta<0?' (↓'+Math.abs(delta)+' mins)':' (↑'+delta+' mins)'):'';
       const label=escHtml((timePrefix?timePrefix+' · ':'')+(actLabel)+(mins?' · '+mins+'min'+durSuffix:'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
-      dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+noteDot+'<span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:icu.start_date_local||''});
+      dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:icu.start_date_local||''});
     }else{
       const label=escHtml((w.title||w.sport||'Workout')+(w.duration_minutes?' · '+w.duration_minutes+'min':''));
-      dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,\''+woIdStr+'\')" ondragend="coachCalDragEnd(event)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add(\'drag-over-block\')" ondragleave="coachCalBlockDragLeave(event)" ondrop="event.stopPropagation();coachCalDropOnBlock(event,\''+woIdStr+'\')" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+noteDot+'<span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:'',sortOrder:w.sort_order??null,createdAt:w.created_at||''});
+      dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,\''+woIdStr+'\')" ondragend="coachCalDragEnd(event)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add(\'drag-over-block\')" ondragleave="coachCalBlockDragLeave(event)" ondrop="event.stopPropagation();coachCalDropOnBlock(event,\''+woIdStr+'\')" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:'',sortOrder:w.sort_order??null,createdAt:w.created_at||''});
     }
   });
 
@@ -2844,7 +2844,7 @@ function coachCalRenderDay(d){
     const timePrefix=_fmtBlockTime(a.start_date_local);
     const label=escHtml((timePrefix?timePrefix+' · ':'')+(a.name||a.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
     const icuIdStr=String(a.id);
-    dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'">'+noteDot+'<span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
+    dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'icu_only\',null,\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span></div>',sortKey:a.start_date_local||''});
   });
 
   (coachNotesByDate[key]||[]).forEach(n=>{
@@ -2869,8 +2869,9 @@ function coachCalRenderDay(d){
   });
 
   const isToday=key===toYMD(new Date());
+  const dateDot=noteDot?'<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#E24B4A;vertical-align:middle;margin-left:3px"></span>':'';
   return '<div class="cal-cell'+(isToday?' is-today':'')+'" onclick="coachCalCellClick(\''+key+'\')" ondragover="coachCalDragOver(event)" ondragleave="coachCalDragLeave(event)" ondrop="coachCalDrop(event,\''+key+'\')">'
-    +'<div class="cal-date">'+d.getDate()+'</div>'
+    +'<div class="cal-date">'+d.getDate()+dateDot+'</div>'
     +racesHtml+dayItems.map(x=>x.html).join('')
     +'</div>';
 }
