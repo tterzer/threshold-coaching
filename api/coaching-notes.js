@@ -62,12 +62,24 @@ export default async function handler(req, res) {
         chatQ = planned_workout_id ? chatQ.eq('planned_workout_id', planned_workout_id) : chatQ.is('planned_workout_id', null);
         const { data: chatRow, error: chatErr } = await chatQ.maybeSingle();
         if (chatErr) return res.status(500).json({ error: chatErr.message });
-        let messages = (chatRow && chatRow.messages) ? chatRow.messages : [];
-        if (!messages.length) {
-          if (chatRow && chatRow.note) messages.push({ sender: 'athlete', text: chatRow.note, created_at: null });
-          if (chatRow && chatRow.coach_reply) messages.push({ sender: 'coach', text: chatRow.coach_reply, created_at: chatRow.coach_reply_at || null });
+        // Fallback: if no row found for specific workout, check the legacy null-keyed row
+        let finalRow = chatRow;
+        if (!finalRow && planned_workout_id) {
+          const { data: legacyRow } = await supabase
+            .from('coaching_notes')
+            .select('messages, note, coach_reply, coach_reply_at')
+            .eq('athlete_id', athlete_id)
+            .eq('date', date)
+            .is('planned_workout_id', null)
+            .maybeSingle();
+          finalRow = legacyRow || null;
         }
-        return res.status(200).json({ messages, coach_reply_at: chatRow?.coach_reply_at || null });
+        let messages = (finalRow && finalRow.messages) ? finalRow.messages : [];
+        if (!messages.length) {
+          if (finalRow && finalRow.note) messages.push({ sender: 'athlete', text: finalRow.note, created_at: null });
+          if (finalRow && finalRow.coach_reply) messages.push({ sender: 'coach', text: finalRow.coach_reply, created_at: finalRow.coach_reply_at || null });
+        }
+        return res.status(200).json({ messages, coach_reply_at: finalRow?.coach_reply_at || null });
       }
 
       let q = supabase.from('coaching_notes').select('*').eq('athlete_id', athlete_id).order('date', { ascending: false });
