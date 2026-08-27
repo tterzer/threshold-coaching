@@ -131,7 +131,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .cal-wo.sport-other{border-left:2px solid var(--acc);background:rgba(200,240,54,0.08);color:var(--tc2)}
 .cal-wo.completed{opacity:0.55;text-decoration:line-through}
 /* New unified cal-block styles */
-.cal-block{font-family:'DM Mono',monospace;font-size:12px;padding:4px 6px;cursor:pointer;height:auto;line-height:1.4;margin-bottom:3px;box-sizing:border-box;border-radius:2px;display:flex;align-items:flex-start;gap:4px}
+.cal-block{font-family:'DM Mono',monospace;font-size:12px;padding:4px 6px;cursor:pointer;height:auto;line-height:1.4;margin-bottom:3px;box-sizing:border-box;border-radius:2px;display:flex;align-items:flex-start;gap:4px;position:relative}
 .cal-block .pill-title{white-space:normal;word-break:break-word;flex:1;min-width:0}
 .cal-block.planned.sport-cycling{border:1.5px solid #378ADD;background:transparent;color:#378ADD}
 .cal-block.planned.sport-running{border:1.5px solid #639922;background:transparent;color:#639922}
@@ -203,7 +203,7 @@ nav{background:rgba(10,10,10,0.95);border-bottom:1px solid var(--border);padding
 .modal-close-x:hover{color:var(--tc)}
 .modal-note-input{width:100%;background:var(--bc3);border:1px solid var(--border);color:var(--tc);font-family:'DM Mono',monospace;font-size:12px;padding:10px 12px;resize:vertical;min-height:64px;margin-bottom:12px;outline:none}
 .modal-note-input:focus{border-color:var(--acc)}
-.wo-unread-dot{flex-shrink:0;width:6px;height:6px;border-radius:50%;background:#E24B4A;align-self:center}
+.wo-unread-dot{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:#E24B4A}
 .cal-block.cal-coach-note{border:1.5px solid var(--acc);background:rgba(200,240,54,0.06);color:var(--acc);cursor:pointer}
 .prof-check{font-family:'DM Mono',monospace;font-size:11px;color:var(--tc2);display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border:1px solid var(--border);background:var(--bc3)}
 .prof-check input{accent-color:var(--acc);cursor:pointer}
@@ -1709,7 +1709,7 @@ function _rebuildUnreadWorkoutDates(){
     if(msgs.length>0){
       const last=msgs[msgs.length-1];
       if(last.sender==='athlete'){
-        if(seen[woKey]&&seen[woKey]===last.created_at)return;
+        if(seen[woKey]&&seen[woKey]===(last.created_at||'seen'))return;
         _unreadWorkoutDates.add(woKey);
       }
     } else if(n.note&&!n.coach_reply){
@@ -3567,12 +3567,13 @@ function renderCoachChatThread(messages){
   const nullKey=date+'_null';
   if(date&&selectedAthlete){
     const last=messages.length?messages[messages.length-1]:null;
-    if(last&&last.sender==='athlete'&&last.created_at){
+    if(last&&last.sender==='athlete'){
+      const ts=last.created_at||'seen';
       const seenKey='coach_seen_'+selectedAthlete.id;
       let seen={};try{seen=JSON.parse(localStorage.getItem(seenKey)||'{}');}catch(e){}
       let changed=false;
-      if(!seen[woKey]){seen[woKey]=last.created_at;changed=true;}
-      if(!seen[nullKey]){seen[nullKey]=last.created_at;changed=true;} // clear legacy day-level dot
+      if(!seen[woKey]){seen[woKey]=ts;changed=true;}
+      if(!seen[nullKey]){seen[nullKey]=ts;changed=true;} // clear legacy day-level dot
       if(changed){
         try{localStorage.setItem(seenKey,JSON.stringify(seen));}catch(e){}
         if(_workoutUnreadCounts[selectedAthlete.id]>0){
