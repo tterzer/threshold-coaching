@@ -3273,12 +3273,12 @@ function athCalRenderDay(d){
       const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||icu.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
       const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-      const _cDot=(_coachReplyDates.has(key+'_'+woIdStr)||_coachReplyDates.has(key+'_null'))?'<span class="ath-wo-reply-dot"></span>':'';
+      const _cDot=_coachReplyDates.has(key+'_'+woIdStr)?'<span class="ath-wo-reply-dot"></span>':'';
       dayItems.push({html:'<div class="ath-cal-block completed '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+_cDot+'</div>',sortKey:icu.start_date_local||''});
     }else{
       const label=athEscHtml((w.title||w.sport||'Workout')+(w.duration_minutes?' · '+w.duration_minutes+'min':''));
       const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
-      const _pDot=(_coachReplyDates.has(key+'_'+woIdStr)||_coachReplyDates.has(key+'_null'))?'<span class="ath-wo-reply-dot"></span>':'';
+      const _pDot=_coachReplyDates.has(key+'_'+woIdStr)?'<span class="ath-wo-reply-dot"></span>':'';
       dayItems.push({html:'<div class="ath-cal-block planned '+spClass+'" onclick="event.stopPropagation();openAthBlockModal(\'planned\',\''+woIdStr+'\',null)" title="'+label+'"><span class="pill-title">'+label+'</span>'+badge+_pDot+'</div>',sortKey:'',createdAt:w.created_at||''});
     }
   });
