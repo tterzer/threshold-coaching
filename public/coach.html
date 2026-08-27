@@ -2837,11 +2837,11 @@ function coachCalRenderDay(d){
       const durSuffix=planned>0&&Math.abs(delta)>=5?(delta<0?' (↓'+Math.abs(delta)+' mins)':' (↑'+delta+' mins)'):'';
       const label=escHtml((timePrefix?timePrefix+' · ':'')+(actLabel)+(mins?' · '+mins+'min'+durSuffix:'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
-      const _cDot=(_unreadWorkoutDates.has(key+'_'+woIdStr)||_nullDot)?'<span class="wo-unread-dot"></span>':'';
+      const _cDot=_unreadWorkoutDates.has(key+'_'+woIdStr)?'<span class="wo-unread-dot"></span>':'';
       dayItems.push({html:'<div class="cal-block completed '+spClass+'" onclick="event.stopPropagation();openBlockModal(event,\'completed\',\''+woIdStr+'\',\''+icuIdStr+'\')" title="'+label+'">'+_cDot+'<span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:icu.start_date_local||''});
     }else{
       const label=escHtml((w.title||w.sport||'Workout')+(w.duration_minutes?' · '+w.duration_minutes+'min':''));
-      const _pDot=(_unreadWorkoutDates.has(key+'_'+woIdStr)||_nullDot)?'<span class="wo-unread-dot"></span>':'';
+      const _pDot=_unreadWorkoutDates.has(key+'_'+woIdStr)?'<span class="wo-unread-dot"></span>':'';
       dayItems.push({html:'<div class="cal-block planned '+spClass+'" draggable="true" ondragstart="event.stopPropagation();coachCalDragStart(event,\''+woIdStr+'\')" ondragend="coachCalDragEnd(event)" ondragover="event.preventDefault();event.stopPropagation();this.classList.add(\'drag-over-block\')" ondragleave="coachCalBlockDragLeave(event)" ondrop="event.stopPropagation();coachCalDropOnBlock(event,\''+woIdStr+'\')" onclick="event.stopPropagation();openBlockModal(event,\'planned\',\''+woIdStr+'\',null)" title="'+label+'">'+_pDot+'<span class="pill-title">'+label+'</span><button class="wo-copy-btn" onclick="event.stopPropagation();coachCalCopyWorkout(\''+woIdStr+'\')" title="Copy">⧉</button></div>',sortKey:'',sortOrder:w.sort_order??null,createdAt:w.created_at||''});
     }
   });
