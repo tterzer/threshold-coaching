@@ -1717,8 +1717,13 @@ function _rebuildUnreadWorkoutDates(){
       _unreadWorkoutDates.add(woKey);
     }
   });
-  // Sync badge to local state so legacy orphan rows don't inflate the count
-  if(selectedAthlete){_workoutUnreadCounts[selectedAthlete.id]=_unreadWorkoutDates.size;renderAthleteList();}
+  // Sync badge: only count specific-woId entries; null-keyed legacy rows can't
+  // be cleared from completed/planned blocks so must not inflate the badge
+  if(selectedAthlete){
+    const specificCount=[..._unreadWorkoutDates].filter(k=>!k.endsWith('_null')).length;
+    _workoutUnreadCounts[selectedAthlete.id]=specificCount;
+    renderAthleteList();
+  }
 }
 
 async function openNoteChat(noteId){
