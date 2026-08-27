@@ -1717,6 +1717,8 @@ function _rebuildUnreadWorkoutDates(){
       _unreadWorkoutDates.add(woKey);
     }
   });
+  // Sync badge to local state so legacy orphan rows don't inflate the count
+  if(selectedAthlete){_workoutUnreadCounts[selectedAthlete.id]=_unreadWorkoutDates.size;renderAthleteList();}
 }
 
 async function openNoteChat(noteId){
