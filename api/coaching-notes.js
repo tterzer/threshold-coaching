@@ -62,18 +62,7 @@ export default async function handler(req, res) {
         chatQ = planned_workout_id ? chatQ.eq('planned_workout_id', planned_workout_id) : chatQ.is('planned_workout_id', null);
         const { data: chatRow, error: chatErr } = await chatQ.maybeSingle();
         if (chatErr) return res.status(500).json({ error: chatErr.message });
-        // Fallback: if no row found for specific workout, check the legacy null-keyed row
-        let finalRow = chatRow;
-        if (!finalRow && planned_workout_id) {
-          const { data: legacyRow } = await supabase
-            .from('coaching_notes')
-            .select('messages, note, coach_reply, coach_reply_at')
-            .eq('athlete_id', athlete_id)
-            .eq('date', date)
-            .is('planned_workout_id', null)
-            .maybeSingle();
-          finalRow = legacyRow || null;
-        }
+        const finalRow = chatRow;
         let messages = (finalRow && finalRow.messages) ? finalRow.messages : [];
         if (!messages.length) {
           if (finalRow && finalRow.note) messages.push({ sender: 'athlete', text: finalRow.note, created_at: null });
