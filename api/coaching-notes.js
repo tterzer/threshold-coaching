@@ -12,12 +12,12 @@ export default async function handler(req, res) {
       if (req.query.resource === 'unread-workout-counts') {
         const { data, error } = await supabase
           .from('coaching_notes')
-          .select('athlete_id, messages, note, coach_reply');
+          .select('athlete_id, planned_workout_id, messages')
+          .not('planned_workout_id', 'is', null);
         if (error) return res.status(500).json({ error: error.message });
         const counts = {};
         (data || []).forEach(row => {
           const msgs = row.messages || [];
-          // Only count rows with actual chat messages (not legacy-only rows)
           if (msgs.length > 0 && msgs[msgs.length - 1].sender === 'athlete') {
             counts[row.athlete_id] = (counts[row.athlete_id] || 0) + 1;
           }
