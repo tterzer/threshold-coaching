@@ -3426,7 +3426,7 @@ async function openBlockModal(evt, mode, woId, icuId){
   }
 
   const metrics=[
-    {label:'Duration',val:act?_fmtDur2(act.moving_time||act.elapsed_time):(wo&&wo.duration_minutes?wo.duration_minutes+'min':'—')},
+    {label:'Duration',val:act?Math.round((act.moving_time||act.elapsed_time||0)/60)+'min':(wo&&wo.duration_minutes?wo.duration_minutes+'min':'—')},
     {label:'Distance',val:act?_fmtDist2(act.distance):'—'},
     {label:'TSS',val:act&&act.icu_training_load?Math.round(act.icu_training_load):'—'},
     {label:'Avg HR',val:(act&&(act.average_heartrate||act.avg_heart_rate))?Math.round(act.average_heartrate||act.avg_heart_rate)+' bpm':'—'},
@@ -3449,7 +3449,7 @@ async function openBlockModal(evt, mode, woId, icuId){
   if(wo&&act){
     const planDur=wo.duration_minutes?wo.duration_minutes+'min':'—';
     const planTSS=wo.tss_target||'—';
-    const actDur=act.moving_time?_fmtDur2(act.moving_time):'—';
+    const actDur=act.moving_time?Math.round(act.moving_time/60)+'min':'—';
     const actTSS=act.icu_training_load?Math.round(act.icu_training_load):'—';
     html+='<div class="modal-comparison">'
       +'<div class="modal-comp-col"><div class="modal-comp-col-title">Planned</div>'
