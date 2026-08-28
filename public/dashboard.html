@@ -3270,7 +3270,7 @@ function athCalRenderDay(d){
       const mins=Math.round((icu.moving_time||0)/60);
       const tss=Math.round(icu.icu_training_load||0);
       const timePrefix=_fmtBlockTime(icu.start_date_local);
-      const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(icu.name||icu.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
+      const label=athEscHtml((timePrefix?timePrefix+' · ':'')+(w.title||icu.name||icu.type||'Activity')+(mins?' · '+mins+'min':'')+(tss?' · '+tss+'tss':''));
       const icuIdStr=String(icu.id);
       const badge=w.created_by==='athlete'?'<span class="ath-badge-a">A</span>':'';
       const _cDot=_coachReplyDates.has(key+'_'+woIdStr)?'<span class="ath-wo-reply-dot"></span>':'';
