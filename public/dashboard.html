@@ -3206,7 +3206,7 @@ async function fetchCoachReplyDates(){
 function updateCalTabBadge(){
   const el=document.getElementById('calTabBadge');
   if(!el)return;
-  const count=_coachReplyDates.size;
+  const count=[..._coachReplyDates].filter(k=>!k.endsWith('_null')).length;
   if(count>0){el.textContent=count>9?'9+':count;el.style.display='flex';}
   else{el.style.display='none';}
 }
