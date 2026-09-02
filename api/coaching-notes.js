@@ -100,8 +100,9 @@ export default async function handler(req, res) {
           .eq('athlete_id', athlete_id)
           .eq('date', date);
         selQ = planned_workout_id ? selQ.eq('planned_workout_id', planned_workout_id) : selQ.is('planned_workout_id', null);
-        const { data: existing, error: selErr } = await selQ.maybeSingle();
+        const { data: rows, error: selErr } = await selQ.limit(1);
         if (selErr) return res.status(500).json({ error: selErr.message });
+        const existing = rows && rows.length > 0 ? rows[0] : null;
         const messages = [...((existing && existing.messages) ? existing.messages : []), newMsg];
         const fields = { messages };
         if (sender === 'coach') { fields.coach_reply = text; fields.coach_reply_at = now; }
