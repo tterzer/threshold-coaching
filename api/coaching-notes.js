@@ -89,7 +89,8 @@ export default async function handler(req, res) {
     // ── Workout chat messages — append a new message to coaching_notes.messages ─
     if (body.resource === 'workout-chat' || req.query.resource === 'workout-chat') {
       if (req.method === 'POST') {
-        const { athlete_id, date, sender, text, planned_workout_id } = body;
+        const { athlete_id, date, sender, text } = body;
+        const planned_workout_id = body.planned_workout_id ? Number(body.planned_workout_id) : null;
         if (!athlete_id || !date || !sender || !text) return res.status(400).json({ error: 'Missing params' });
         const now = new Date().toISOString();
         const newMsg = { sender, text, created_at: now };
