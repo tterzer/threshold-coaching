@@ -3611,7 +3611,7 @@ async function sendCoachChatMsg(){
     const body={resource:'workout-chat',athlete_id:athleteId,date,sender:'coach',text};
     if(woId)body.planned_workout_id=woId;
     const res=await fetch('/api/coaching-notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!res.ok)throw new Error('Failed');
+    if(!res.ok){let em='Failed';try{const d=await res.json();em=d.error||em;}catch(e){}throw new Error(em);}
     const d=await res.json();
     input.value='';
     renderCoachChatThread(d.messages||[]);
