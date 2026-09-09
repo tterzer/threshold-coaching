@@ -3554,7 +3554,7 @@ async function loadCoachChatThread(athleteId,date,woId){
     let url='/api/coaching-notes?resource=workout-chat&athlete_id='+encodeURIComponent(athleteId)+'&date='+date;
     if(woId)url+='&planned_workout_id='+encodeURIComponent(woId);
     const r=await fetch(url);
-    if(!r.ok)return;
+    if(!r.ok){if(el)el.innerHTML='<div class="wo-chat-empty">Could not load messages</div>';return;}
     const d=await r.json();
     renderCoachChatThread(d.messages||[]);
   }catch(e){if(el)el.innerHTML='<div class="wo-chat-empty">Could not load messages</div>';}
