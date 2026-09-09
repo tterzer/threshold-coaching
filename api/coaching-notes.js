@@ -53,16 +53,16 @@ export default async function handler(req, res) {
       // Workout chat thread for a specific date+workout
       if (req.query.resource === 'workout-chat') {
         if (!date) return res.status(400).json({ error: 'Missing date' });
-        const { planned_workout_id } = req.query;
+        const planned_workout_id = req.query.planned_workout_id ? Number(req.query.planned_workout_id) : null;
         let chatQ = supabase
           .from('coaching_notes')
           .select('messages, note, coach_reply, coach_reply_at')
           .eq('athlete_id', athlete_id)
           .eq('date', date);
         chatQ = planned_workout_id ? chatQ.eq('planned_workout_id', planned_workout_id) : chatQ.is('planned_workout_id', null);
-        const { data: chatRow, error: chatErr } = await chatQ.maybeSingle();
+        const { data: chatRows, error: chatErr } = await chatQ.limit(1);
         if (chatErr) return res.status(500).json({ error: chatErr.message });
-        const finalRow = chatRow;
+        const finalRow = chatRows && chatRows.length > 0 ? chatRows[0] : null;
         let messages = (finalRow && finalRow.messages) ? finalRow.messages : [];
         if (!messages.length) {
           if (finalRow && finalRow.note) messages.push({ sender: 'athlete', text: finalRow.note, created_at: null });
@@ -164,18 +164,19 @@ export default async function handler(req, res) {
       if (!Object.keys(fields).length) return res.status(400).json({ error: 'No fields to update' });
 
       // Check for existing row first to avoid needing a unique constraint
-      const { data: existing, error: selectError } = await supabase
+      const { data: existingRows, error: selectError } = await supabase
         .from('coaching_notes')
         .select('id')
         .eq('athlete_id', athlete_id)
         .eq('date', date)
-        .maybeSingle();
+        .limit(1);
 
       if (selectError) {
         console.error('[coaching-notes POST select]', { code: selectError.code, message: selectError.message, details: selectError.details, hint: selectError.hint });
         return res.status(500).json({ error: selectError.message, code: selectError.code, details: selectError.details, hint: selectError.hint });
       }
 
+      const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
       console.log('[coaching-notes POST] existing row:', existing);
 
       let result;

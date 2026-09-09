@@ -3578,16 +3578,9 @@ function renderCoachChatThread(messages){
       const ts=last.created_at||'seen';
       const seenKey='coach_seen_'+selectedAthlete.id;
       let seen={};try{seen=JSON.parse(localStorage.getItem(seenKey)||'{}');}catch(e){}
-      let changed=false;
-      if(!seen[woKey]){seen[woKey]=ts;changed=true;}
-      if(!seen[nullKey]){seen[nullKey]=ts;changed=true;} // clear legacy day-level dot
-      if(changed){
-        try{localStorage.setItem(seenKey,JSON.stringify(seen));}catch(e){}
-        if(_workoutUnreadCounts[selectedAthlete.id]>0){
-          _workoutUnreadCounts[selectedAthlete.id]--;
-          renderAthleteList();
-        }
-      }
+      seen[woKey]=ts;
+      seen[nullKey]=ts; // clear legacy day-level dot
+      try{localStorage.setItem(seenKey,JSON.stringify(seen));}catch(e){}
     }
     // Mark both specific and legacy null-keyed cache entries as viewed
     workoutNotesCache.forEach(n=>{if(n.date===date)n._coachViewed=true;});
@@ -3615,7 +3608,7 @@ async function sendCoachChatMsg(){
     const d=await res.json();
     input.value='';
     renderCoachChatThread(d.messages||[]);
-    const wn=workoutNotesCache.find(n=>n.date===date&&(n.planned_workout_id||null)===(woId||null));
+    const wn=workoutNotesCache.find(n=>n.date===date&&String(n.planned_workout_id||'')===(woId||''));
     if(wn){if(!wn.messages)wn.messages=[];wn.messages.push({sender:'coach',text,created_at:new Date().toISOString()});wn.coach_reply='y';}
     _rebuildUnreadWorkoutDates();
     coachCalRefresh();
