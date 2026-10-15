@@ -6327,7 +6327,7 @@ function isRunActivity(type){
 }
 function sportClass(type){
   const t=(type||'').toLowerCase();
-  if(t.includes('ride')||t.includes('cycl')||t.includes('bike'))return'cycling';
+  if(t.includes('ride')||t.includes('cycl')||t.includes('bike')||t.includes('virtual'))return'cycling';
   if(isRunActivity(t))return'running';
   if(t.includes('swim'))return'swimming';
   return'other';
