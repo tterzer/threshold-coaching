@@ -3353,7 +3353,7 @@ async function athCalEnsureActivities(fromDate,toDate){
     if(start>end)continue;
     try{
       const data=await apiCall(curId,curKey,'activities','oldest='+toYMD(start)+'&newest='+toYMD(end)+'&fields=id,name,type,sport_type,start_date_local,distance,moving_time,icu_training_load');
-      (Array.isArray(data)?data:[]).forEach(a=>{
+      (Array.isArray(data)?data:[]).filter(a=>!a._note).forEach(a=>{
         if(/virtual/i.test(a.name||''))a.type='VirtualRide';else if((a.type||'').toLowerCase()==='activity'&&a.sport_type&&(a.sport_type||'').toLowerCase()!=='activity')a.type=a.sport_type;
         const key=(a.start_date_local||'').slice(0,10);
         if(!key)return;
@@ -6361,7 +6361,7 @@ async function loadDashboard(){
       apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,sport_type,start_date_local,athlete_id'),
       fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()).catch(()=>({profile:null}))
     ]);
-    const ownActs=a=>Array.isArray(a)?a.filter(x=>!x.athlete_id||String(x.athlete_id)===String(id)):[];
+    const ownActs=a=>Array.isArray(a)?a.filter(x=>(!x.athlete_id||String(x.athlete_id)===String(id))&&!x._note):[];
     const normType=a=>{if(/virtual/i.test(a.name||''))a.type='VirtualRide';else if((a.type||'').toLowerCase()==='activity'&&a.sport_type&&(a.sport_type||'').toLowerCase()!=='activity')a.type=a.sport_type;return a;};
     allTimeActivities=ownActs(allTimeActs).map(normType);
     document.getElementById('dash').style.display='block';
