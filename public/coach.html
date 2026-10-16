@@ -1524,7 +1524,7 @@ async function loadAthleteMetrics(athlete){
       fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(a.id)).then(r=>r.json()).catch(()=>({profile:null}))
     ]);
     const ownActs=a=>Array.isArray(a)?a.filter(x=>!x.athlete_id||String(x.athlete_id)===String(id)):[];
-    const normType=a=>{if(a.sport_type&&(a.type||'').toLowerCase()==='activity')a.type=a.sport_type;return a;};
+    const normType=a=>{const t=(a.type||'').toLowerCase();if(t==='activity'){if(a.sport_type&&(a.sport_type||'').toLowerCase()!=='activity')a.type=a.sport_type;else if(/virtual/i.test(a.name||''))a.type='VirtualRide';}return a;};
     const sorted=[...ownActs(acts)].sort((x,y)=>new Date(y.start_date_local)-new Date(x.start_date_local)).map(normType);
     athleteIcuActivities=sorted;
 
@@ -2927,7 +2927,7 @@ async function coachCalEnsureActivities(fromDate,toDate){
       const data=await intervalsCall(selectedAthlete.intervals_athlete_id,selectedAthlete.intervals_api_key,'activities','oldest='+toYMD(start)+'&newest='+toYMD(end)+'&fields=id,name,type,sport_type,start_date_local,distance,moving_time,icu_training_load,athlete_id');
       const calId=selectedAthlete.intervals_athlete_id;
       (Array.isArray(data)?data:[]).filter(a=>!a.athlete_id||String(a.athlete_id)===String(calId)).forEach(a=>{
-        if(a.sport_type&&(a.type||'').toLowerCase()==='activity')a.type=a.sport_type;
+        const _t=(a.type||'').toLowerCase();if(_t==='activity'){if(a.sport_type&&(a.sport_type||'').toLowerCase()!=='activity')a.type=a.sport_type;else if(/virtual/i.test(a.name||''))a.type='VirtualRide';}
         const key=(a.start_date_local||'').slice(0,10);
         if(!key)return;
         if(!coachCalActCache[key])coachCalActCache[key]=[];
