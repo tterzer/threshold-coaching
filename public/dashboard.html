@@ -864,6 +864,17 @@ window.applyTierGating = function() {
         <span id="profSaveMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--acc);display:none">Saved ✓</span>
         <span id="profErrMsg" style="font-family:'DM Mono',monospace;font-size:11px;color:#E24B4A;display:none"></span>
       </div>
+
+      <div style="margin-top:2rem">
+        <div class="section-label">Connections</div>
+        <div class="chart-box" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">Strava</div>
+            <div id="stravaStatusText" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-top:3px">Not connected — virtual rides won't appear in calendar</div>
+          </div>
+          <button id="stravaConnectBtn" class="btn" style="width:auto;padding:10px 24px;font-size:12px" onclick="stravaConnect()">Connect Strava</button>
+        </div>
+      </div>
     </div>
 
     <!-- NUTRITION TAB -->
@@ -3363,6 +3374,28 @@ async function athCalEnsureActivities(fromDate,toDate){
     }catch(e){
       console.error('athCalEnsureActivities error:',e);
     }
+    // Supplement with Strava activities (fills in Strava-only rides like TP Virtual)
+    try{
+      const afterTs=Math.floor(start.getTime()/1000);
+      const beforeTs=Math.floor(end.getTime()/1000)+86400;
+      const stravaActs=await stravaApiCall('athlete/activities',`after=${afterTs}&before=${beforeTs}&per_page=200`);
+      if(Array.isArray(stravaActs)){
+        const ftp=currentAthlete?.ftp||0;
+        stravaActs.forEach(a=>{
+          const key=(a.start_date_local||'').slice(0,10);
+          if(!key)return;
+          // Skip if intervals.icu already has an activity starting within 5 min of this one
+          const startMin=(a.start_date_local||'').slice(0,16);
+          if((athCalActCache[key]||[]).some(x=>(x.start_date_local||'').slice(0,16)===startMin))return;
+          athCalActCache[key]=athCalActCache[key]||[];
+          athCalActCache[key].push({
+            id:'strava_'+a.id,name:a.name,type:a.sport_type||a.type,
+            start_date_local:a.start_date_local,moving_time:a.moving_time,
+            distance:a.distance,icu_training_load:calcStravaTSS(a,ftp),_source:'strava'
+          });
+        });
+      }
+    }catch(e){console.error('Strava supplement error:',e);}
   }
   athCalActFetchedFrom=athCalActFetchedFrom?new Date(Math.min(athCalActFetchedFrom,fromDate)):new Date(fromDate);
   athCalActFetchedTo=athCalActFetchedTo?new Date(Math.max(athCalActFetchedTo,toDate)):new Date(toDate);
@@ -6264,6 +6297,9 @@ function fmtDist(m,type){
 
 window.addEventListener('DOMContentLoaded',()=>{
   window.applyTierGating();
+  // Handle Strava OAuth callback before anything else
+  stravaHandleCallback();
+  stravaUpdateUI();
   // Populate athlete header immediately from localStorage (before API data loads)
   if(currentAthlete){
     const name=currentAthlete.name||'Athlete';
@@ -6284,8 +6320,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   }else{
     showSetupModal();
   }
-  // Fetch Supabase athlete profile — hydrates zone settings (overriding the
-  // localStorage fallback) and decides onboarding banner visibility.
+  // Fetch Supabase athlete profile — hydrates zone settings, Strava tokens, and onboarding.
   if(currentAthlete){
     fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(currentAthlete.id))
       .then(r=>r.json())
@@ -6300,6 +6335,11 @@ window.addEventListener('DOMContentLoaded',()=>{
           applyLoadChartSettings(p.load_chart_settings);
           if(allActivities&&allActivities.length)buildLoad(allActivities);
         }
+        // Hydrate Strava tokens from Supabase (overrides localStorage fallback)
+        if(p.strava_access_token&&p.strava_refresh_token){
+          try{localStorage.setItem('hm2l_strava_tokens',JSON.stringify({access_token:p.strava_access_token,refresh_token:p.strava_refresh_token,expires_at:p.strava_token_expires_at}));}catch{}
+          stravaUpdateUI();
+        }
         const hasData=p.date_of_birth||p.weight_kg||p.height_cm||p.primary_sport||p.bio;
         const dismissed=p.onboarding_dismissed||localStorage.getItem('hm2l_onboard_dismissed');
         if(!hasData&&!dismissed)document.getElementById('onboardingBanner').style.display='block';
@@ -6308,6 +6348,80 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 
 var curId='',curKey='';
+
+// ── Strava integration ─────────────────────────────────────────────────────
+const STRAVA_CLIENT_ID='288054';
+function stravaGetStoredTokens(){try{const s=localStorage.getItem('hm2l_strava_tokens');return s?JSON.parse(s):null;}catch{return null;}}
+function stravaUpdateUI(){
+  const connected=!!stravaGetStoredTokens();
+  const statusEl=document.getElementById('stravaStatusText');
+  const btnEl=document.getElementById('stravaConnectBtn');
+  if(statusEl)statusEl.textContent=connected?'Connected — activities sync from Strava':'Not connected — virtual rides won\'t appear in calendar';
+  if(statusEl)statusEl.style.color=connected?'var(--acc)':'var(--tc3)';
+  if(btnEl){btnEl.textContent=connected?'Disconnect':'Connect Strava';btnEl.onclick=connected?stravaDisconnect:stravaConnect;}
+}
+function stravaDisconnect(){
+  try{localStorage.removeItem('hm2l_strava_tokens');}catch{}
+  if(currentAthlete?.id)fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:currentAthlete.id,strava_access_token:null,strava_refresh_token:null,strava_token_expires_at:null})}).catch(()=>{});
+  stravaUpdateUI();
+  athCalActCache={};athCalActFetchedFrom=null;athCalActFetchedTo=null;
+  if(typeof athCalInit==='function')athCalInit();
+}
+function stravaSaveTokens(t){
+  try{localStorage.setItem('hm2l_strava_tokens',JSON.stringify(t));}catch{}
+  if(currentAthlete?.id)fetch('/api/athlete-profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({athlete_id:currentAthlete.id,strava_access_token:t.access_token,strava_refresh_token:t.refresh_token,strava_token_expires_at:t.expires_at})}).catch(()=>{});
+  stravaUpdateUI();
+}
+async function stravaGetAccessToken(){
+  const t=stravaGetStoredTokens();
+  if(!t)return null;
+  if(t.expires_at&&Date.now()/1000>t.expires_at-60){
+    try{
+      const r=await fetch('/api/intervals?service=strava&action=token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:t.refresh_token})});
+      const d=await r.json();
+      if(d.access_token){stravaSaveTokens(d);return d.access_token;}
+    }catch{}
+    return null;
+  }
+  return t.access_token;
+}
+async function stravaApiCall(path,qs){
+  const token=await stravaGetAccessToken();
+  if(!token)return null;
+  const params=new URLSearchParams({service:'strava',path,access_token:token});
+  if(qs)params.set('qs',qs);
+  const r=await fetch('/api/intervals?'+params.toString());
+  if(!r.ok)return null;
+  return r.json();
+}
+function stravaConnect(){
+  const redir=encodeURIComponent(window.location.origin+'/dashboard.html');
+  window.location.href=`https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&redirect_uri=${redir}&response_type=code&scope=activity:read_all&approval_prompt=auto`;
+}
+async function stravaHandleCallback(){
+  const p=new URLSearchParams(window.location.search);
+  const code=p.get('code');const scope=p.get('scope')||'';
+  if(!code||!scope.includes('activity'))return;
+  window.history.replaceState({},'',window.location.pathname);
+  try{
+    const r=await fetch('/api/intervals?service=strava&action=token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    const d=await r.json();
+    if(d.access_token){
+      stravaSaveTokens(d);
+      athCalActCache={};athCalActFetchedFrom=null;athCalActFetchedTo=null;
+      if(typeof athCalInit==='function')athCalInit();
+    }
+  }catch(e){console.error('Strava OAuth callback error:',e);}
+}
+function calcStravaTSS(a,ftp){
+  const dur=a.moving_time||0;
+  if(!ftp||!dur)return 0;
+  const power=a.weighted_average_watts||a.average_watts||0;
+  if(power){const IF=power/ftp;return Math.round(dur*IF*IF/3600*100);}
+  return Math.round((a.suffer_score||0)*0.8);
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 async function apiCall(athleteId,apiKey,path,qs,base){
   const params=new URLSearchParams({athleteId,apiKey,path});
   if(qs)params.set('qs',qs);
