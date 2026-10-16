@@ -872,7 +872,10 @@ window.applyTierGating = function() {
             <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">Strava</div>
             <div id="stravaStatusText" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--tc3);margin-top:3px">Not connected — virtual rides won't appear in calendar</div>
           </div>
-          <button id="stravaConnectBtn" class="btn" style="width:auto;padding:10px 24px;font-size:12px" onclick="stravaConnect()">Connect Strava</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button id="stravaRefreshBtn" class="btn" style="display:none;width:auto;padding:10px 18px;font-size:12px;background:var(--bc3)" onclick="stravaForceRefresh()">Refresh</button>
+            <button id="stravaConnectBtn" class="btn" style="width:auto;padding:10px 24px;font-size:12px" onclick="stravaConnect()">Connect Strava</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3379,6 +3382,7 @@ async function athCalEnsureActivities(fromDate,toDate){
       const afterTs=Math.floor(start.getTime()/1000);
       const beforeTs=Math.floor(end.getTime()/1000)+86400;
       const stravaActs=await stravaApiCall('athlete/activities',`after=${afterTs}&before=${beforeTs}&per_page=200`);
+      console.log('[Strava] fetched',stravaActs===null?'null (no token or API error)':Array.isArray(stravaActs)?stravaActs.length+' activities':'unexpected:'+typeof stravaActs,'for range',new Date(afterTs*1000).toISOString().slice(0,10),'→',new Date(beforeTs*1000).toISOString().slice(0,10));
       if(Array.isArray(stravaActs)){
         const ftp=currentAthlete?.ftp||0;
         stravaActs.forEach(a=>{
@@ -6356,9 +6360,11 @@ function stravaUpdateUI(){
   const connected=!!stravaGetStoredTokens();
   const statusEl=document.getElementById('stravaStatusText');
   const btnEl=document.getElementById('stravaConnectBtn');
+  const refreshEl=document.getElementById('stravaRefreshBtn');
   if(statusEl)statusEl.textContent=connected?'Connected — activities sync from Strava':'Not connected — virtual rides won\'t appear in calendar';
   if(statusEl)statusEl.style.color=connected?'var(--acc)':'var(--tc3)';
   if(btnEl){btnEl.textContent=connected?'Disconnect':'Connect Strava';btnEl.onclick=connected?stravaDisconnect:stravaConnect;}
+  if(refreshEl)refreshEl.style.display=connected?'block':'none';
 }
 function stravaDisconnect(){
   try{localStorage.removeItem('hm2l_strava_tokens');}catch{}
@@ -6380,7 +6386,11 @@ async function stravaGetAccessToken(){
       const r=await fetch('/api/intervals?service=strava&action=token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:t.refresh_token})});
       const d=await r.json();
       if(d.access_token){stravaSaveTokens(d);return d.access_token;}
-    }catch{}
+      console.error('Strava refresh failed:',d);
+    }catch(e){console.error('Strava refresh error:',e);}
+    // Clear stale tokens so UI shows "Not connected"
+    try{localStorage.removeItem('hm2l_strava_tokens');}catch{}
+    stravaUpdateUI();
     return null;
   }
   return t.access_token;
@@ -6391,8 +6401,30 @@ async function stravaApiCall(path,qs){
   const params=new URLSearchParams({service:'strava',path,access_token:token});
   if(qs)params.set('qs',qs);
   const r=await fetch('/api/intervals?'+params.toString());
-  if(!r.ok)return null;
+  if(!r.ok){
+    if(r.status===401){
+      // Access token rejected — clear stored tokens and update UI
+      try{localStorage.removeItem('hm2l_strava_tokens');}catch{}
+      stravaUpdateUI();
+    }
+    console.error('Strava API error',r.status,'for',path);
+    return null;
+  }
   return r.json();
+}
+async function stravaForceRefresh(){
+  const statusEl=document.getElementById('stravaStatusText');
+  if(statusEl){statusEl.textContent='Refreshing Strava activities…';statusEl.style.color='var(--tc3)';}
+  athCalActCache={};athCalActFetchedFrom=null;athCalActFetchedTo=null;
+  await athCalInit();
+  // Count Strava activities that landed in the cache
+  let count=0;
+  Object.values(athCalActCache).forEach(acts=>acts.forEach(a=>{if(a._source==='strava')count++;}));
+  stravaUpdateUI();
+  if(statusEl&&stravaGetStoredTokens()){
+    statusEl.textContent=count>0?`Connected — ${count} Strava activities in calendar range`:'Connected — 0 Strava activities found in this date range (scroll back in calendar to find older rides)';
+    statusEl.style.color=count>0?'var(--acc)':'var(--tc3)';
+  }
 }
 function stravaConnect(){
   const redir=encodeURIComponent(window.location.origin+'/dashboard.html');
@@ -6403,6 +6435,8 @@ async function stravaHandleCallback(){
   const code=p.get('code');const scope=p.get('scope')||'';
   if(!code||!scope.includes('activity'))return;
   window.history.replaceState({},'',window.location.pathname);
+  const statusEl=document.getElementById('stravaStatusText');
+  if(statusEl){statusEl.textContent='Connecting to Strava…';statusEl.style.color='var(--tc3)';}
   try{
     const r=await fetch('/api/intervals?service=strava&action=token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
     const d=await r.json();
@@ -6410,8 +6444,14 @@ async function stravaHandleCallback(){
       stravaSaveTokens(d);
       athCalActCache={};athCalActFetchedFrom=null;athCalActFetchedTo=null;
       if(typeof athCalInit==='function')athCalInit();
+    }else{
+      console.error('Strava token exchange failed:',d);
+      if(statusEl){statusEl.textContent='Connection failed ('+(d.message||d.error||'unknown')+') — click Connect Strava to try again';statusEl.style.color='#E24B4A';}
     }
-  }catch(e){console.error('Strava OAuth callback error:',e);}
+  }catch(e){
+    console.error('Strava OAuth callback error:',e);
+    if(statusEl){statusEl.textContent='Connection failed — click Connect Strava to try again';statusEl.style.color='#E24B4A';}
+  }
 }
 function calcStravaTSS(a,ftp){
   const dur=a.moving_time||0;

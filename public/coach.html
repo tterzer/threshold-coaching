@@ -1051,7 +1051,10 @@ async function coachStravaGetAccessToken(athlete){
       const r=await fetch('/api/intervals?service=strava&action=token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:t.refresh_token})});
       const d=await r.json();
       if(d.access_token){athlete._stravaTokens={...t,...d};return d.access_token;}
-    }catch{}
+      console.error('Strava refresh failed for athlete:',athlete.id,d);
+    }catch(e){console.error('Strava refresh error:',e);}
+    // Clear stale tokens from in-memory athlete object
+    athlete._stravaTokens=null;
     return null;
   }
   return t.access_token;
@@ -1062,7 +1065,11 @@ async function coachStravaApiCall(athlete,path,qs){
   const params=new URLSearchParams({service:'strava',path,access_token:token});
   if(qs)params.set('qs',qs);
   const r=await fetch('/api/intervals?'+params.toString());
-  if(!r.ok)return null;
+  if(!r.ok){
+    if(r.status===401)athlete._stravaTokens=null;
+    console.error('Strava API error',r.status,'for',path,'athlete:',athlete.id);
+    return null;
+  }
   return r.json();
 }
 function calcStravaTSS(a,ftp){
