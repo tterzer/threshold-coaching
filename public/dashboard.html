@@ -1185,8 +1185,8 @@ function buildActs(acts){
   if(!acts.length){el.innerHTML='<div class="empty-note">No activities found</div>';return;}
   el.innerHTML=acts.map(a=>{
     const t=(a.type||'').toLowerCase();
-    const cls=t.includes('ride')||t.includes('cycl')?'ride':t.includes('run')?'run':t.includes('swim')?'swim':'';
-    const label=t.includes('ride')||t.includes('cycl')?'Ride':t.includes('run')?'Run':t.includes('swim')?'Swim':a.type||'Workout';
+    const cls=t.includes('ride')||t.includes('cycl')||t.includes('virtual')?'ride':t.includes('run')?'run':t.includes('swim')?'swim':'';
+    const label=t.includes('ride')||t.includes('cycl')||t.includes('virtual')?'Ride':t.includes('run')?'Run':t.includes('swim')?'Swim':a.type||'Workout';
     return`<div class="act-row"><div class="act-left"><span class="act-badge ${cls}">${label}</span><div><div class="act-name">${a.name||'Activity'}</div><div class="act-date">${fmtDate(a.start_date_local)}</div></div></div><div class="act-stats"><div class="act-stat"><div class="act-stat-val">${fmtDist(a.distance,a.type)}</div><div class="act-stat-label">Dist</div></div><div class="act-stat"><div class="act-stat-val">${fmtTime(a.moving_time)}</div><div class="act-stat-label">Time</div></div><div class="act-stat"><div class="act-stat-val">${Math.round(a.icu_training_load||0)||'—'}</div><div class="act-stat-label">TSS</div></div></div></div>`;
   }).join('');
 }
@@ -3352,8 +3352,9 @@ async function athCalEnsureActivities(fromDate,toDate){
   for(const[start,end] of ranges){
     if(start>end)continue;
     try{
-      const data=await apiCall(curId,curKey,'activities','oldest='+toYMD(start)+'&newest='+toYMD(end)+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load');
+      const data=await apiCall(curId,curKey,'activities','oldest='+toYMD(start)+'&newest='+toYMD(end)+'&fields=id,name,type,sport_type,start_date_local,distance,moving_time,icu_training_load');
       (Array.isArray(data)?data:[]).forEach(a=>{
+        const _t=(a.type||'').toLowerCase();if(_t==='activity'){if(a.sport_type&&(a.sport_type||'').toLowerCase()!=='activity')a.type=a.sport_type;else if(/virtual/i.test(a.name||''))a.type='VirtualRide';}
         const key=(a.start_date_local||'').slice(0,10);
         if(!key)return;
         if(!athCalActCache[key])athCalActCache[key]=[];
@@ -6355,25 +6356,26 @@ async function loadDashboard(){
     const allTimeOldestStr=allTimeOldest.toISOString().split('T')[0];
     const[athlete,activities,fitnessActs,allTimeActs,profForOffset]=await Promise.all([
       apiCall(id,key,'profile'),
-      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name,athlete_id'),
-      apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type,athlete_id'),
-      apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,start_date_local,athlete_id'),
+      apiCall(id,key,'activities','oldest='+oldestStr+'&fields=id,name,type,sport_type,start_date_local,distance,moving_time,icu_training_load,icu_atl,icu_ctl,icu_zone_times,average_heartrate,average_speed,average_watts,weighted_average_watts,max_watts,device_watts,icu_weighted_avg_watts,icu_average_watts,gear_id,gear_name,athlete_id'),
+      apiCall(id,key,'activities','oldest='+fitOldestStr+'&fields=id,start_date_local,icu_training_load,type,sport_type,athlete_id'),
+      apiCall(id,key,'activities','oldest='+allTimeOldestStr+'&fields=id,type,sport_type,start_date_local,athlete_id'),
       fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(currentAthlete.id)).then(r=>r.json()).catch(()=>({profile:null}))
     ]);
     const ownActs=a=>Array.isArray(a)?a.filter(x=>!x.athlete_id||String(x.athlete_id)===String(id)):[];
-    allTimeActivities=ownActs(allTimeActs);
+    const normType=a=>{const t=(a.type||'').toLowerCase();if(t==='activity'){if(a.sport_type&&(a.sport_type||'').toLowerCase()!=='activity')a.type=a.sport_type;else if(/virtual/i.test(a.name||''))a.type='VirtualRide';}return a;};
+    allTimeActivities=ownActs(allTimeActs).map(normType);
     document.getElementById('dash').style.display='block';
     const name=(currentAthlete&&currentAthlete.name)||athlete.athlete?.name||athlete.name||'Athlete';
     document.getElementById('avatarEl').textContent=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
     document.getElementById('nameEl').textContent=name;
     const a2=athlete.athlete||athlete;
     document.getElementById('subEl').textContent=[a2.city,a2.country].filter(Boolean).join(', ')||'intervals.icu athlete';
-    const sorted=[...ownActs(activities)].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local));
+    const sorted=[...ownActs(activities)].sort((a,b)=>new Date(b.start_date_local)-new Date(a.start_date_local)).map(normType);
     allActivities=sorted;
     window.allActivities=sorted;
 
     // Compute CTL/ATL/TSB using seed-based Banister model from SEED_DATE.
-    const fitSorted=[...ownActs(fitnessActs)].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local));
+    const fitSorted=[...ownActs(fitnessActs)].sort((a,b)=>new Date(a.start_date_local)-new Date(b.start_date_local)).map(normType);
     window._fitnessFetchedActs=fitSorted;
     const fit=window.computeFitness(fitSorted);
     _ctlOffset=Number(profForOffset?.profile?.ctl_offset||0)||0;
