@@ -1041,6 +1041,39 @@ async function intervalsCall(athleteId,apiKey,path,qs,base){
   return r.json();
 }
 
+// ── Strava integration (coach view — uses selectedAthlete's stored tokens) ─
+const STRAVA_CLIENT_ID='288054';
+async function coachStravaGetAccessToken(athlete){
+  if(!athlete?._stravaTokens)return null;
+  const t=athlete._stravaTokens;
+  if(t.expires_at&&Date.now()/1000>t.expires_at-60){
+    try{
+      const r=await fetch('/api/intervals?service=strava&action=token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({grant_type:'refresh_token',refresh_token:t.refresh_token})});
+      const d=await r.json();
+      if(d.access_token){athlete._stravaTokens={...t,...d};return d.access_token;}
+    }catch{}
+    return null;
+  }
+  return t.access_token;
+}
+async function coachStravaApiCall(athlete,path,qs){
+  const token=await coachStravaGetAccessToken(athlete);
+  if(!token)return null;
+  const params=new URLSearchParams({service:'strava',path,access_token:token});
+  if(qs)params.set('qs',qs);
+  const r=await fetch('/api/intervals?'+params.toString());
+  if(!r.ok)return null;
+  return r.json();
+}
+function calcStravaTSS(a,ftp){
+  const dur=a.moving_time||0;
+  if(!ftp||!dur)return 0;
+  const power=a.weighted_average_watts||a.average_watts||0;
+  if(power){const IF=power/ftp;return Math.round(dur*IF*IF/3600*100);}
+  return Math.round((a.suffer_score||0)*0.8);
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 const SUPABASE_URL='https://jrgyfokygizsxtupbisg.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_LcoHaks3xpZW4Om8IOT5Ng_6nwMYxbe';
 
@@ -1126,6 +1159,14 @@ async function selectAthlete(id){
   document.getElementById('chatHistoryMeta').textContent='Loading...';
   document.getElementById('chatHistoryList').innerHTML='';
   switchTab('overview');
+  // Load Strava tokens for this athlete from their profile
+  fetch('/api/athlete-profile?athlete_id='+encodeURIComponent(selectedAthlete.id))
+    .then(r=>r.json()).then(({profile})=>{
+      const p=profile||{};
+      if(p.strava_access_token&&p.strava_refresh_token){
+        selectedAthlete._stravaTokens={access_token:p.strava_access_token,refresh_token:p.strava_refresh_token,expires_at:p.strava_token_expires_at};
+      }
+    }).catch(()=>{});
   await Promise.all([loadAthleteMetrics(selectedAthlete), loadWorkouts(), loadRaces(), loadCoachNotes()]);
   markAthleteNotesRead(selectedAthlete.id);
   coachCalInit();
@@ -2934,6 +2975,25 @@ async function coachCalEnsureActivities(fromDate,toDate){
         if(!coachCalActCache[key].some(x=>x.id===a.id))coachCalActCache[key].push(a);
         if(!athleteIcuActivities.some(x=>x.id===a.id))athleteIcuActivities.push(a);
       });
+      // Supplement with Strava activities (fills in TP Virtual rides and Strava-only activities)
+      try{
+        const afterTs=Math.floor(start.getTime()/1000);
+        const beforeTs=Math.floor(end.getTime()/1000)+86400;
+        const ftp=selectedAthlete?.ftp||0;
+        const stravaActs=await coachStravaApiCall(selectedAthlete,'athlete/activities',`after=${afterTs}&before=${beforeTs}&per_page=200`);
+        if(Array.isArray(stravaActs)){
+          stravaActs.forEach(a=>{
+            const key=(a.start_date_local||'').slice(0,10);
+            if(!key)return;
+            const startMin=(a.start_date_local||'').slice(0,16);
+            if((coachCalActCache[key]||[]).some(x=>(x.start_date_local||'').slice(0,16)===startMin))return;
+            coachCalActCache[key]=coachCalActCache[key]||[];
+            const act={id:'strava_'+a.id,name:a.name,type:a.sport_type||a.type,start_date_local:a.start_date_local,moving_time:a.moving_time,distance:a.distance,icu_training_load:calcStravaTSS(a,ftp),_source:'strava'};
+            coachCalActCache[key].push(act);
+            if(!athleteIcuActivities.some(x=>x.id===act.id))athleteIcuActivities.push(act);
+          });
+        }
+      }catch(e){console.error('coachCal Strava supplement error:',e);}
     }catch(e){
       console.error('coachCalEnsureActivities error:',e);
     }
